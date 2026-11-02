@@ -49,3 +49,17 @@ export const DUE_CLASS: Record<DueState, string> = {
   later: 'text-muted',
   finished: 'text-muted line-through',
 };
+
+/** ISO-момент времени с сервера → «2 нояб., 15:20» в локальном поясе (для createdAt/updatedAt) */
+export function formatDateTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleString('ru-RU', {
+    day: 'numeric',
+    month: 'short',
+    ...(sameYear ? {} : { year: 'numeric' }),
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}

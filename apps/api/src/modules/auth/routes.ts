@@ -50,7 +50,7 @@ export async function authRoutes(app: FastifyInstance, opts: { db: Db; config: C
 
   r.post('/api/auth/logout', async (req, reply) => {
     const token = req.cookies[SESSION_COOKIE];
-    if (token) destroySession(db, token);
+    if (token) await destroySession(db, token);
     reply.clearCookie(SESSION_COOKIE, { path: '/' });
     return reply.code(204).send();
   });
@@ -60,7 +60,7 @@ export async function authRoutes(app: FastifyInstance, opts: { db: Db; config: C
     { schema: { response: { 200: userSchema, 401: apiErrorSchema } } },
     async (req, reply) => {
       const token = req.cookies[SESSION_COOKIE];
-      const user = token ? userByToken(db, token) : null;
+      const user = token ? await userByToken(db, token) : null;
       if (!user) return reply.code(401).send({ error: 'not authenticated' });
       return user;
     },

@@ -10,10 +10,10 @@ if (config.accessPassword === 'change-me') {
   console.warn('[warn] ACCESS_PASSWORD не задан — используется "change-me". Создай .env');
 }
 
-const app = buildApp(config);
+const app = await buildApp(config);
 await app.listen({ port: config.port, host: '0.0.0.0' });
 
-// docker stop шлёт SIGTERM: закрываем сервер и БД (корректный checkpoint WAL)
+// docker stop шлёт SIGTERM: закрываем сервер и соединения с БД
 for (const signal of ['SIGTERM', 'SIGINT'] as const) {
   process.on(signal, () => {
     app.log.info(`${signal}: shutting down`);

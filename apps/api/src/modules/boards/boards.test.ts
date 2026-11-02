@@ -3,14 +3,14 @@ import { buildApp } from '../../app';
 import { loadConfig } from '../../config';
 
 describe('boards & tasks', () => {
-  let app: ReturnType<typeof buildApp>;
+  let app: Awaited<ReturnType<typeof buildApp>>;
   let cookie: string;
 
   const call = (method: 'GET' | 'POST' | 'PATCH' | 'DELETE', url: string, payload?: object) =>
     app.inject({ method, url, payload, headers: { cookie } });
 
   beforeEach(async () => {
-    app = buildApp(loadConfig({ databaseUrl: ':memory:', accessPassword: 'gate' }), { logger: false });
+    app = await buildApp(loadConfig({ databaseUrl: ':memory:', accessPassword: 'gate' }), { logger: false });
     await app.ready();
     const res = await app.inject({
       method: 'POST',
@@ -125,9 +125,9 @@ describe('boards & tasks', () => {
 });
 
 describe('assignees', () => {
-  let app: ReturnType<typeof buildApp>;
+  let app: Awaited<ReturnType<typeof buildApp>>;
   beforeEach(async () => {
-    app = buildApp(loadConfig({ databaseUrl: ':memory:', accessPassword: 'gate' }), { logger: false });
+    app = await buildApp(loadConfig({ databaseUrl: ':memory:', accessPassword: 'gate' }), { logger: false });
     await app.ready();
   });
   afterEach(() => app.close());
@@ -170,10 +170,10 @@ describe('assignees', () => {
 });
 
 describe('deadlines', () => {
-  let app: ReturnType<typeof buildApp>;
+  let app: Awaited<ReturnType<typeof buildApp>>;
   let cookie: string;
   beforeEach(async () => {
-    app = buildApp(loadConfig({ databaseUrl: ':memory:', accessPassword: 'gate' }), { logger: false });
+    app = await buildApp(loadConfig({ databaseUrl: ':memory:', accessPassword: 'gate' }), { logger: false });
     await app.ready();
     const res = await app.inject({
       method: 'POST',

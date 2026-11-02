@@ -3,7 +3,7 @@ import { buildApp } from '../../app';
 import { loadConfig } from '../../config';
 
 describe('comments', () => {
-  let app: ReturnType<typeof buildApp>;
+  let app: Awaited<ReturnType<typeof buildApp>>;
   let alice: string;
   let bob: string;
   let taskId: number;
@@ -20,7 +20,7 @@ describe('comments', () => {
   };
 
   beforeEach(async () => {
-    app = buildApp(loadConfig({ databaseUrl: ':memory:', accessPassword: 'gate' }), { logger: false });
+    app = await buildApp(loadConfig({ databaseUrl: ':memory:', accessPassword: 'gate' }), { logger: false });
     await app.ready();
     alice = await register('alice');
     bob = await register('bob');

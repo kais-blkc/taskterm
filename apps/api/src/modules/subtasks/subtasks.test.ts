@@ -3,7 +3,7 @@ import { buildApp } from '../../app';
 import { loadConfig } from '../../config';
 
 describe('subtasks', () => {
-  let app: ReturnType<typeof buildApp>;
+  let app: Awaited<ReturnType<typeof buildApp>>;
   let cookie: string;
   let boardId: number;
   let taskId: number;
@@ -13,7 +13,7 @@ describe('subtasks', () => {
   const stats = async () => (await call('GET', `/api/boards/${boardId}`)).json().subtaskStats;
 
   beforeEach(async () => {
-    app = buildApp(loadConfig({ databaseUrl: ':memory:', accessPassword: 'gate' }), { logger: false });
+    app = await buildApp(loadConfig({ databaseUrl: ':memory:', accessPassword: 'gate' }), { logger: false });
     await app.ready();
     const res = await app.inject({
       method: 'POST',

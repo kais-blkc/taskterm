@@ -24,7 +24,7 @@ export async function taskRoutes(app: FastifyInstance, opts: { db: Db; hub: Even
     '/api/boards/:id/tasks',
     { schema: { params: idParamSchema, body: createTaskSchema, response: { 201: taskSchema, ...err } } },
     async (req, reply) => {
-      const task = svc.createTask(db, req.params.id, req.user.id, req.body);
+      const task = await svc.createTask(db, req.params.id, req.user.id, req.body);
       hub.emit({ type: 'board', boardId: task.boardId, by: req.user.id });
       return reply.code(201).send(task);
     },
@@ -40,8 +40,8 @@ export async function taskRoutes(app: FastifyInstance, opts: { db: Db; hub: Even
     '/api/tasks/:id',
     { schema: { params: idParamSchema, body: updateTaskSchema, response: { 200: taskSchema, ...err } } },
     async (req) => {
-      const before = svc.getTask(db, req.params.id);
-      const task = svc.updateTask(db, req.params.id, req.body);
+      const before = await svc.getTask(db, req.params.id);
+      const task = await svc.updateTask(db, req.params.id, req.body);
       hub.emit({ type: 'board', boardId: task.boardId, by: req.user.id });
       // назначили другого человека (не себя) — ему уведомление
       if (task.assigneeId && task.assigneeId !== before.assigneeId && task.assigneeId !== req.user.id) {
@@ -63,7 +63,7 @@ export async function taskRoutes(app: FastifyInstance, opts: { db: Db; hub: Even
   );
 
   r.delete('/api/tasks/:id', { schema: { params: idParamSchema } }, async (req, reply) => {
-    const boardId = svc.deleteTask(db, req.params.id);
+    const boardId = await svc.deleteTask(db, req.params.id);
     hub.emit({ type: 'board', boardId, by: req.user.id });
     return reply.code(204).send();
   });
@@ -72,7 +72,7 @@ export async function taskRoutes(app: FastifyInstance, opts: { db: Db; hub: Even
     '/api/tasks/:id/move',
     { schema: { params: idParamSchema, body: moveTaskSchema, response: { 200: taskSchema, ...err } } },
     async (req) => {
-      const task = svc.moveTask(db, req.params.id, req.body);
+      const task = await svc.moveTask(db, req.params.id, req.body);
       hub.emit({ type: 'board', boardId: task.boardId, by: req.user.id });
       return task;
     },

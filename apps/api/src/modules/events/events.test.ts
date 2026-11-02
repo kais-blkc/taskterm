@@ -4,7 +4,7 @@ import { buildApp } from '../../app';
 import { loadConfig } from '../../config';
 
 describe('SSE events', () => {
-  let app: ReturnType<typeof buildApp>;
+  let app: Awaited<ReturnType<typeof buildApp>>;
   let base: string;
 
   const register = async (username: string) => {
@@ -19,7 +19,7 @@ describe('SSE events', () => {
     app.inject({ method, url, payload, headers: { cookie } });
 
   beforeEach(async () => {
-    app = buildApp(loadConfig({ databaseUrl: ':memory:', accessPassword: 'gate' }), { logger: false });
+    app = await buildApp(loadConfig({ databaseUrl: ':memory:', accessPassword: 'gate' }), { logger: false });
     await app.listen({ port: 0, host: '127.0.0.1' });
     base = `http://127.0.0.1:${(app.server.address() as { port: number }).port}`;
   });

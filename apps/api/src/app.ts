@@ -21,17 +21,17 @@ import { commentRoutes } from './modules/comments/routes';
 import { subtaskRoutes } from './modules/subtasks/routes';
 import { taskRoutes } from './modules/tasks/routes';
 
-export function buildApp(config: Config, opts: { logger?: boolean } = {}) {
+export async function buildApp(config: Config, opts: { logger?: boolean } = {}) {
   const app = Fastify({ logger: opts.logger ?? true }).withTypeProvider<ZodTypeProvider>();
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
   app.register(cookie);
 
-  const db = createDb(config.databaseUrl, config.migrationsDir);
+  const { db, close } = await createDb(config.databaseUrl, config.migrationsDir);
   app.addHook('onClose', async () => {
-    db.$client.close();
+    await close();
   });
-  backfillUserColors(db);
+  await backfillUserColors(db);
   const hub = new EventHub();
 
   app.get('/api/health', { schema: { response: { 200: healthResponseSchema } } }, async () => ({

@@ -24,7 +24,7 @@ export async function commentRoutes(app: FastifyInstance, opts: { db: Db; hub: E
     '/api/tasks/:id/comments',
     { schema: { params: idParamSchema, body: commentBodySchema, response: { 201: commentSchema, ...err } } },
     async (req, reply) => {
-      const { comment, task, recipients } = svc.createComment(db, req.params.id, req.user.id, req.body.body);
+      const { comment, task, recipients } = await svc.createComment(db, req.params.id, req.user.id, req.body.body);
       hub.emit({ type: 'comments', taskId: task.id, by: req.user.id });
       hub.emit({
         type: 'notify',
@@ -46,14 +46,14 @@ export async function commentRoutes(app: FastifyInstance, opts: { db: Db; hub: E
     '/api/comments/:id',
     { schema: { params: idParamSchema, body: commentBodySchema, response: { 200: commentSchema, ...err } } },
     async (req) => {
-      const comment = svc.updateComment(db, req.params.id, req.user.id, req.body.body);
+      const comment = await svc.updateComment(db, req.params.id, req.user.id, req.body.body);
       hub.emit({ type: 'comments', taskId: comment.taskId, by: req.user.id });
       return comment;
     },
   );
 
   r.delete('/api/comments/:id', { schema: { params: idParamSchema } }, async (req, reply) => {
-    const taskId = svc.deleteComment(db, req.params.id, req.user.id);
+    const taskId = await svc.deleteComment(db, req.params.id, req.user.id);
     hub.emit({ type: 'comments', taskId, by: req.user.id });
     return reply.code(204).send();
   });

@@ -102,14 +102,16 @@
 - [x] Обновить `docs/FEATURES_LATER.md`: убрать сделанное (исполнитель, дедлайны, фильтры), роли/инвайты перенести сюда.
 
 ### Этап 1 — PostgreSQL
-- [ ] Postgres в `docker-compose.yml` (сервис `db`, том `taskterm-pg`, healthcheck, `DATABASE_URL`); для dev — отдельный `docker-compose.dev.yml` или тот же файл с профилем. Порт 5432 может быть занят — взять нестандартный (проверить).
-- [ ] Драйвер: `postgres` (postgres.js) + `drizzle-orm/postgres-js`; убрать `better-sqlite3` из зависимостей и из `allowBuilds`, esbuild-флага `--external` и Dockerfile (уйдёт нативная сборка — образ проще).
-- [ ] Переписать `db/schema.ts` на `pgTable`: `serial`/`identity` id, `timestamp with time zone` вместо text-дат (наружу в API по-прежнему ISO-строки — формат ответов не ломаем), `boolean`, `jsonb`. `dueDate` оставить `date`/text `YYYY-MM-DD`.
-- [ ] Новая папка миграций (`apps/api/drizzle-pg`, свой `drizzle.config`), старые SQLite-миграции не трогаем и не удаляем. `MIGRATIONS_DIR` указывает на новую.
-- [ ] Все сервисы → `async/await`; `db.transaction` вместо синхронных транзакций; `returning()` везде, где сейчас читается `lastInsertRowid`.
-- [ ] Тесты: на каждый тест-файл чистая БД. Вариант по умолчанию — `@electric-sql/pglite` (Postgres в процессе, без Docker, быстро); если поведение отличается от настоящего — переключиться на реальный Postgres с отдельной схемой на воркер.
-- [ ] (обязательно) Одноразовый скрипт переноса `scripts/sqlite-to-pg.ts` (читает `app.db`, пишет в Postgres, сохраняет id, затем `setval` последовательностей). Нужен, только если есть данные, которые жалко терять (см. «Вопросы»).
-- [ ] Обновить `README`, `DEPLOY` (бэкап через `pg_dump`, а не tar тома), `.env.example`.
+- [x] Postgres в `docker-compose.yml` (сервис `db`, том `taskterm-pg`, healthcheck, `DATABASE_URL`); для dev — отдельный `docker-compose.dev.yml` или тот же файл с профилем. Порт 5432 может быть занят — взять нестандартный (проверить).
+- [x] Драйвер: `postgres` (postgres.js) + `drizzle-orm/postgres-js`; убрать `better-sqlite3` из зависимостей и из `allowBuilds`, esbuild-флага `--external` и Dockerfile (уйдёт нативная сборка — образ проще).
+- [x] Переписать `db/schema.ts` на `pgTable`: `serial`/`identity` id, `timestamp with time zone` вместо text-дат (наружу в API по-прежнему ISO-строки — формат ответов не ломаем), `boolean`, `jsonb`. `dueDate` оставить `date`/text `YYYY-MM-DD`.
+- [x] Новая папка миграций (`apps/api/drizzle-pg`, свой `drizzle.config`), старые SQLite-миграции не трогаем и не удаляем. `MIGRATIONS_DIR` указывает на новую.
+- [x] Все сервисы → `async/await`; `db.transaction` вместо синхронных транзакций; `returning()` везде, где сейчас читается `lastInsertRowid`.
+- [x] Тесты: на каждый тест-файл чистая БД. Вариант по умолчанию — `@electric-sql/pglite` (Postgres в процессе, без Docker, быстро); если поведение отличается от настоящего — переключиться на реальный Postgres с отдельной схемой на воркер.
+- [x] (обязательно) Одноразовый скрипт переноса `scripts/sqlite-to-pg.ts` (читает `app.db`, пишет в Postgres, сохраняет id, затем `setval` последовательностей). Нужен, только если есть данные, которые жалко терять (см. «Вопросы»).
+- [x] Обновить `README`, `DEPLOY` (бэкап через `pg_dump`, а не tar тома), `.env.example`.
+
+Фактически отличается от плана: dev-Postgres на порту 5442 (`docker-compose.dev.yml`); сервисы написаны на `await`, `Db` — общий тип для postgres-js и pglite; время в API осталось строками (теперь ISO), добавлен `formatDateTime` на фронте; перенос данных читает SQLite через встроенный `node:sqlite`; старые SQLite-миграции перенесены в `apps/api/drizzle-sqlite-archive`.
 
 ### Этап 2 — аутентификация на JWT
 - [ ] Миграция: `users.email` (unique, nullable для старых), `users.role` (`admin|member`, default `member`), `users.isActive`, `users.tokenVersion`, `users.lastLoginAt`; таблица `refresh_tokens`.
@@ -172,6 +174,7 @@
 
 ## Прогресс
 
+- [x] Этап 1 (2026-11-02): Postgres, async-сервисы, pglite в тестах, перенос данных, Docker/compose, документация.
 - [x] Этап 0 (2026-11-02): `git init`, бэкап dev-БД, базовые тесты зелёные (api 43, web 5, typecheck ок), `FEATURES_LATER.md` обновлён.
 
 ## Рекомендуемый порядок работы

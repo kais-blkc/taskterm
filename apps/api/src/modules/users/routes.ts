@@ -17,7 +17,7 @@ export async function userRoutes(app: FastifyInstance, opts: { db: Db; hub: Even
 
   // список для выбора исполнителя; password_hash наружу не отдаём
   r.get('/api/users', { schema: { response: { 200: z.array(userSchema) } } }, async () =>
-    db.select(cols).from(users).orderBy(asc(users.username)).all(),
+    db.select(cols).from(users).orderBy(asc(users.username)),
   );
 
   r.patch(
@@ -30,11 +30,11 @@ export async function userRoutes(app: FastifyInstance, opts: { db: Db; hub: Even
     },
     async (req, reply) => {
       const color = req.body.color.toLowerCase();
-      const others = db.select(cols).from(users).where(ne(users.id, req.user.id)).all();
+      const others = await db.select(cols).from(users).where(ne(users.id, req.user.id));
       const clash = findSimilar(color, others);
       if (clash) return reply.code(409).send({ error: `слишком похож на цвет @${clash.username}` });
 
-      const row = db.update(users).set({ color }).where(eq(users.id, req.user.id)).returning(cols).get();
+      const [row] = await db.update(users).set({ color }).where(eq(users.id, req.user.id)).returning(cols);
       hub.emit({ type: 'users', by: req.user.id });
       return row!;
     },

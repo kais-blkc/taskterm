@@ -6,7 +6,7 @@ import { ROUTES } from '../../consts/routes';
 import { useUpdateTask } from '../../api/tasks';
 import { useUsers } from '../../api/users';
 import { Markdown } from '../../components/Markdown';
-import { addDays, DUE_CLASS, dueInfo } from '../../lib/dates';
+import { addDays, DUE_CLASS, dueInfo, formatDateTime } from '../../lib/dates';
 import { Select } from '../../components/Select';
 import { ColorDot, UserTag } from '../../components/UserTag';
 import { Comments } from './Comments';
@@ -68,7 +68,7 @@ function TaskBody({
         <dt className="text-muted">создал</dt>
         <dd>
           <UserTag user={users.byId.get(task.authorId)} />
-          <span className="text-muted"> · {task.createdAt}</span>
+          <span className="text-muted"> · {formatDateTime(task.createdAt)}</span>
         </dd>
         <dt className="text-muted">ответственный</dt>
         <dd className="flex flex-wrap items-center gap-3">
@@ -136,7 +136,7 @@ function TaskBody({
         {task.updatedAt !== task.createdAt && (
           <>
             <dt className="text-muted">обновлена</dt>
-            <dd className="text-muted">{task.updatedAt}</dd>
+            <dd className="text-muted">{formatDateTime(task.updatedAt)}</dd>
           </>
         )}
       </dl>

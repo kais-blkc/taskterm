@@ -25,14 +25,14 @@ export async function boardRoutes(app: FastifyInstance, opts: { db: Db; hub: Eve
   const err = { 401: apiErrorSchema, 404: apiErrorSchema };
 
   r.get('/api/boards', { schema: { response: { 200: z.array(boardSchema) } } }, async () =>
-    svc.listBoards(db),
+    await svc.listBoards(db),
   );
 
   r.post(
     '/api/boards',
     { schema: { body: createBoardSchema, response: { 201: boardSchema } } },
     async (req, reply) => {
-      const board = svc.createBoard(db, req.body.name, req.user.id);
+      const board = await svc.createBoard(db, req.body.name, req.user.id);
       hub.emit({ type: 'boards', by: req.user.id });
       return reply.code(201).send(board);
     },
@@ -48,7 +48,7 @@ export async function boardRoutes(app: FastifyInstance, opts: { db: Db; hub: Eve
     '/api/boards/:id',
     { schema: { params: idParamSchema, body: updateBoardSchema, response: { 200: boardSchema, ...err } } },
     async (req) => {
-      const board = svc.updateBoard(db, req.params.id, req.body.name);
+      const board = await svc.updateBoard(db, req.params.id, req.body.name);
       hub.emit({ type: 'boards', by: req.user.id });
       hub.emit({ type: 'board', boardId: board.id, by: req.user.id });
       return board;
@@ -56,7 +56,7 @@ export async function boardRoutes(app: FastifyInstance, opts: { db: Db; hub: Eve
   );
 
   r.delete('/api/boards/:id', { schema: { params: idParamSchema } }, async (req, reply) => {
-    svc.deleteBoard(db, req.params.id);
+    await svc.deleteBoard(db, req.params.id);
     hub.emit({ type: 'boards', by: req.user.id });
     return reply.code(204).send();
   });
@@ -65,7 +65,7 @@ export async function boardRoutes(app: FastifyInstance, opts: { db: Db; hub: Eve
     '/api/boards/:id/columns',
     { schema: { params: idParamSchema, body: createColumnSchema, response: { 201: columnSchema, ...err } } },
     async (req, reply) => {
-      const col = svc.createColumn(db, req.params.id, req.body.name);
+      const col = await svc.createColumn(db, req.params.id, req.body.name);
       hub.emit({ type: 'board', boardId: col.boardId, by: req.user.id });
       return reply.code(201).send(col);
     },
@@ -75,14 +75,14 @@ export async function boardRoutes(app: FastifyInstance, opts: { db: Db; hub: Eve
     '/api/columns/:id',
     { schema: { params: idParamSchema, body: updateColumnSchema, response: { 200: columnSchema, ...err } } },
     async (req) => {
-      const col = svc.updateColumn(db, req.params.id, req.body.name);
+      const col = await svc.updateColumn(db, req.params.id, req.body.name);
       hub.emit({ type: 'board', boardId: col.boardId, by: req.user.id });
       return col;
     },
   );
 
   r.delete('/api/columns/:id', { schema: { params: idParamSchema } }, async (req, reply) => {
-    const boardId = svc.deleteColumn(db, req.params.id);
+    const boardId = await svc.deleteColumn(db, req.params.id);
     hub.emit({ type: 'board', boardId, by: req.user.id });
     return reply.code(204).send();
   });

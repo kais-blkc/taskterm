@@ -4,6 +4,7 @@ import { useCommentMutations, useComments } from '../../api/tasks';
 import { useUsers } from '../../api/users';
 import { Markdown } from '../../components/Markdown';
 import { UserTag } from '../../components/UserTag';
+import { formatDateTime } from '../../lib/dates';
 import { confirmDialog } from '../../stores/confirm';
 
 function CommentForm({
@@ -61,7 +62,7 @@ function CommentItem({ c, mine, taskId }: { c: Comment; mine: boolean; taskId: n
     <li className="border border-line bg-bg p-2" style={author ? { borderLeft: `3px solid ${author.color}` } : undefined}>
       <div className="mb-1 flex items-center justify-between text-muted">
         <span>
-          <UserTag user={author} fallback={c.authorName} /> · {c.createdAt}
+          <UserTag user={author} fallback={c.authorName} /> · {formatDateTime(c.createdAt)}
           {c.editedAt && ' · (изм.)'}
         </span>
         {mine && !editing && (

@@ -1,40 +1,45 @@
 # taskterm
 
-> Обновлено: 2026-11-01
+> Обновлено: 2026-11-02
 
 ## Проект
 
 Канбан-доски для команды в стиле терминала: несколько досок, свои колонки-этапы, задачи с описанием (markdown), ответственным, дедлайном, подзадачами-чеклистом и комментариями; живые обновления (SSE) и уведомления в браузере. Локальное рабочее приложение; заменяет taigaUI и обсуждение задач в Telegram.
 
-- Стек: pnpm-монорепо. `apps/api` — Fastify 5 + zod (`fastify-type-provider-zod`) + Drizzle ORM + better-sqlite3. `apps/web` — React 19 + Vite + TanStack Query (данные сервера) + Zustand (только UI-состояние) + react-router + dnd-kit + Tailwind v4. `packages/shared` — zod-схемы и общие типы/парсеры (экспортирует TS-исходники, не собирается).
+- Стек: pnpm-монорепо. `apps/api` — Fastify 5 + zod (`fastify-type-provider-zod`) + Drizzle ORM + PostgreSQL (`postgres`; в тестах встроенный pglite). `apps/web` — React 19 + Vite + TanStack Query (данные сервера) + Zustand (только UI-состояние) + react-router + dnd-kit + Tailwind v4. `packages/shared` — zod-схемы и общие типы/парсеры (экспортирует TS-исходники, не собирается).
 - Решено остаться на Fastify + Drizzle (NestJS/Prisma обсуждали, переход не нужен).
-- Прод: один Docker-образ (API раздаёт собранный фронт), SQLite в томе `taskterm-data`. Инструкция: `docs/DEPLOY.md`, краткая — `README.md`.
+- В работе: роли/инвайты/JWT/админка/права задач — план и прогресс в `docs/PLAN_ROLES_PG.md` (этап 1, Postgres, сделан).
+- Прод: compose из двух контейнеров — `app` (API раздаёт собранный фронт) и `db` (Postgres 17, том `taskterm-pg`). Инструкция: `docs/DEPLOY.md`, краткая — `README.md`.
 - Фичи на потом: `docs/FEATURES_LATER.md`.
 - Папка `promo/` — отдельный проект: промо-видео (Motion Canvas). Не входит в workspace и в Docker-образ.
-- Репозиторий НЕ под git (`git init` ещё не делали).
+- Репозиторий под git (ветка `main`, `git init` сделан 2026-11-02).
 
 ## Запуск и проверка
 
 ```bash
 pnpm install
 cp .env.example .env      # ACCESS_PASSWORD; локальный .env уже есть (dev-значение)
+docker compose -f docker-compose.dev.yml up -d   # dev-Postgres localhost:5442 (taskterm/taskterm)
 pnpm dev                  # web http://localhost:5180 (strictPort), api :3100, прокси /api
-pnpm test                 # api: 43 теста (vitest + fastify.inject), web: 5 (lib/dates)
+pnpm test                 # api: 43 теста (vitest + fastify.inject + pglite, ~13 с), web: 6 (lib/dates)
 pnpm typecheck
 pnpm --filter @taskterm/api exec drizzle-kit generate   # новая миграция
-docker compose up -d --build                            # прод-режим (APP_PORT, ACCESS_PASSWORD, COOKIE_SECURE)
+docker compose up -d --build                            # прод-режим (APP_PORT, ACCESS_PASSWORD, POSTGRES_PASSWORD, COOKIE_SECURE)
 ```
 
-- Порты: 3100 api, 5180 web. 5173 занят чужим Vite-проектом, 3001 — Docker, поэтому порты нестандартные.
-- Dev-БД: `apps/api/data/app.db` (создаётся сама, в .gitignore). Есть тестовые пользователи.
-- `pnpm dev` на момент записи запущен в фоне, плюс висит тестовый процесс на :3001 (PID 99329) — его можно убить.
+- Порты: 3100 api, 5180 web, 5442 dev-Postgres. 5173 занят чужим Vite-проектом, 3001 — Docker, поэтому порты нестандартные.
+- Dev-БД: контейнер `taskterm-db-dev` (том `taskterm-pg-dev`); данные перенесены из старой SQLite скриптом `apps/api/scripts/sqlite-to-pg.ts`. Бэкап старой SQLite: `../taskterm-backups/app-2026-11-02.db` (вне репозитория). Есть тестовые пользователи (3).
+- Старый `apps/api/data/app.db` больше не используется.
+- Порт :3001 занят чужим Docker-проектом (freellmapi), не taskterm.
 - Расширение Chrome (claude-in-chrome) в этой среде НЕ подключалось: UI проверялся только сборкой/typecheck/curl/тестами. Реальная проверка в браузере — за пользователем.
-- pnpm 12: билд-скрипты нужно разрешать в `pnpm-workspace.yaml` (`allowBuilds`: esbuild, better-sqlite3).
+- pnpm 12: билд-скрипты нужно разрешать в `pnpm-workspace.yaml` (`allowBuilds`: esbuild; `better-sqlite3: false` — drizzle-orm тянет его как авто-peer, не используется).
 
 ## Конвенции
 
 - Общаться по-русски. Технические термины/идентификаторы — как есть.
-- Миграции Drizzle ТОЛЬКО добавлять (`drizzle-kit generate`); не удалять и не перегенерировать старые (трижды ломало dev-БД). Сейчас `0000`–`0003`.
+- Миграции Drizzle ТОЛЬКО добавлять (`drizzle-kit generate`, папка `apps/api/drizzle-pg`); не удалять и не перегенерировать старые. Сейчас `0000` (Postgres). Старые SQLite `0000`–`0003` — архив в `drizzle-sqlite-archive`.
+- БД-код асинхронный: `await` на все запросы Drizzle; один ряд — `first(rows)` из `db/client.ts` или деструктуризация `[row]`. Время в БД — `timestamptz`, наружу ISO-строка (`customType` в `schema.ts`); `dueDate` — `date` (`YYYY-MM-DD`). На фронте показывать время через `lib/dates.formatDateTime`.
+- Номер задачи занимается атомарным `update boards set next_task_number = next_task_number + 1 returning`.
 - Пути не хардкодить: API — `apps/web/src/consts/endpoints/*` (`API_ENDPOINTS`, префикс `API_BASE='/api'` добавляет клиент), роуты приложения — `consts/routes.ts` (`ROUTES`, `ROUTE_PATTERNS`). Стиль взят из `CommitteeWebSite/src/consts/endpoints`.
 - UI-правила пользователя:
   - никаких нативных `<select>` и `confirm()` — только `components/Select.tsx` и `confirmDialog()` (`stores/confirm.ts`);
@@ -45,12 +50,12 @@ docker compose up -d --build                            # прод-режим (A
 - Порядок карточек/колонок — дробные индексы (`fractional-indexing`); перенос: `POST /tasks/:id/move {columnId, beforeId|null}`, позицию считает сервер.
 - Ошибки API — `{ error: string }`, `AuthError/NotFoundError/BadRequestError/ForbiddenError` с `status`.
 - Пароли — scrypt (`node:crypto`), сессии — случайный токен в httpOnly-cookie `tt_session`, в БД sha256 токена. Вход и регистрация требуют общий `ACCESS_PASSWORD`. Cookie `Secure` только при `COOKIE_SECURE=true` (иначе по HTTP вход не работает).
-- Бэкенд собирается esbuild в один `dist/server.mjs` (внешний только `better-sqlite3`); пути миграций/статики задаются `MIGRATIONS_DIR`, `STATIC_DIR`.
+- Бэкенд собирается esbuild в один `dist/server.mjs` (pglite внешний и грузится лениво — только для тестов, `DATABASE_URL=:memory:`); пути миграций/статики задаются `MIGRATIONS_DIR` (`drizzle-pg`), `STATIC_DIR`.
 
 ## Архитектура
 
 API (`apps/api/src`), модуль = `routes.ts` + `service.ts`, роуты закрыты `requireUser`:
-- `app.ts` — сборка Fastify, раздача SPA (`STATIC_DIR`), обработчик ошибок; `server.ts` — запуск и graceful shutdown.
+- `app.ts` — `await buildApp(config)` (async: подключение и миграции БД), сборка Fastify, раздача SPA (`STATIC_DIR`), обработчик ошибок; `server.ts` — запуск и graceful shutdown.
 - `db/schema.ts` — users, sessions, boards, columns, tasks (assigneeId, dueDate `YYYY-MM-DD`), comments, subtasks.
 - `modules/auth` (+`guard.ts`), `boards` (доски+колонки), `tasks`, `comments`, `subtasks` (+bulk), `users` (список, цвет `/users/me/color`), `events` (SSE `/api/events`, in-memory `plugins/hub.ts`).
 - Цвета пользователей: выдаются случайно максимально непохожими (`packages/shared/src/colors.ts`), смена отклоняется, если слишком похоже на чужой (409); `backfillUserColors` при старте.

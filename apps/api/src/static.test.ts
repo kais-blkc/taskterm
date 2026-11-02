@@ -6,12 +6,12 @@ import { buildApp } from './app';
 import { loadConfig } from './config';
 
 describe('static SPA serving', () => {
-  let app: ReturnType<typeof buildApp>;
+  let app: Awaited<ReturnType<typeof buildApp>>;
   beforeEach(async () => {
     const dir = mkdtempSync(join(tmpdir(), 'tt-static-'));
     writeFileSync(join(dir, 'index.html'), '<!doctype html><title>spa</title>');
     writeFileSync(join(dir, 'app.js'), 'console.log(1)');
-    app = buildApp(loadConfig({ databaseUrl: ':memory:', staticDir: dir }), { logger: false });
+    app = await buildApp(loadConfig({ databaseUrl: ':memory:', staticDir: dir }), { logger: false });
     await app.ready();
   });
   afterEach(() => app.close());

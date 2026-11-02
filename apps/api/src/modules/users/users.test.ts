@@ -4,9 +4,9 @@ import { buildApp } from '../../app';
 import { loadConfig } from '../../config';
 
 describe('user colors', () => {
-  let app: ReturnType<typeof buildApp>;
+  let app: Awaited<ReturnType<typeof buildApp>>;
   beforeEach(async () => {
-    app = buildApp(loadConfig({ databaseUrl: ':memory:', accessPassword: 'gate' }), { logger: false });
+    app = await buildApp(loadConfig({ databaseUrl: ':memory:', accessPassword: 'gate' }), { logger: false });
     await app.ready();
   });
   afterEach(() => app.close());

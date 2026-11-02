@@ -36,7 +36,7 @@ export async function subtaskRoutes(app: FastifyInstance, opts: { db: Db; hub: E
     '/api/tasks/:id/subtasks',
     { schema: { params: idParamSchema, body: createSubtaskSchema, response: { 201: subtaskSchema, ...err } } },
     async (req, reply) => {
-      const { subtask, boardId } = svc.createSubtask(db, req.params.id, req.body.title);
+      const { subtask, boardId } = await svc.createSubtask(db, req.params.id, req.body.title);
       changed(req.user.id, subtask.taskId, boardId);
       return reply.code(201).send(subtask);
     },
@@ -47,7 +47,7 @@ export async function subtaskRoutes(app: FastifyInstance, opts: { db: Db; hub: E
     '/api/tasks/:id/subtasks/bulk',
     { schema: { params: idParamSchema, body: bulkSubtasksSchema, response: { 201: z.array(subtaskSchema), ...err } } },
     async (req, reply) => {
-      const { subtasks, boardId } = svc.createSubtasks(db, req.params.id, req.body.items);
+      const { subtasks, boardId } = await svc.createSubtasks(db, req.params.id, req.body.items);
       changed(req.user.id, req.params.id, boardId);
       return reply.code(201).send(subtasks);
     },
@@ -57,14 +57,14 @@ export async function subtaskRoutes(app: FastifyInstance, opts: { db: Db; hub: E
     '/api/subtasks/:id',
     { schema: { params: idParamSchema, body: updateSubtaskSchema, response: { 200: subtaskSchema, ...err } } },
     async (req) => {
-      const { subtask, boardId } = svc.updateSubtask(db, req.params.id, req.body);
+      const { subtask, boardId } = await svc.updateSubtask(db, req.params.id, req.body);
       changed(req.user.id, subtask.taskId, boardId);
       return subtask;
     },
   );
 
   r.delete('/api/subtasks/:id', { schema: { params: idParamSchema } }, async (req, reply) => {
-    const { taskId, boardId } = svc.deleteSubtask(db, req.params.id);
+    const { taskId, boardId } = await svc.deleteSubtask(db, req.params.id);
     changed(req.user.id, taskId, boardId);
     return reply.code(204).send();
   });

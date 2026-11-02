@@ -1,6 +1,6 @@
 # Деплой taskterm
 
-Приложение собирается в один Docker-образ: API сам раздаёт фронт, данные (SQLite) лежат в томе. Нужен только Docker.
+Приложение — два контейнера: `app` (Docker-образ, API сам раздаёт фронт) и `db` (PostgreSQL 17). Данные лежат в томе `taskterm-pg`. Нужен только Docker.
 
 ## 1. Сервер
 
@@ -33,6 +33,7 @@ nano .env
 ```
 
 - `ACCESS_PASSWORD` — общий ключ команды. Задай длинный: `openssl rand -base64 24`. Без него контейнер не стартует.
+- `POSTGRES_PASSWORD` — пароль БД (`openssl rand -base64 24`). Без него compose не запустится. Менять после первого старта нельзя без правки пароля внутри БД.
 - `APP_PORT` — порт на сервере (по умолчанию 3100).
 - `COOKIE_SECURE=false` при работе по обычному HTTP. `true` только за HTTPS, иначе войти не получится.
 
@@ -71,18 +72,19 @@ cd /opt/taskterm
 docker compose up -d --build
 ```
 
-Данные в томе `taskterm-data` сохраняются, новые миграции применяются сами.
+Данные в томе `taskterm-pg` сохраняются, новые миграции применяются сами.
 
 ## 7. Бэкап и восстановление
 
 ```bash
-docker compose stop
-docker run --rm -v taskterm_taskterm-data:/data -v "$PWD":/backup busybox \
-  tar czf /backup/taskterm-$(date +%F).tgz -C /data .
-docker compose start
+docker compose exec -T db pg_dump -U taskterm -Fc taskterm > taskterm-$(date +%F).dump
 ```
 
-Для регулярного бэкапа вынеси это в скрипт и добавь в cron (например, раз в ночь). Восстановление — в `README.md`.
+Контейнеры останавливать не нужно. Для регулярного бэкапа вынеси это в скрипт и добавь в cron (например, раз в ночь), старые дампы чисти. Восстановление — в `README.md`.
+
+### Перенос данных со старой SQLite-версии
+
+Если на сервере была версия на SQLite: подними новую версию с пустой БД, затем скопируй старый `app.db` на машину с исходниками и выполни `pnpm --filter @taskterm/api exec tsx scripts/sqlite-to-pg.ts app.db <postgres-url>` (для этого на время открой порт БД или запусти скрипт в контейнере с доступом к `db`). Сессии не переносятся — все входят заново.
 
 ## 8. Если что-то не работает
 

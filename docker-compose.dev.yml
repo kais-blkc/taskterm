@@ -1,0 +1,22 @@
+# Postgres для локальной разработки: docker compose -f docker-compose.dev.yml up -d
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: taskterm-db-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: taskterm
+      POSTGRES_PASSWORD: taskterm
+      POSTGRES_DB: taskterm
+    ports:
+      - '127.0.0.1:5442:5432' # 5432 может быть занят другими проектами
+    volumes:
+      - taskterm-pg-dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U taskterm']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  taskterm-pg-dev:

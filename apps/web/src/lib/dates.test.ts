@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, dateStr, daysUntil, dueInfo } from './dates';
+import { addDays, dateStr, daysUntil, dueInfo, formatDateTime } from './dates';
 
 describe('dates', () => {
   it('dateStr uses the local calendar day, zero-padded', () => {
@@ -31,5 +31,12 @@ describe('dates', () => {
 
   it('a finished task is never shown as overdue', () => {
     expect(dueInfo('2020-01-01', true, '2026-10-31').state).toBe('finished');
+  });
+});
+
+describe('formatDateTime', () => {
+  it('formats ISO instant, falls back to raw string on garbage', () => {
+    expect(formatDateTime('2020-03-05T10:20:00.000Z')).toMatch(/2020/);
+    expect(formatDateTime('not a date')).toBe('not a date');
   });
 });
