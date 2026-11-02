@@ -8,6 +8,20 @@
       "when": 1793621860044,
       "tag": "0000_aberrant_the_spike",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793622963725,
+      "tag": "0001_auth_jwt",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793622964198,
+      "tag": "0002_drop_sessions",
+      "breakpoints": true
     }
   ]
 }

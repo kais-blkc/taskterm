@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { credentialsSchema, type Credentials } from '@taskterm/shared';
+import { credentialsSchema, loginSchema, type Credentials } from '@taskterm/shared';
 import { useAuth } from '../api/auth';
 
 export function AuthPage() {
@@ -11,7 +11,7 @@ export function AuthPage() {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<Credentials>({ resolver: zodResolver(credentialsSchema) });
+  } = useForm<Credentials>({ resolver: zodResolver(mode === 'login' ? loginSchema : credentialsSchema) as never });
 
   const field = (name: keyof Credentials, label: string, type = 'text') => (
     <label className="block">
@@ -46,7 +46,7 @@ export function AuthPage() {
       <form onSubmit={handleSubmit((v) => auth.mutate(v))} className="space-y-4">
         {field('username', 'username')}
         {field('password', 'password', 'password')}
-        {field('accessPassword', 'access key', 'password')}
+        {mode === 'register' && field('accessPassword', 'access key', 'password')}
         {auth.error && <p className="text-danger">! {auth.error.message}</p>}
         <button
           type="submit"

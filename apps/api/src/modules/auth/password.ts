@@ -17,9 +17,9 @@ export async function verifyPassword(password: string, stored: string): Promise<
   return timingSafeEqual(actual, expected);
 }
 
-export function newSessionToken() {
-  const token = randomBytes(32).toString('hex');
-  return { token, id: sha256(token) };
+/** Случайный непрозрачный токен (refresh, инвайты): 256 бит */
+export function randomToken(): string {
+  return randomBytes(32).toString('base64url');
 }
 
 export function sha256(value: string): string {

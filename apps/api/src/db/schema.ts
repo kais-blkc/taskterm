@@ -16,18 +16,33 @@ const createdAt = () => timestamptz('created_at').notNull().default(sql`now()`);
 export const users = pgTable('users', {
   id: serial('id').primaryKey(),
   username: text('username').notNull().unique(),
+  email: text('email').unique(),
   passwordHash: text('password_hash').notNull(),
   color: text('color').notNull().default(''),
+  // глобальная роль; права на досках — отдельно (board_members, этап 3)
+  role: text('role').$type<'admin' | 'member'>().notNull().default('member'),
+  isActive: boolean('is_active').notNull().default(true),
+  // растёт при смене пароля/роли, блокировке, «выйти везде» — старые access-токены перестают приниматься
+  tokenVersion: integer('token_version').notNull().default(0),
+  lastLoginAt: timestamptz('last_login_at'),
   createdAt: createdAt(),
 });
 
-export const sessions = pgTable('sessions', {
-  // sha256 от токена из cookie — сам токен в БД не хранится
-  id: text('id').primaryKey(),
+export const refreshTokens = pgTable('refresh_tokens', {
+  id: serial('id').primaryKey(),
   userId: integer('user_id')
     .notNull()
     .references(() => users.id, { onDelete: 'cascade' }),
+  // цепочка ротаций одного входа: при повторном использовании старого токена отзывается вся цепочка
+  familyId: text('family_id').notNull(),
+  // sha256 токена из cookie — сам токен в БД не хранится
+  tokenHash: text('token_hash').notNull().unique(),
+  userAgent: text('user_agent'),
   expiresAt: timestamptz('expires_at').notNull(),
+  createdAt: createdAt(),
+  revokedAt: timestamptz('revoked_at'),
+  // выставлено, если токен отозван ротацией (а не выходом/блокировкой)
+  rotatedAt: timestamptz('rotated_at'),
 });
 
 export const boards = pgTable('boards', {

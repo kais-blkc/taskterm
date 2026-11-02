@@ -114,13 +114,15 @@
 Фактически отличается от плана: dev-Postgres на порту 5442 (`docker-compose.dev.yml`); сервисы написаны на `await`, `Db` — общий тип для postgres-js и pglite; время в API осталось строками (теперь ISO), добавлен `formatDateTime` на фронте; перенос данных читает SQLite через встроенный `node:sqlite`; старые SQLite-миграции перенесены в `apps/api/drizzle-sqlite-archive`.
 
 ### Этап 2 — аутентификация на JWT
-- [ ] Миграция: `users.email` (unique, nullable для старых), `users.role` (`admin|member`, default `member`), `users.isActive`, `users.tokenVersion`, `users.lastLoginAt`; таблица `refresh_tokens`.
-- [ ] Модуль `auth`: `login`, `refresh`, `logout`, `logout-all`, `me`; guard `requireUser` проверяет JWT и `tokenVersion`/`isActive` (достаточно одного запроса к БД на запрос — приемлемо для размера команды).
-- [ ] Bootstrap первого админа из env; существующих dev-пользователей: назначить админом указанного через скрипт/env, остальные `member`.
-- [ ] Лимит попыток входа (`@fastify/rate-limit`: по IP + по username) — закрывает TODO из CLAUDE.md.
-- [ ] Клиент: refresh-интерцептор в `api/client`, SSE-переподключение, выход.
-- [ ] Удалить `sessions`, `tt_session`, регистрацию по `ACCESS_PASSWORD` (регистрацию временно закрыть до этапа 4 — либо этапы 2 и 4 влить подряд).
-- [ ] Тесты: просроченный access, ротация refresh, повторное использование refresh, блокировка пользователя, смена `tokenVersion`.
+- [x] Миграция: `users.email` (unique, nullable для старых), `users.role` (`admin|member`, default `member`), `users.isActive`, `users.tokenVersion`, `users.lastLoginAt`; таблица `refresh_tokens`.
+- [x] Модуль `auth`: `login`, `refresh`, `logout`, `logout-all`, `me`; guard `requireUser` проверяет JWT и `tokenVersion`/`isActive` (достаточно одного запроса к БД на запрос — приемлемо для размера команды).
+- [x] Bootstrap первого админа из env; существующих dev-пользователей: назначить админом указанного через скрипт/env, остальные `member`.
+- [x] Лимит попыток входа (`@fastify/rate-limit`: по IP + по username) — закрывает TODO из CLAUDE.md.
+- [x] Клиент: refresh-интерцептор в `api/client`, SSE-переподключение, выход.
+- [x] Удалить `sessions`, `tt_session`, регистрацию по `ACCESS_PASSWORD` (регистрацию временно закрыть до этапа 4 — либо этапы 2 и 4 влить подряд).
+- [x] Тесты: просроченный access, ротация refresh, повторное использование refresh, блокировка пользователя, смена `tokenVersion`.
+
+Фактически: регистрация по `ACCESS_PASSWORD` оставлена до этапа 4 (иначе приложение нельзя наполнять), вход теперь только логин+пароль. Миграции `0001_auth_jwt`, `0002_drop_sessions` (drizzle-kit в неинтерактивном режиме не умеет «rename vs create», поэтому две). `POST /auth/logout-all`, `requireAdmin` готов. Browser-проверка UI не выполнялась (SSE-переподключение после истечения access и интерцептор проверены только типами и ручным curl).
 
 ### Этап 3 — роли и слой прав
 - [ ] Таблица `board_members` (`boardId`, `userId`, `role`), миграция данных: всех существующих пользователей добавить во все существующие доски (`editor`, создателя доски — `owner`), чтобы ничего не пропало.
@@ -174,6 +176,7 @@
 
 ## Прогресс
 
+- [x] Этап 2 (2026-11-02): JWT access+refresh, роли admin/member, bootstrap админа, rate limit, CSRF по Origin.
 - [x] Этап 1 (2026-11-02): Postgres, async-сервисы, pglite в тестах, перенос данных, Docker/compose, документация.
 - [x] Этап 0 (2026-11-02): `git init`, бэкап dev-БД, базовые тесты зелёные (api 43, web 5, typecheck ок), `FEATURES_LATER.md` обновлён.
 

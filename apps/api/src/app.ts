@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import cookie from '@fastify/cookie';
+import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import Fastify from 'fastify';
 import {
@@ -10,7 +11,8 @@ import {
 } from 'fastify-type-provider-zod';
 import { healthResponseSchema } from '@taskterm/shared';
 import type { Config } from './config';
-import { createDb } from './db/client';
+import { createDb, type Db } from './db/client';
+import { ensureAdmin } from './modules/auth/bootstrap';
 import { backfillUserColors } from './modules/users/colors';
 import { authRoutes } from './modules/auth/routes';
 import { userRoutes } from './modules/users/routes';
@@ -22,16 +24,38 @@ import { subtaskRoutes } from './modules/subtasks/routes';
 import { taskRoutes } from './modules/tasks/routes';
 
 export async function buildApp(config: Config, opts: { logger?: boolean } = {}) {
-  const app = Fastify({ logger: opts.logger ?? true }).withTypeProvider<ZodTypeProvider>();
+  const app = Fastify({ logger: opts.logger ?? true, trustProxy: config.trustProxy }).withTypeProvider<ZodTypeProvider>();
+  app.decorate('jwtSecret', config.jwtSecret);
+  app.decorate('db', null as unknown as Db); // заполняется ниже, после подключения к БД
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
   app.register(cookie);
+  // лимит включается только на роутах с config.rateLimit (login/register/refresh)
+  app.register(rateLimit, { global: false });
+
+  // CSRF: cookie-авторизация + SameSite=Lax; дополнительно изменяющие запросы с чужим Origin отклоняем
+  app.addHook('onRequest', async (req, reply) => {
+    if (req.method === 'GET' || req.method === 'HEAD' || req.method === 'OPTIONS') return;
+    const origin = req.headers.origin;
+    if (!origin) return; // не браузер (curl, тесты)
+    let host: string;
+    try {
+      host = new URL(origin).host;
+    } catch {
+      return reply.code(403).send({ error: 'bad origin' });
+    }
+    if (host !== req.headers.host && !config.allowedOrigins.includes(origin)) {
+      return reply.code(403).send({ error: 'cross-origin request blocked' });
+    }
+  });
 
   const { db, close } = await createDb(config.databaseUrl, config.migrationsDir);
+  app.db = db;
   app.addHook('onClose', async () => {
     await close();
   });
   await backfillUserColors(db);
+  await ensureAdmin(db, config, app.log);
   const hub = new EventHub();
 
   app.get('/api/health', { schema: { response: { 200: healthResponseSchema } } }, async () => ({
