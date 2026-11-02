@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../../app';
 import { loadConfig } from '../../config';
+import { signupUser } from '../../test-utils';
 
 describe('comments', () => {
   let app: Awaited<ReturnType<typeof buildApp>>;
@@ -11,16 +12,12 @@ describe('comments', () => {
   const call = (cookie: string, method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE', url: string, payload?: object) =>
     app.inject({ method, url, payload, headers: { cookie } });
   const register = async (username: string) => {
-    const res = await app.inject({
-      method: 'POST',
-      url: '/api/auth/register',
-      payload: { username, password: 'secret123', accessPassword: 'gate' },
-    });
+    const res = await signupUser(app, username);
     return `${res.cookies[0]!.name}=${res.cookies[0]!.value}`;
   };
 
   beforeEach(async () => {
-    app = await buildApp(loadConfig({ databaseUrl: ':memory:', accessPassword: 'gate' }), { logger: false });
+    app = await buildApp(loadConfig({ databaseUrl: ':memory:' }), { logger: false });
     await app.ready();
     alice = await register('alice');
     bob = await register('bob');

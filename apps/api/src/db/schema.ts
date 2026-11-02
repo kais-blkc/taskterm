@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { boolean, customType, date, integer, pgTable, primaryKey, serial, text } from 'drizzle-orm/pg-core';
+import { boolean, customType, date, integer, jsonb, pgTable, primaryKey, serial, text } from 'drizzle-orm/pg-core';
 
 /**
  * timestamptz, наружу всегда ISO-строка (`2026-11-02T12:00:00.000Z`).
@@ -120,5 +120,25 @@ export const subtasks = pgTable('subtasks', {
     .references(() => tasks.id, { onDelete: 'cascade' }),
   title: text('title').notNull(),
   done: boolean('done').notNull().default(false),
+  createdAt: createdAt(),
+});
+
+export const invites = pgTable('invites', {
+  id: serial('id').primaryKey(),
+  email: text('email').notNull(),
+  // sha256 токена из ссылки — сам токен в БД не хранится
+  tokenHash: text('token_hash').notNull().unique(),
+  role: text('role').$type<'admin' | 'member'>().notNull().default('member'),
+  // доступ к доскам, который получит пользователь при регистрации
+  boardGrants: jsonb('board_grants')
+    .$type<{ boardId: number; role: 'owner' | 'editor' | 'commenter' | 'viewer' }[]>()
+    .notNull()
+    .default([]),
+  invitedBy: integer('invited_by')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  expiresAt: timestamptz('expires_at').notNull(),
+  usedAt: timestamptz('used_at'),
+  revokedAt: timestamptz('revoked_at'),
   createdAt: createdAt(),
 });

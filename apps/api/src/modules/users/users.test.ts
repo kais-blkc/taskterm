@@ -2,21 +2,18 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { COLOR_MIN_DISTANCE, USER_PALETTE, colorDistance } from '@taskterm/shared';
 import { buildApp } from '../../app';
 import { loadConfig } from '../../config';
+import { signupUser } from '../../test-utils';
 
 describe('user colors', () => {
   let app: Awaited<ReturnType<typeof buildApp>>;
   beforeEach(async () => {
-    app = await buildApp(loadConfig({ databaseUrl: ':memory:', accessPassword: 'gate' }), { logger: false });
+    app = await buildApp(loadConfig({ databaseUrl: ':memory:' }), { logger: false });
     await app.ready();
   });
   afterEach(() => app.close());
 
   const register = async (username: string) => {
-    const res = await app.inject({
-      method: 'POST',
-      url: '/api/auth/register',
-      payload: { username, password: 'secret123', accessPassword: 'gate' },
-    });
+    const res = await signupUser(app, username);
     return { cookie: `${res.cookies[0]!.name}=${res.cookies[0]!.value}`, user: res.json() };
   };
 

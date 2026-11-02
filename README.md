@@ -6,7 +6,7 @@
 
 ```bash
 pnpm install
-cp .env.example .env     # задай ACCESS_PASSWORD
+cp .env.example .env     # задай JWT_SECRET (и ADMIN_USERNAME/ADMIN_PASSWORD — первый админ)
 docker compose -f docker-compose.dev.yml up -d   # Postgres на localhost:5442
 pnpm dev                 # web: http://localhost:5180, api: :3100
 pnpm test                # тесты api (встроенный Postgres pglite, Docker не нужен)
@@ -26,7 +26,7 @@ pnpm --filter @taskterm/api exec tsx scripts/sqlite-to-pg.ts ./data/app.db
 ## Запуск в Docker
 
 ```bash
-cp .env.example .env     # обязательно задай ACCESS_PASSWORD и POSTGRES_PASSWORD
+cp .env.example .env     # обязательно задай POSTGRES_PASSWORD, JWT_SECRET, ADMIN_USERNAME и ADMIN_PASSWORD
 docker compose up -d --build
 # http://localhost:3100  (порт: APP_PORT в .env)
 ```

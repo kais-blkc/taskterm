@@ -16,11 +16,11 @@ export const loginSchema = z.object({
 });
 export type LoginInput = z.infer<typeof loginSchema>;
 
-/** Регистрация (временно по общему ключу доступа; с этапа «инвайты» — по токену приглашения) */
-export const credentialsSchema = loginSchema.extend({
-  accessPassword: z.string().min(1),
+/** Регистрация только по токену приглашения; email берётся из приглашения */
+export const registerSchema = loginSchema.extend({
+  token: z.string().min(20).max(200),
 });
-export type Credentials = z.infer<typeof credentialsSchema>;
+export type RegisterInput = z.infer<typeof registerSchema>;
 
 export const userSchema = z.object({
   id: z.number().int(),

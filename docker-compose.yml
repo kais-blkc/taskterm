@@ -27,7 +27,6 @@ services:
     ports:
       - '${APP_PORT:-3100}:3100'
     environment:
-      ACCESS_PASSWORD: ${ACCESS_PASSWORD:?задай ACCESS_PASSWORD в .env}
       JWT_SECRET: ${JWT_SECRET:?задай JWT_SECRET в .env (openssl rand -base64 48)}
       ADMIN_USERNAME: ${ADMIN_USERNAME:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}

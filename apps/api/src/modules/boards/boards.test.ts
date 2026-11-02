@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../../app';
 import { loadConfig } from '../../config';
+import { signupUser } from '../../test-utils';
 
 describe('boards & tasks', () => {
   let app: Awaited<ReturnType<typeof buildApp>>;
@@ -10,13 +11,9 @@ describe('boards & tasks', () => {
     app.inject({ method, url, payload, headers: { cookie } });
 
   beforeEach(async () => {
-    app = await buildApp(loadConfig({ databaseUrl: ':memory:', accessPassword: 'gate' }), { logger: false });
+    app = await buildApp(loadConfig({ databaseUrl: ':memory:' }), { logger: false });
     await app.ready();
-    const res = await app.inject({
-      method: 'POST',
-      url: '/api/auth/register',
-      payload: { username: 'alice', password: 'secret123', accessPassword: 'gate' },
-    });
+    const res = await signupUser(app, 'alice');
     cookie = `${res.cookies[0]!.name}=${res.cookies[0]!.value}`;
   });
   afterEach(() => app.close());
@@ -127,17 +124,13 @@ describe('boards & tasks', () => {
 describe('assignees', () => {
   let app: Awaited<ReturnType<typeof buildApp>>;
   beforeEach(async () => {
-    app = await buildApp(loadConfig({ databaseUrl: ':memory:', accessPassword: 'gate' }), { logger: false });
+    app = await buildApp(loadConfig({ databaseUrl: ':memory:' }), { logger: false });
     await app.ready();
   });
   afterEach(() => app.close());
 
   const register = async (username: string) => {
-    const res = await app.inject({
-      method: 'POST',
-      url: '/api/auth/register',
-      payload: { username, password: 'secret123', accessPassword: 'gate' },
-    });
+    const res = await signupUser(app, username);
     return { cookie: `${res.cookies[0]!.name}=${res.cookies[0]!.value}`, id: res.json().id as number };
   };
 
@@ -176,13 +169,9 @@ describe('deadlines', () => {
   let app: Awaited<ReturnType<typeof buildApp>>;
   let cookie: string;
   beforeEach(async () => {
-    app = await buildApp(loadConfig({ databaseUrl: ':memory:', accessPassword: 'gate' }), { logger: false });
+    app = await buildApp(loadConfig({ databaseUrl: ':memory:' }), { logger: false });
     await app.ready();
-    const res = await app.inject({
-      method: 'POST',
-      url: '/api/auth/register',
-      payload: { username: 'alice', password: 'secret123', accessPassword: 'gate' },
-    });
+    const res = await signupUser(app, 'alice');
     cookie = `${res.cookies[0]!.name}=${res.cookies[0]!.value}`;
   });
   afterEach(() => app.close());

@@ -1,18 +1,17 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { apiErrorSchema, credentialsSchema, loginSchema, meSchema } from '@taskterm/shared';
+import { apiErrorSchema, loginSchema, meSchema, registerSchema } from '@taskterm/shared';
 import type { Config } from '../../config';
 import type { Db } from '../../db/client';
 import type { EventHub } from '../../plugins/hub';
 import { FailureThrottle } from '../../plugins/throttle';
 import { ACCESS_COOKIE, REFRESH_COOKIE, requireUser } from './guard';
-import { safeEqual } from './password';
+import { InviteError, acceptInvite } from '../invites/service';
 import {
   AuthError,
   endAllSessions,
   endSession,
   refreshSession,
-  register,
   startSession,
   toAuthUser,
   verifyLogin,
@@ -39,7 +38,7 @@ export async function authRoutes(app: FastifyInstance, opts: { db: Db; config: C
     reply.clearCookie(REFRESH_COOKIE, { path: '/api/auth' });
   };
 
-  const errors = { 401: apiErrorSchema, 409: apiErrorSchema, 429: apiErrorSchema };
+  const errors = { 400: apiErrorSchema, 401: apiErrorSchema, 409: apiErrorSchema, 429: apiErrorSchema };
   const limit = { config: { rateLimit: { max: config.authRateLimitMax, timeWindow: '15 minutes' } } };
 
   const fail = (reply: FastifyReply, e: unknown) => {
@@ -49,18 +48,17 @@ export async function authRoutes(app: FastifyInstance, opts: { db: Db; config: C
 
   r.post(
     '/api/auth/register',
-    { ...limit, schema: { body: credentialsSchema, response: { 200: meSchema, ...errors } } },
+    { ...limit, schema: { body: registerSchema, response: { 200: meSchema, ...errors } } },
     async (req, reply) => {
-      const { username, password, accessPassword } = req.body;
-      if (!safeEqual(accessPassword, config.accessPassword)) {
-        return reply.code(401).send({ error: 'invalid access password' });
-      }
+      const { token, username, password } = req.body;
       try {
-        const row = await register(db, username, password);
+        const { user: row, grantedBoardIds } = await acceptInvite(db, token, username, password);
         setCookies(reply, await startSession(db, secret, row, req.headers['user-agent']));
         hub.emit({ type: 'users', by: row.id });
+        for (const boardId of grantedBoardIds) hub.emit({ type: 'members', boardId, by: row.id });
         return toAuthUser(row);
       } catch (e) {
+        if (e instanceof InviteError) return reply.code(e.status as 400).send({ error: e.message });
         return fail(reply, e);
       }
     },

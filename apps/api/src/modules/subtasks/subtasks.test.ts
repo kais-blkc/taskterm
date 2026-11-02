@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildApp } from '../../app';
 import { loadConfig } from '../../config';
+import { signupUser } from '../../test-utils';
 
 describe('subtasks', () => {
   let app: Awaited<ReturnType<typeof buildApp>>;
@@ -13,13 +14,9 @@ describe('subtasks', () => {
   const stats = async () => (await call('GET', `/api/boards/${boardId}`)).json().subtaskStats;
 
   beforeEach(async () => {
-    app = await buildApp(loadConfig({ databaseUrl: ':memory:', accessPassword: 'gate' }), { logger: false });
+    app = await buildApp(loadConfig({ databaseUrl: ':memory:' }), { logger: false });
     await app.ready();
-    const res = await app.inject({
-      method: 'POST',
-      url: '/api/auth/register',
-      payload: { username: 'alice', password: 'secret123', accessPassword: 'gate' },
-    });
+    const res = await signupUser(app, 'alice');
     cookie = `${res.cookies[0]!.name}=${res.cookies[0]!.value}`;
     boardId = (await call('POST', '/api/boards', { name: 'B' })).json().id;
     const full = (await call('GET', `/api/boards/${boardId}`)).json();

@@ -8,7 +8,7 @@
 
 - Стек: pnpm-монорепо. `apps/api` — Fastify 5 + zod (`fastify-type-provider-zod`) + Drizzle ORM + PostgreSQL (`postgres`; в тестах встроенный pglite). `apps/web` — React 19 + Vite + TanStack Query (данные сервера) + Zustand (только UI-состояние) + react-router + dnd-kit + Tailwind v4. `packages/shared` — zod-схемы и общие типы/парсеры (экспортирует TS-исходники, не собирается).
 - Решено остаться на Fastify + Drizzle (NestJS/Prisma обсуждали, переход не нужен).
-- В работе: роли/инвайты/JWT/админка/права задач — план и прогресс в `docs/PLAN_ROLES_PG.md` (сделаны этапы 0–3: git, Postgres, JWT, роли на досках).
+- В работе: роли/инвайты/JWT/админка/права задач — план и прогресс в `docs/PLAN_ROLES_PG.md` (сделаны этапы 0–4: git, Postgres, JWT, роли на досках, инвайты).
 - Прод: compose из двух контейнеров — `app` (API раздаёт собранный фронт) и `db` (Postgres 17, том `taskterm-pg`). Инструкция: `docs/DEPLOY.md`, краткая — `README.md`.
 - Фичи на потом: `docs/FEATURES_LATER.md`.
 - Папка `promo/` — отдельный проект: промо-видео (Motion Canvas). Не входит в workspace и в Docker-образ.
@@ -18,13 +18,13 @@
 
 ```bash
 pnpm install
-cp .env.example .env      # ACCESS_PASSWORD; локальный .env уже есть (dev-значение)
+cp .env.example .env      # JWT_SECRET, ADMIN_USERNAME; локальный .env уже есть (dev-значения)
 docker compose -f docker-compose.dev.yml up -d   # dev-Postgres localhost:5442 (taskterm/taskterm)
 pnpm dev                  # web http://localhost:5180 (strictPort), api :3100, прокси /api
-pnpm test                 # api: 80 тестов (vitest + fastify.inject + pglite, 15–30 с), web: 6 (lib/dates)
+pnpm test                 # api: 89 тестов (vitest + fastify.inject + pglite, 15–30 с), web: 6 (lib/dates)
 pnpm typecheck
 pnpm --filter @taskterm/api exec drizzle-kit generate   # новая миграция
-docker compose up -d --build                            # прод-режим (APP_PORT, ACCESS_PASSWORD, POSTGRES_PASSWORD, JWT_SECRET, COOKIE_SECURE)
+docker compose up -d --build                            # прод-режим (APP_PORT, POSTGRES_PASSWORD, JWT_SECRET, ADMIN_USERNAME/PASSWORD, COOKIE_SECURE)
 ```
 
 - Порты: 3100 api, 5180 web, 5442 dev-Postgres. 5173 занят чужим Vite-проектом, 3001 — Docker, поэтому порты нестандартные.
@@ -37,7 +37,7 @@ docker compose up -d --build                            # прод-режим (A
 ## Конвенции
 
 - Общаться по-русски. Технические термины/идентификаторы — как есть.
-- Миграции Drizzle ТОЛЬКО добавлять (`drizzle-kit generate`, папка `apps/api/drizzle-pg`); не удалять и не перегенерировать старые. Сейчас `0000`–`0003` (Postgres). Старые SQLite `0000`–`0003` — архив в `drizzle-sqlite-archive`.
+- Миграции Drizzle ТОЛЬКО добавлять (`drizzle-kit generate`, папка `apps/api/drizzle-pg`); не удалять и не перегенерировать старые. Сейчас `0000`–`0004` (Postgres). Старые SQLite `0000`–`0003` — архив в `drizzle-sqlite-archive`.
 - БД-код асинхронный: `await` на все запросы Drizzle; один ряд — `first(rows)` из `db/client.ts` или деструктуризация `[row]`. Время в БД — `timestamptz`, наружу ISO-строка (`customType` в `schema.ts`); `dueDate` — `date` (`YYYY-MM-DD`). На фронте показывать время через `lib/dates.formatDateTime`.
 - Номер задачи занимается атомарным `update boards set next_task_number = next_task_number + 1 returning`.
 - Пути не хардкодить: API — `apps/web/src/consts/endpoints/*` (`API_ENDPOINTS`, префикс `API_BASE='/api'` добавляет клиент), роуты приложения — `consts/routes.ts` (`ROUTES`, `ROUTE_PATTERNS`). Стиль взят из `CommitteeWebSite/src/consts/endpoints`.
@@ -49,9 +49,11 @@ docker compose up -d --build                            # прод-режим (A
 - Состояние: серверные данные только в TanStack Query, Zustand — для UI (`stores/ui`, `theme`, `notifications`, `confirm`). Свои мутации инвалидируют кеш сами, чужие приходят по SSE (клиент пропускает события с `by === me`).
 - Порядок карточек/колонок — дробные индексы (`fractional-indexing`); перенос: `POST /tasks/:id/move {columnId, beforeId|null}`, позицию считает сервер.
 - Ошибки API — `{ error: string }`, `AuthError/NotFoundError/BadRequestError/ForbiddenError` с `status`.
-- Пароли — scrypt (`node:crypto`). Авторизация — JWT: access (HS256, 15 мин, `jose`) в httpOnly-cookie `tt_access` + refresh (случайный токен, 30 дней) в cookie `tt_refresh` с path `/api/auth`, в БД только sha256 (`refresh_tokens`). Refresh ротируется; повторное предъявление ротированного токена (позже 10 с) гасит всю цепочку (`family_id`), в пределах 10 с — гонка вкладок, выдаётся только access. `users.token_version` в JWT (`ver`): смена роли/пароля/блокировка/`logout-all` → старые access сразу недействительны; `guard` на каждый запрос сверяет `is_active` и `ver` в БД. Клиент при 401 один раз вызывает `/auth/refresh` (`api/client.ts`), SSE при обрыве делает то же (`api/events.ts`). Регистрация пока по общему `ACCESS_PASSWORD` (уйдёт на этапе инвайтов), вход — только логин+пароль. Cookie `Secure` только при `COOKIE_SECURE=true` (иначе по HTTP вход не работает).
+- Пароли — scrypt (`node:crypto`). Авторизация — JWT: access (HS256, 15 мин, `jose`) в httpOnly-cookie `tt_access` + refresh (случайный токен, 30 дней) в cookie `tt_refresh` с path `/api/auth`, в БД только sha256 (`refresh_tokens`). Refresh ротируется; повторное предъявление ротированного токена (позже 10 с) гасит всю цепочку (`family_id`), в пределах 10 с — гонка вкладок, выдаётся только access. `users.token_version` в JWT (`ver`): смена роли/пароля/блокировка/`logout-all` → старые access сразу недействительны; `guard` на каждый запрос сверяет `is_active` и `ver` в БД. Клиент при 401 один раз вызывает `/auth/refresh` (`api/client.ts`), SSE при обрыве делает то же (`api/events.ts`). Регистрации на странице входа нет: только по приглашению (см. ниже), вход — логин+пароль. Cookie `Secure` только при `COOKIE_SECURE=true` (иначе по HTTP вход не работает).
 - Безопасность auth: rate limit на login/register/refresh по IP (`AUTH_RATE_LIMIT_MAX`, 30/15 мин) + блокировка ip+логин после `LOGIN_FAIL_MAX` (8) неудач; CSRF — изменяющие запросы с чужим `Origin` → 403 (`ALLOWED_ORIGINS` для исключений); за proxy включать `TRUST_PROXY=true`.
 - Права на доске (этап 3): `board_members(boardId,userId,role)`, роли `owner|editor|commenter|viewer`; матрица в `packages/shared/src/permissions.ts` (`roleCan`, `canDeleteTask`) — единая для сервера и клиента (клиент только блокирует кнопки, решает сервер). Сервер: `modules/permissions/access.ts` — `requireBoardCan/requireTaskCan/requireColumnCan/requireCommentBoard/requireSubtaskBoard`; админ приложения = owner на любой доске; не участнику — 404 (существование не раскрываем), участнику с малой ролью — 403. Новая доска → создатель owner. На доске всегда ≥1 owner. Исполнитель — только участник доски; при удалении участника он снимается с задач. Доски и `myRole` приходят в `/api/boards` и `/api/boards/:id`; участники: `GET/PUT/DELETE /api/boards/:id/members[/:userId]` (UI — `components/MembersDialog.tsx`).
+- Приглашения (этап 4): таблица `invites` (email, `token_hash` sha256, глобальная `role`, `board_grants` jsonb, `expires_at` 7 дней, `used_at`, `revoked_at`). API (`modules/invites`): `GET/POST /api/invites`, `POST /api/invites/:id/resend` («новая ссылка» — старое отзывается), `DELETE /api/invites/:id` — только админ; `GET /api/invites/check?token=` — публично (rate limit). Токен виден один раз, при создании. Регистрация: `POST /api/auth/register {token, username, password}` — приглашение «занимается» атомарно в транзакции с созданием пользователя (гонка двух регистраций → одна пройдёт; ник занят → ссылка остаётся живой); email берётся из приглашения; роль и доски из `board_grants` выдаются сразу; повторное приглашение на тот же email отзывает прежнее. Фронт: `pages/RegisterPage` (`/register?token=`), `pages/AdminPage` + `features/admin/InvitesPanel`. Первый админ — через `ADMIN_USERNAME`/`ADMIN_PASSWORD`.
+- Тесты создают пользователей через `src/test-utils.ts` (`signupUser`), минуя приглашения.
 - SSE фильтруется по доскам (`modules/events/routes.ts`): события с `boardId` получают только участники (админ — все); `boards`/`members`/`users` доходят всем как сигнал «перезапроси». События `subtasks`/`comments` несут `boardId`.
 - Dev: Vite-прокси с `changeOrigin: false` (иначе CSRF-проверка Origin vs Host отклоняет POST из браузера).
 - Роль пользователя `users.role` (`admin|member`); первый админ — `ADMIN_USERNAME` (+`ADMIN_PASSWORD`, `ADMIN_EMAIL`) при старте, если админов нет (`modules/auth/bootstrap.ts`). `requireAdmin` в `guard.ts` — для будущей админки.
@@ -84,7 +86,7 @@ Promo (`promo/`): Motion Canvas, сцены `src/scenes/*.tsx`, общий на�
 
 - Пользователь ещё не прокликал UI в браузере — ждём список багов.
 - Перед публикацией: HTTPS (Caddy в compose не добавлен; нужен и для уведомлений вне localhost), лимит попыток входа (rate limit), `git init`, регулярный бэкап тома (cron). До этого не выставлять в интернет.
-- Нет: инвайтов (регистрация по общему `ACCESS_PASSWORD`), админки, прав на уровне отдельной задачи (этапы 4–6 плана).
+- Нет: полноценной админки (пользователи, блокировка, журнал — этап 6), прав на уровне отдельной задачи (этап 5), отправки писем (SMTP нет: ссылку-приглашение админ пересылает сам).
 - Нет смены пароля, удаления пользователя, чистки просроченных сессий, CI.
 - Напоминания о дедлайнах (нужен планировщик), перетаскивание подзадач, несколько исполнителей — не сделано.
 - Озвучка видео: голос Milena не прослушан автором (проверялось числами); если не понравится — запись диктором или другой TTS.

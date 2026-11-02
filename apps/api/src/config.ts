@@ -7,8 +7,6 @@ if (existsSync(envFile)) process.loadEnvFile(envFile);
 export interface Config {
   port: number;
   databaseUrl: string;
-  /** временный ключ регистрации; уйдёт на этапе «инвайты» */
-  accessPassword: string;
   /** секрет подписи access JWT (HS256), в проде ≥ 32 символов */
   jwtSecret: string;
   secureCookies: boolean;
@@ -36,7 +34,6 @@ export function loadConfig(overrides: Partial<Config> = {}): Config {
   return {
     port: Number(env.PORT ?? 3100),
     databaseUrl: env.DATABASE_URL ?? 'postgres://taskterm:taskterm@localhost:5442/taskterm',
-    accessPassword: env.ACCESS_PASSWORD ?? 'change-me',
     jwtSecret: env.JWT_SECRET ?? DEV_JWT_SECRET,
     // true только если приложение стоит за HTTPS; иначе по http cookie не сохранится
     secureCookies: env.COOKIE_SECURE === 'true',

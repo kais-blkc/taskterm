@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { meSchema, type Credentials, type LoginInput, type Me } from '@taskterm/shared';
+import { meSchema, type LoginInput, type Me, type RegisterInput } from '@taskterm/shared';
 import { API_ENDPOINTS } from '../consts/endpoints';
 import { api, ApiError, setSessionLostHandler } from './client';
 
@@ -34,14 +34,19 @@ export function useSessionGuard() {
   }, [qc]);
 }
 
-export function useAuth(mode: 'login' | 'register') {
+export function useLogin() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (c: LoginInput | Credentials) =>
-      api<Me>(mode === 'login' ? API_ENDPOINTS.AUTH_LOGIN : API_ENDPOINTS.AUTH_REGISTER, {
-        method: 'POST',
-        body: c,
-      }),
+    mutationFn: (c: LoginInput) => api<Me>(API_ENDPOINTS.AUTH_LOGIN, { method: 'POST', body: c }),
+    onSuccess: (user) => qc.setQueryData(meKey, user),
+  });
+}
+
+/** Регистрация по ссылке-приглашению; сервер сразу выставляет cookies, пользователь входит */
+export function useRegister() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (c: RegisterInput) => api<Me>(API_ENDPOINTS.AUTH_REGISTER, { method: 'POST', body: c }),
     onSuccess: (user) => qc.setQueryData(meKey, user),
   });
 }

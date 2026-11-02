@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { Link, Outlet } from 'react-router-dom';
-import type { User } from '@taskterm/shared';
+import type { Me } from '@taskterm/shared';
 import { CommandPalette } from '../components/CommandPalette';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { HelpOverlay } from '../components/HelpOverlay';
@@ -13,7 +13,7 @@ import { NotifyToggle } from '../components/NotifyToggle';
 import { ProfileMenu } from '../components/ProfileMenu';
 import { ThemeSettings } from '../components/ThemeSettings';
 
-export function Layout({ user }: { user: User }) {
+export function Layout({ user }: { user: Me }) {
   const logout = useLogout();
   useServerEvents(user);
 
@@ -47,6 +47,11 @@ export function Layout({ user }: { user: User }) {
           >
             {MOD_KEY}+K
           </button>
+          {user.role === 'admin' && (
+            <Link to={ROUTES.ADMIN} className="btn" title="админ-панель">
+              admin
+            </Link>
+          )}
           <NotifyToggle />
           <ThemeSettings />
           <ProfileMenu user={user} />

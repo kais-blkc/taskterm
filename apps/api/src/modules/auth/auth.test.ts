@@ -3,19 +3,19 @@ import { eq } from 'drizzle-orm';
 import { buildApp } from '../../app';
 import { loadConfig, type Config } from '../../config';
 import { refreshTokens, users } from '../../db/schema';
+import { signupUser } from '../../test-utils';
 import { ensureAdmin } from './bootstrap';
 import { ACCESS_COOKIE, REFRESH_COOKIE } from './guard';
 import { ROTATION_GRACE_MS } from './service';
 import { signAccess } from './tokens';
 
-const creds = { username: 'alice', password: 'secret123', accessPassword: 'gate' };
 type Res = Awaited<ReturnType<Awaited<ReturnType<typeof buildApp>>['inject']>>;
 
 describe('auth (JWT + refresh)', () => {
   let app: Awaited<ReturnType<typeof buildApp>>;
 
   const start = async (over: Partial<Config> = {}) => {
-    app = await buildApp(loadConfig({ databaseUrl: ':memory:', accessPassword: 'gate', ...over }), { logger: false });
+    app = await buildApp(loadConfig({ databaseUrl: ':memory:', ...over }), { logger: false });
     await app.ready();
   };
   beforeEach(() => start());
@@ -33,14 +33,10 @@ describe('auth (JWT + refresh)', () => {
     const r = cookieVal(res, REFRESH_COOKIE);
     return { access: `${ACCESS_COOKIE}=${a}`, refresh: `${REFRESH_COOKIE}=${r}`, both: `${ACCESS_COOKIE}=${a}; ${REFRESH_COOKIE}=${r}` };
   };
-  const signup = async () => jar(await post('/api/auth/register', creds));
+  const signup = async () => jar(await signupUser(app, 'alice'));
 
-  it('rejects wrong access key on register', async () => {
-    expect((await post('/api/auth/register', { ...creds, accessPassword: 'nope' })).statusCode).toBe(401);
-  });
-
-  it('register sets httpOnly access + refresh cookies; refresh is scoped to /api/auth', async () => {
-    const res = await post('/api/auth/register', creds);
+  it('login sets httpOnly access + refresh cookies; refresh is scoped to /api/auth', async () => {
+    const res = await signupUser(app, 'alice');
     expect(res.statusCode).toBe(200);
     expect(res.json()).toMatchObject({ username: 'alice', role: 'member', email: null });
     const access = res.cookies.find((c) => c.name === ACCESS_COOKIE)!;
@@ -57,11 +53,6 @@ describe('auth (JWT + refresh)', () => {
     expect((await get('/api/auth/me', `${ACCESS_COOKIE}=garbage`)).statusCode).toBe(401);
   });
 
-  it('rejects duplicate username', async () => {
-    await signup();
-    expect((await post('/api/auth/register', creds)).statusCode).toBe(409);
-  });
-
   it('login needs only username+password; wrong password is 401', async () => {
     await signup();
     const ok = await post('/api/auth/login', { username: 'alice', password: 'secret123' });
@@ -71,7 +62,7 @@ describe('auth (JWT + refresh)', () => {
   });
 
   it('expired access token → 401, refresh gives a new working one', async () => {
-    const first = await post('/api/auth/register', creds);
+    const first = await signupUser(app, 'alice');
     const me = first.json();
     const expired = await signAccess(app.jwtSecret, { userId: me.id, role: 'member', ver: 0 }, -10);
     expect((await get('/api/auth/me', `${ACCESS_COOKIE}=${expired}`)).statusCode).toBe(401);
@@ -84,7 +75,7 @@ describe('auth (JWT + refresh)', () => {
   });
 
   it('JWT signed with another secret or tampered is rejected', async () => {
-    const res = await post('/api/auth/register', creds);
+    const res = await signupUser(app, 'alice');
     const forged = await signAccess('x'.repeat(40), { userId: res.json().id, role: 'admin', ver: 0 });
     expect((await get('/api/auth/me', `${ACCESS_COOKIE}=${forged}`)).statusCode).toBe(401);
   });
@@ -95,7 +86,7 @@ describe('auth (JWT + refresh)', () => {
   });
 
   it('reusing an old refresh token after the grace window kills the whole chain', async () => {
-    const first = jar(await post('/api/auth/register', creds));
+    const first = jar(await signupUser(app, 'alice'));
     const second = jar(await post('/api/auth/refresh', undefined, first.refresh));
 
     vi.useFakeTimers({ toFake: ['Date'] });
@@ -108,7 +99,7 @@ describe('auth (JWT + refresh)', () => {
   });
 
   it('parallel refresh from another tab (within grace) gets an access token without rotating again', async () => {
-    const first = jar(await post('/api/auth/register', creds));
+    const first = jar(await signupUser(app, 'alice'));
     const a = await post('/api/auth/refresh', undefined, first.refresh);
     const b = await post('/api/auth/refresh', undefined, first.refresh);
     expect(b.statusCode).toBe(200);
@@ -119,7 +110,7 @@ describe('auth (JWT + refresh)', () => {
   });
 
   it('logout revokes the refresh chain and clears cookies', async () => {
-    const j = jar(await post('/api/auth/register', creds));
+    const j = jar(await signupUser(app, 'alice'));
     const out = await post('/api/auth/logout', undefined, j.both);
     expect(out.statusCode).toBe(204);
     expect(out.cookies.map((c) => c.name).sort()).toEqual([ACCESS_COOKIE, REFRESH_COOKIE].sort());
@@ -127,7 +118,7 @@ describe('auth (JWT + refresh)', () => {
   });
 
   it('logout-all invalidates already issued access tokens immediately and all refresh tokens', async () => {
-    const d1 = jar(await post('/api/auth/register', creds));
+    const d1 = jar(await signupUser(app, 'alice'));
     const d2 = jar(await post('/api/auth/login', { username: 'alice', password: 'secret123' }));
     expect((await post('/api/auth/logout-all', undefined, d1.access)).statusCode).toBe(204);
     expect((await get('/api/auth/me', d2.access)).statusCode).toBe(401);
@@ -135,7 +126,7 @@ describe('auth (JWT + refresh)', () => {
   });
 
   it('blocked user: login, existing access and refresh all stop working', async () => {
-    const j = jar(await post('/api/auth/register', creds));
+    const j = jar(await signupUser(app, 'alice'));
     await app.db.update(users).set({ isActive: false }).where(eq(users.username, 'alice'));
     expect((await get('/api/auth/me', j.access)).statusCode).toBe(401);
     expect((await post('/api/auth/refresh', undefined, j.refresh)).statusCode).toBe(401);
@@ -143,7 +134,7 @@ describe('auth (JWT + refresh)', () => {
   });
 
   it('role change via token_version bump is picked up (stale token rejected)', async () => {
-    const j = jar(await post('/api/auth/register', creds));
+    const j = jar(await signupUser(app, 'alice'));
     await app.db.update(users).set({ role: 'admin', tokenVersion: 1 }).where(eq(users.username, 'alice'));
     expect((await get('/api/auth/me', j.access)).statusCode).toBe(401);
     const re = await post('/api/auth/refresh', undefined, j.refresh);
@@ -151,7 +142,7 @@ describe('auth (JWT + refresh)', () => {
   });
 
   it('refresh tokens are stored hashed, never raw', async () => {
-    const j = await post('/api/auth/register', creds);
+    const j = await signupUser(app, 'alice');
     const raw = cookieVal(j, REFRESH_COOKIE)!;
     const rows = await app.db.select().from(refreshTokens);
     expect(rows).toHaveLength(1);

@@ -1,24 +1,23 @@
-import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { credentialsSchema, loginSchema, type Credentials } from '@taskterm/shared';
-import { useAuth } from '../api/auth';
+import { loginSchema, type LoginInput } from '@taskterm/shared';
+import { useLogin } from '../api/auth';
 
+/** Вход. Регистрации здесь нет: аккаунт создаётся только по ссылке-приглашению от администратора. */
 export function AuthPage() {
-  const [mode, setMode] = useState<'login' | 'register'>('login');
-  const auth = useAuth(mode);
+  const login = useLogin();
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<Credentials>({ resolver: zodResolver(mode === 'login' ? loginSchema : credentialsSchema) as never });
+  } = useForm<LoginInput>({ resolver: zodResolver(loginSchema) });
 
-  const field = (name: keyof Credentials, label: string, type = 'text') => (
+  const field = (name: keyof LoginInput, label: string, type = 'text') => (
     <label className="block">
       <span className="text-muted">{label}:</span>
       <input
         type={type}
-        autoComplete={name === 'password' ? (mode === 'login' ? 'current-password' : 'new-password') : 'off'}
+        autoComplete={name === 'password' ? 'current-password' : 'username'}
         className="mt-1 block w-full border border-line bg-elev px-2 py-1 text-fg outline-none focus:border-accent"
         {...register(name)}
       />
@@ -31,31 +30,15 @@ export function AuthPage() {
       <h1 className="mb-6">
         <span className="text-muted">$</span> taskterm <span className="cursor" />
       </h1>
-      <div className="mb-4 flex gap-4">
-        {(['login', 'register'] as const).map((m) => (
-          <button
-            key={m}
-            type="button"
-            onClick={() => setMode(m)}
-            className={`btn ${mode === m ? 'btn-active' : ''}`}
-          >
-            {m}
-          </button>
-        ))}
-      </div>
-      <form onSubmit={handleSubmit((v) => auth.mutate(v))} className="space-y-4">
+      <form onSubmit={handleSubmit((v) => login.mutate(v))} className="space-y-4">
         {field('username', 'username')}
         {field('password', 'password', 'password')}
-        {mode === 'register' && field('accessPassword', 'access key', 'password')}
-        {auth.error && <p className="text-danger">! {auth.error.message}</p>}
-        <button
-          type="submit"
-          disabled={auth.isPending}
-          className="btn btn-primary px-3"
-        >
-          {auth.isPending ? '...' : `> ${mode}`}
+        {login.error && <p className="text-danger">! {login.error.message}</p>}
+        <button type="submit" disabled={login.isPending} className="btn btn-primary px-3">
+          {login.isPending ? '...' : '> login'}
         </button>
       </form>
+      <p className="mt-6 text-xs text-muted">// доступ только по приглашению — попроси ссылку у администратора</p>
     </main>
   );
 }

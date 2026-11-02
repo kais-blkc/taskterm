@@ -2,24 +2,21 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { serverEventSchema, type ServerEvent } from '@taskterm/shared';
 import { buildApp } from '../../app';
 import { loadConfig } from '../../config';
+import { signupUser } from '../../test-utils';
 
 describe('SSE events', () => {
   let app: Awaited<ReturnType<typeof buildApp>>;
   let base: string;
 
   const register = async (username: string) => {
-    const res = await app.inject({
-      method: 'POST',
-      url: '/api/auth/register',
-      payload: { username, password: 'secret123', accessPassword: 'gate' },
-    });
+    const res = await signupUser(app, username);
     return `${res.cookies[0]!.name}=${res.cookies[0]!.value}`;
   };
   const call = (cookie: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE', url: string, payload?: object) =>
     app.inject({ method, url, payload, headers: { cookie } });
 
   beforeEach(async () => {
-    app = await buildApp(loadConfig({ databaseUrl: ':memory:', accessPassword: 'gate' }), { logger: false });
+    app = await buildApp(loadConfig({ databaseUrl: ':memory:' }), { logger: false });
     await app.listen({ port: 0, host: '127.0.0.1' });
     base = `http://127.0.0.1:${(app.server.address() as { port: number }).port}`;
   });

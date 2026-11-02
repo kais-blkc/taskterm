@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { BOARD_ROLES, canDeleteTask, roleCan, type BoardAction, type BoardRole } from '@taskterm/shared';
 import { buildApp } from '../../app';
 import { loadConfig } from '../../config';
+import { signupUser } from '../../test-utils';
 
 describe('role matrix (shared)', () => {
   const rows: [BoardAction, BoardRole[]][] = [
@@ -40,11 +41,7 @@ describe('board roles (API)', () => {
   const call = (u: U, method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE', url: string, payload?: object) =>
     app.inject({ method, url, payload, headers: { cookie: u.cookie } });
   const register = async (username: string): Promise<U> => {
-    const res = await app.inject({
-      method: 'POST',
-      url: '/api/auth/register',
-      payload: { username, password: 'secret123', accessPassword: 'gate' },
-    });
+    const res = await signupUser(app, username);
     return { cookie: `${res.cookies[0]!.name}=${res.cookies[0]!.value}`, id: res.json().id };
   };
   const addTask = async (u: U, title: string) =>
@@ -52,7 +49,7 @@ describe('board roles (API)', () => {
 
   beforeEach(async () => {
     app = await buildApp(
-      loadConfig({ databaseUrl: ':memory:', accessPassword: 'gate', adminUsername: 'root', adminPassword: 'rootpass1' }),
+      loadConfig({ databaseUrl: ':memory:', adminUsername: 'root', adminPassword: 'rootpass1' }),
       { logger: false },
     );
     await app.ready();
