@@ -5,6 +5,8 @@ export const subtaskSchema = z.object({
   taskId: z.number().int(),
   title: z.string(),
   done: z.boolean(),
+  /** кто добавил пункт (null — неизвестно/пользователь удалён) */
+  createdBy: z.number().int().nullable(),
   createdAt: z.string(),
 });
 export type Subtask = z.infer<typeof subtaskSchema>;

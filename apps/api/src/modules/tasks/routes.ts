@@ -10,9 +10,16 @@ import {
 } from '@taskterm/shared';
 import type { Db } from '../../db/client';
 import type { EventHub } from '../../plugins/hub';
-import { canDeleteTask } from '@taskterm/shared';
+import {
+  canDeleteTask,
+  canEditField,
+  canManageTask,
+  taskPolicySchema,
+  transferOwnerSchema,
+  type PolicyField,
+} from '@taskterm/shared';
 import { requireUser } from '../auth/guard';
-import { ForbiddenError, requireBoardCan, requireTaskCan } from '../permissions/access';
+import { ForbiddenError, LOCKED_MESSAGE, actorOf, requireBoardCan, requireTaskCan } from '../permissions/access';
 import * as svc from './service';
 
 export async function taskRoutes(app: FastifyInstance, opts: { db: Db; hub: EventHub }) {
@@ -43,7 +50,16 @@ export async function taskRoutes(app: FastifyInstance, opts: { db: Db; hub: Even
     '/api/tasks/:id',
     { schema: { params: idParamSchema, body: updateTaskSchema, response: { 200: taskSchema, ...err } } },
     async (req) => {
-      const { task: before } = await requireTaskCan(db, req.user, req.params.id, 'editTask');
+      const { task: before, role } = await requireTaskCan(db, req.user, req.params.id, 'editTask');
+      // политика задачи: проверяем только поля, которые реально меняются
+      const actor = actorOf(before, req.user, role);
+      const b = req.body;
+      const touched: PolicyField[] = [];
+      if (b.title !== undefined && b.title !== before.title) touched.push('title');
+      if (b.description !== undefined && b.description !== before.description) touched.push('description');
+      if (b.assigneeId !== undefined && b.assigneeId !== before.assigneeId) touched.push('assignee');
+      if (b.dueDate !== undefined && b.dueDate !== before.dueDate) touched.push('dueDate');
+      for (const f of touched) if (!canEditField(before.policy, actor, f)) throw new ForbiddenError(LOCKED_MESSAGE);
       const task = await svc.updateTask(db, req.params.id, req.body);
       hub.emit({ type: 'board', boardId: task.boardId, by: req.user.id });
       // назначили другого человека (не себя) — ему уведомление
@@ -77,10 +93,37 @@ export async function taskRoutes(app: FastifyInstance, opts: { db: Db; hub: Even
     '/api/tasks/:id/move',
     { schema: { params: idParamSchema, body: moveTaskSchema, response: { 200: taskSchema, ...err } } },
     async (req) => {
-      await requireTaskCan(db, req.user, req.params.id, 'editTask');
+      const { task: before, role } = await requireTaskCan(db, req.user, req.params.id, 'editTask');
+      if (!canEditField(before.policy, actorOf(before, req.user, role), 'move')) throw new ForbiddenError(LOCKED_MESSAGE);
       const task = await svc.moveTask(db, req.params.id, req.body);
       hub.emit({ type: 'board', boardId: task.boardId, by: req.user.id });
       return task;
+    },
+  );
+
+  // политику меняет owner задачи, владелец доски или админ
+  r.put(
+    '/api/tasks/:id/policy',
+    { schema: { params: idParamSchema, body: taskPolicySchema, response: { 200: taskSchema, ...err } } },
+    async (req) => {
+      const { task, role } = await requireTaskCan(db, req.user, req.params.id, 'view');
+      if (!canManageTask(actorOf(task, req.user, role))) throw new ForbiddenError('only the task owner can change rights');
+      const updated = await svc.setPolicy(db, task.id, req.body);
+      hub.emit({ type: 'board', boardId: task.boardId, by: req.user.id });
+      return updated;
+    },
+  );
+
+  // передача владения: owner задачи, владелец доски или админ; новый owner — участник доски с правом редактировать
+  r.post(
+    '/api/tasks/:id/owner',
+    { schema: { params: idParamSchema, body: transferOwnerSchema, response: { 200: taskSchema, ...err } } },
+    async (req) => {
+      const { task, role } = await requireTaskCan(db, req.user, req.params.id, 'view');
+      if (!canManageTask(actorOf(task, req.user, role))) throw new ForbiddenError('only the task owner can transfer it');
+      const updated = await svc.transferOwner(db, task.id, req.body.userId);
+      hub.emit({ type: 'board', boardId: task.boardId, by: req.user.id });
+      return updated;
     },
   );
 }

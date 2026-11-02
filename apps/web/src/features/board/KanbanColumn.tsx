@@ -14,7 +14,7 @@ export function KanbanColumn({
   stats,
   finished,
   meId,
-  canEdit,
+  canMove,
   canCreate,
   canManage,
   canDeleteTask,
@@ -31,8 +31,8 @@ export function KanbanColumn({
   /** последняя колонка доски («Сделано») */
   finished: boolean;
   meId: number;
-  /** перетаскивать задачи (роль editor и выше) */
-  canEdit: boolean;
+  /** перетаскивать задачу (роль editor и выше и политика задачи) */
+  canMove: (t: Task) => boolean;
   canCreate: boolean;
   /** колонки: переименовать/удалить (owner) */
   canManage: boolean;
@@ -107,7 +107,7 @@ export function KanbanColumn({
               stat={stats.get(t.id)}
               finished={finished}
               selected={t.id === selectedTaskId}
-              canDrag={canEdit}
+              canDrag={canMove(t)}
               canDelete={canDeleteTask(t)}
               onDelete={() => onDeleteTask(t.id)} onOpen={() => onOpenTask(t.id)} />
           ))}

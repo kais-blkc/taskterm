@@ -1,5 +1,16 @@
 import { useMemo, useState } from 'react';
-import { CHECKLIST_MAX_ITEMS, parseChecklist, type Subtask } from '@taskterm/shared';
+import {
+  CHECKLIST_MAX_ITEMS,
+  SUBTASK_MODE_LABELS,
+  canAddSubtask,
+  canChangeSubtask,
+  canCheckSubtask,
+  isPolicyExempt,
+  parseChecklist,
+  type Subtask,
+  type Task,
+  type TaskActor,
+} from '@taskterm/shared';
 import { useSubtaskMutations, useSubtasks } from '../../api/subtasks';
 
 function Progress({ done, total }: { done: number; total: number }) {
@@ -15,13 +26,15 @@ function Progress({ done, total }: { done: number; total: number }) {
 
 function SubtaskRow({
   s,
-  readOnly,
+  canToggle,
+  canChange,
   onToggle,
   onRename,
   onRemove,
 }: {
   s: Subtask;
-  readOnly: boolean;
+  canToggle: boolean;
+  canChange: boolean;
   onToggle: () => void;
   onRename: (title: string) => void;
   onRemove: () => void;
@@ -34,10 +47,10 @@ function SubtaskRow({
         role="checkbox"
         aria-checked={s.done}
         aria-label={s.done ? 'снять отметку' : 'отметить выполненной'}
-        disabled={readOnly}
+        disabled={!canToggle}
         onClick={onToggle}
         className={`inline-flex h-4 w-4 shrink-0 items-center justify-center border text-xs leading-none ${
-          s.done ? 'border-accent bg-accent text-bg' : 'border-fg-muted hover:border-accent'} ${readOnly ? 'cursor-default' : ''
+          s.done ? 'border-accent bg-accent text-bg' : 'border-fg-muted hover:border-accent'} ${canToggle ? '' : 'cursor-default'}
         }`}
       >
         {s.done && '✓'}
@@ -60,14 +73,14 @@ function SubtaskRow({
         />
       ) : (
         <span
-          className={`flex-1 break-words ${readOnly ? '' : 'cursor-text'} ${s.done ? 'text-muted line-through' : ''}`}
-          title={readOnly ? undefined : 'клик — переименовать'}
-          onClick={() => !readOnly && setEditing(true)}
+          className={`flex-1 break-words ${canChange ? 'cursor-text' : ''} ${s.done ? 'text-muted line-through' : ''}`}
+          title={canChange ? 'клик — переименовать' : undefined}
+          onClick={() => canChange && setEditing(true)}
         >
           {s.title}
         </span>
       )}
-      {!readOnly && <button
+      {canChange && <button
         type="button"
         title="удалить подзадачу"
         onClick={onRemove}
@@ -79,7 +92,11 @@ function SubtaskRow({
   );
 }
 
-export function Subtasks({ taskId, boardId, readOnly }: { taskId: number; boardId: number; readOnly: boolean }) {
+export function Subtasks({ task, boardId, actor, userId }: { task: Task; boardId: number; actor: TaskActor; userId: number }) {
+  const taskId = task.id;
+  const canCheck = canCheckSubtask(actor);
+  const canAdd = canAddSubtask(task.policy, actor);
+  const restricted = canCheck && !isPolicyExempt(actor) && task.policy.subtasks !== 'free';
   const { data, isLoading, error } = useSubtasks(taskId);
   const m = useSubtaskMutations(taskId, boardId);
   const [title, setTitle] = useState('');
@@ -118,7 +135,8 @@ export function Subtasks({ taskId, boardId, readOnly }: { taskId: number; boardI
           <SubtaskRow
             key={s.id}
             s={s}
-            readOnly={readOnly}
+            canToggle={canCheck}
+            canChange={canChangeSubtask(task.policy, actor, s.createdBy, userId)}
             onToggle={() => m.update.mutate({ id: s.id, done: !s.done })}
             onRename={(t) => m.update.mutate({ id: s.id, title: t })}
             onRemove={() => m.remove.mutate(s.id)}
@@ -127,7 +145,13 @@ export function Subtasks({ taskId, boardId, readOnly }: { taskId: number; boardI
       </ul>
       {m.addMany.error && <p className="text-danger">! {m.addMany.error.message}</p>}
 
-      {readOnly ? null : listMode ? (
+      {restricted && (
+        <p className="text-muted">
+          🔒 owner задачи ограничил подзадачи: {SUBTASK_MODE_LABELS[task.policy.subtasks]}
+        </p>
+      )}
+
+      {!canAdd ? null : listMode ? (
         <div className="space-y-2">
           <textarea
             autoFocus

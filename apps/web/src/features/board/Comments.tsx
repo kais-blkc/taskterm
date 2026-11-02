@@ -115,12 +115,15 @@ export function Comments({
   taskId,
   userId,
   canComment,
+  commentsLocked = false,
   canModerate,
 }: {
   taskId: number;
   userId: number;
   /** писать комментарии, править и удалять свои */
   canComment: boolean;
+  /** owner задачи закрыл комментарии для остальных */
+  commentsLocked?: boolean;
   /** удалять чужие (владелец доски) */
   canModerate: boolean;
 }) {
@@ -146,7 +149,9 @@ export function Comments({
       {canComment ? (
         <CommentForm submitLabel="send" pending={m.add.isPending} onSubmit={(body) => m.add.mutate(body)} />
       ) : (
-        <p className="text-muted">// у тебя роль «наблюдатель» — комментировать нельзя</p>
+        <p className="text-muted">
+          {commentsLocked ? '🔒 owner задачи закрыл новые комментарии' : '// у тебя роль «наблюдатель» — комментировать нельзя'}
+        </p>
       )}
     </section>
   );

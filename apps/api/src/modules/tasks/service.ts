@@ -1,6 +1,6 @@
 import { and, asc, eq, ne, sql } from 'drizzle-orm';
 import { generateKeyBetween } from 'fractional-indexing';
-import type { MoveTaskInput } from '@taskterm/shared';
+import { roleCan, type MoveTaskInput, type TaskPolicy } from '@taskterm/shared';
 import { first, type Db } from '../../db/client';
 import { boardMembers, boards, columns, tasks } from '../../db/schema';
 import { NotFoundError } from '../boards/service';
@@ -80,6 +80,26 @@ export async function updateTask(
     .set({ ...patch, updatedAt: new Date().toISOString() })
     .where(eq(tasks.id, id))
     .returning();
+  return row!;
+}
+
+export async function setPolicy(db: Db, id: number, policy: TaskPolicy) {
+  const row = first(await db.update(tasks).set({ policy, updatedAt: new Date().toISOString() }).where(eq(tasks.id, id)).returning());
+  if (!row) throw new NotFoundError('task not found');
+  return row;
+}
+
+/** Новый owner — участник доски, который может редактировать задачи (владелец доски/редактор) */
+export async function transferOwner(db: Db, id: number, userId: number) {
+  const task = await getTask(db, id);
+  const member = first(
+    await db
+      .select({ role: boardMembers.role })
+      .from(boardMembers)
+      .where(and(eq(boardMembers.boardId, task.boardId), eq(boardMembers.userId, userId))),
+  );
+  if (!member || !roleCan(member.role, 'editTask')) throw new BadRequestError('new owner must be a board editor or owner');
+  const [row] = await db.update(tasks).set({ authorId: userId, updatedAt: new Date().toISOString() }).where(eq(tasks.id, id)).returning();
   return row!;
 }
 

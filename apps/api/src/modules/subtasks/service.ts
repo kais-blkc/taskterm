@@ -15,18 +15,18 @@ export async function listSubtasks(db: Db, taskId: number) {
   return db.select().from(subtasks).where(eq(subtasks.taskId, taskId)).orderBy(asc(subtasks.id));
 }
 
-export async function createSubtask(db: Db, taskId: number, title: string) {
+export async function createSubtask(db: Db, taskId: number, title: string, userId: number) {
   const task = await getTask(db, taskId);
-  const [row] = await db.insert(subtasks).values({ taskId, title }).returning();
+  const [row] = await db.insert(subtasks).values({ taskId, title, createdBy: userId }).returning();
   return { subtask: row!, boardId: task.boardId };
 }
 
-export async function createSubtasks(db: Db, taskId: number, items: { title: string; done?: boolean }[]) {
+export async function createSubtasks(db: Db, taskId: number, items: { title: string; done?: boolean }[], userId: number) {
   const task = await getTask(db, taskId);
   const rows = items.length
     ? await db
         .insert(subtasks)
-        .values(items.map((it) => ({ taskId, title: it.title, done: it.done ?? false })))
+        .values(items.map((it) => ({ taskId, title: it.title, done: it.done ?? false, createdBy: userId })))
         .returning()
     : [];
   // порядок вставки = порядок id; returning отдаёт строки в порядке values

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { commentSchema, type Comment, type Task } from '@taskterm/shared';
+import { commentSchema, type Comment, type Task, type TaskPolicy } from '@taskterm/shared';
 import { z } from 'zod';
 import { API_ENDPOINTS } from '../consts/endpoints';
 import { api } from './client';
@@ -15,6 +15,22 @@ export function useUpdateTask(boardId: number) {
         method: 'PATCH',
         body: { title: v.title, description: v.description, assigneeId: v.assigneeId, dueDate: v.dueDate },
       }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: boardKey(boardId) }),
+  });
+}
+
+export function useSetPolicy(boardId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { id: number; policy: TaskPolicy }) => api<Task>(API_ENDPOINTS.TASK_POLICY(v.id), { method: 'PUT', body: v.policy }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: boardKey(boardId) }),
+  });
+}
+
+export function useTransferOwner(boardId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { id: number; userId: number }) => api<Task>(API_ENDPOINTS.TASK_OWNER(v.id), { method: 'POST', body: { userId: v.userId } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: boardKey(boardId) }),
   });
 }

@@ -1,5 +1,5 @@
 import { and, eq } from 'drizzle-orm';
-import { roleCan, type BoardAction, type BoardRole } from '@taskterm/shared';
+import { roleCan, type BoardAction, type BoardRole, type TaskActor } from '@taskterm/shared';
 import { first, type Db } from '../../db/client';
 import { boardMembers, boards, columns, comments, subtasks, tasks } from '../../db/schema';
 import type { AuthUser } from '../auth/service';
@@ -96,3 +96,10 @@ export async function accessibleBoardIds(db: Db, user: AuthUser): Promise<Set<nu
   const rows = await db.select({ id: boardMembers.boardId }).from(boardMembers).where(eq(boardMembers.userId, user.id));
   return new Set(rows.map((r) => r.id));
 }
+
+/** Действующее лицо для проверки политики задачи */
+export function actorOf(task: { authorId: number }, user: AuthUser, role: BoardRole | null): TaskActor {
+  return { role, isOwner: task.authorId === user.id };
+}
+
+export const LOCKED_MESSAGE = 'locked by task owner';

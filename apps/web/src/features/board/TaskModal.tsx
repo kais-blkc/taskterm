@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { roleCan, type BoardRole, type Task, type User } from '@taskterm/shared';
+import { canCommentOn, canEditField, canManageTask, roleCan, type BoardRole, type Task, type User } from '@taskterm/shared';
 import { useBoard, useMembers } from '../../api/boards';
 import { ROUTES } from '../../consts/routes';
 import { useUpdateTask } from '../../api/tasks';
@@ -11,6 +11,7 @@ import { Select } from '../../components/Select';
 import { ColorDot, UserTag } from '../../components/UserTag';
 import { Comments } from './Comments';
 import { Subtasks } from './Subtasks';
+import { TaskRights } from './TaskRights';
 
 function TaskBody({
   task,
@@ -31,7 +32,12 @@ function TaskBody({
   const users = useUsers();
   const members = useMembers(boardId);
   // править поля задачи, подзадачи и описание может редактор и выше; остальные только читают
+  const actor = { role, isOwner: task.authorId === user.id };
   const canEdit = roleCan(role, 'editTask');
+  const can = (f: Parameters<typeof canEditField>[2]) => canEditField(task.policy, actor, f);
+  // поле закрыто политикой, хотя по роли его можно было бы менять
+  const lockedBy = (f: Parameters<typeof canEditField>[2]) => canEdit && !can(f);
+  const lock = <span className="text-muted" title="owner задачи закрыл это поле"> 🔒</span>;
   const [editingTitle, setEditingTitle] = useState(false);
   const [editingDesc, setEditingDesc] = useState(false);
   const [desc, setDesc] = useState(task.description);
@@ -42,7 +48,7 @@ function TaskBody({
         <div className="text-muted">
           #{task.number} · <span className="text-fg">{columnName}</span>
         </div>
-        {editingTitle && canEdit ? (
+        {editingTitle && can('title') ? (
           <input
             autoFocus
             defaultValue={task.title}
@@ -60,26 +66,27 @@ function TaskBody({
           />
         ) : (
           <h1
-            className={`mt-1 text-lg font-bold ${canEdit ? 'cursor-text' : ''}`}
-            title={canEdit ? 'клик — редактировать' : undefined}
-            onClick={() => canEdit && setEditingTitle(true)}
+            className={`mt-1 text-lg font-bold ${can('title') ? 'cursor-text' : ''}`}
+            title={can('title') ? 'клик — редактировать' : undefined}
+            onClick={() => can('title') && setEditingTitle(true)}
           >
             {task.title}
+            {lockedBy('title') && lock}
           </h1>
         )}
       </div>
 
       <dl className="grid grid-cols-[7rem_1fr] items-center gap-y-1 border border-line bg-bg p-3">
-        <dt className="text-muted">создал</dt>
+        <dt className="text-muted">owner</dt>
         <dd>
           <UserTag user={users.byId.get(task.authorId)} />
           <span className="text-muted"> · {formatDateTime(task.createdAt)}</span>
         </dd>
-        <dt className="text-muted">ответственный</dt>
+        <dt className="text-muted">ответственный{lockedBy('assignee') && lock}</dt>
         <dd className="flex flex-wrap items-center gap-3">
           <Select
             className="min-w-48"
-            disabled={update.isPending || !canEdit}
+            disabled={update.isPending || !can('assignee')}
             value={task.assigneeId ? String(task.assigneeId) : ''}
             placeholder="— не назначен —"
             options={[
@@ -93,7 +100,7 @@ function TaskBody({
             ]}
             onChange={(v) => update.mutate({ id: task.id, assigneeId: v ? Number(v) : null })}
           />
-          {canEdit && task.assigneeId !== user.id && members.data?.some((x) => x.id === user.id) && (
+          {can('assignee') && task.assigneeId !== user.id && members.data?.some((x) => x.id === user.id) && (
             <button
               type="button"
               disabled={update.isPending}
@@ -104,16 +111,16 @@ function TaskBody({
             </button>
           )}
         </dd>
-        <dt className="text-muted">дедлайн</dt>
+        <dt className="text-muted">дедлайн{lockedBy('dueDate') && lock}</dt>
         <dd className="flex flex-wrap items-center gap-2">
           <input
             type="date"
             value={task.dueDate ?? ''}
-            disabled={update.isPending || !canEdit}
+            disabled={update.isPending || !can('dueDate')}
             onChange={(e) => update.mutate({ id: task.id, dueDate: e.target.value || null })}
             className="border border-line bg-elev px-2 py-0.5 outline-none focus:border-accent"
           />
-          {canEdit && [
+          {can('dueDate') && [
             ['сегодня', 0],
             ['завтра', 1],
             ['+7 дней', 7],
@@ -130,7 +137,7 @@ function TaskBody({
           ))}
           {task.dueDate && (
             <>
-              {canEdit && (
+              {can('dueDate') && (
                 <button type="button" disabled={update.isPending} onClick={() => update.mutate({ id: task.id, dueDate: null })} className="btn btn-danger">
                   убрать
                 </button>
@@ -151,8 +158,8 @@ function TaskBody({
 
       <section className="space-y-2">
         <h3 className="flex justify-between">
-          <span>## description</span>
-          {canEdit && !editingDesc && (
+          <span>## description{lockedBy('description') && lock}</span>
+          {can('description') && !editingDesc && (
             <button
               type="button"
               className="btn"
@@ -194,12 +201,15 @@ function TaskBody({
         )}
       </section>
 
-      <Subtasks taskId={task.id} boardId={boardId} readOnly={!canEdit} />
+      {canManageTask(actor) && <TaskRights task={task} boardId={boardId} />}
+
+      <Subtasks task={task} boardId={boardId} actor={actor} userId={user.id} />
 
       <Comments
         taskId={task.id}
         userId={user.id}
-        canComment={roleCan(role, 'comment')}
+        canComment={canCommentOn(task.policy, actor)}
+        commentsLocked={roleCan(role, 'comment') && !canCommentOn(task.policy, actor)}
         canModerate={roleCan(role, 'deleteAnyComment')}
       />
     </div>

@@ -1,0 +1,3 @@
+ALTER TABLE "subtasks" ADD COLUMN "created_by" integer;--> statement-breakpoint
+ALTER TABLE "tasks" ADD COLUMN "policy" jsonb DEFAULT '{"lockTitle":false,"lockDescription":false,"lockAssignee":false,"lockDueDate":false,"lockMove":false,"commentsLocked":false,"subtasks":"free"}'::jsonb NOT NULL;--> statement-breakpoint
+ALTER TABLE "subtasks" ADD CONSTRAINT "subtasks_created_by_users_id_fk" FOREIGN KEY ("created_by") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;

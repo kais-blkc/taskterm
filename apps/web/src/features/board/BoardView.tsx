@@ -10,7 +10,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core';
-import { canDeleteTask, roleCan, type BoardFull, type Task } from '@taskterm/shared';
+import { canDeleteTask, canEditField, roleCan, type BoardFull, type Task } from '@taskterm/shared';
 import { useMe } from '../../api/auth';
 import { ROUTES } from '../../consts/routes';
 import { daysUntil } from '../../lib/dates';
@@ -37,6 +37,7 @@ export function BoardView({ data }: { data: BoardFull }) {
   const canEdit = roleCan(role, 'editTask');
   const canCreate = roleCan(role, 'createTask');
   const canManage = roleCan(role, 'manageBoard');
+  const canMove = (t: Task) => canEditField(t.policy, { role, isOwner: t.authorId === meId }, 'move');
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const lastColumnId = data.columns.at(-1)?.id;
@@ -137,7 +138,7 @@ export function BoardView({ data }: { data: BoardFull }) {
     setActive(null);
     const task = e.active.data.current?.task as Task | undefined;
     const over = e.over;
-    if (!task || !over || !canEdit) return;
+    if (!task || !over || !canMove(task)) return;
 
     const overData = over.data.current;
     if (overData?.type === 'column') {
@@ -206,7 +207,7 @@ export function BoardView({ data }: { data: BoardFull }) {
             stats={statsByTask}
             finished={c.id === lastColumnId}
             meId={meId}
-            canEdit={canEdit}
+            canMove={canMove}
             canCreate={canCreate}
             canManage={canManage}
             canDeleteTask={(t) => canDeleteTask(role, t.authorId === meId)}

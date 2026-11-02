@@ -4,9 +4,9 @@ import { z } from 'zod';
 import { apiErrorSchema, commentBodySchema, commentSchema, idParamSchema } from '@taskterm/shared';
 import type { Db } from '../../db/client';
 import type { EventHub } from '../../plugins/hub';
-import { roleCan } from '@taskterm/shared';
+import { canCommentOn, roleCan } from '@taskterm/shared';
 import { requireUser } from '../auth/guard';
-import { ForbiddenError, requireCommentBoard, requireTaskCan } from '../permissions/access';
+import { ForbiddenError, LOCKED_MESSAGE, actorOf, requireCommentBoard, requireTaskCan } from '../permissions/access';
 import * as svc from './service';
 
 export async function commentRoutes(app: FastifyInstance, opts: { db: Db; hub: EventHub }) {
@@ -29,7 +29,8 @@ export async function commentRoutes(app: FastifyInstance, opts: { db: Db; hub: E
     '/api/tasks/:id/comments',
     { schema: { params: idParamSchema, body: commentBodySchema, response: { 201: commentSchema, ...err } } },
     async (req, reply) => {
-      await requireTaskCan(db, req.user, req.params.id, 'comment');
+      const { task: target, role } = await requireTaskCan(db, req.user, req.params.id, 'comment');
+      if (!canCommentOn(target.policy, actorOf(target, req.user, role))) throw new ForbiddenError(LOCKED_MESSAGE);
       const { comment, task, recipients } = await svc.createComment(db, req.params.id, req.user.id, req.body.body);
       hub.emit({ type: 'comments', boardId: task.boardId, taskId: task.id, by: req.user.id });
       hub.emit({

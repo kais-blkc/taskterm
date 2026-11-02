@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { boardRoleSchema } from './permissions';
+import { taskPolicySchema } from './policy';
 import { subtaskStatSchema } from './subtasks';
 
 const name = z.string().trim().min(1).max(100);
@@ -38,9 +39,11 @@ export const taskSchema = z.object({
   title: z.string(),
   description: z.string(),
   position: z.string(),
+  /** owner задачи: создатель, пока владение не передали */
   authorId: z.number().int(),
   assigneeId: z.number().int().nullable(),
   dueDate: z.string().nullable(),
+  policy: taskPolicySchema,
   createdAt: z.string(),
   updatedAt: z.string(),
 });

@@ -1,4 +1,5 @@
 import { sql } from 'drizzle-orm';
+import { DEFAULT_TASK_POLICY, type TaskPolicy } from '@taskterm/shared';
 import { boolean, customType, date, integer, jsonb, pgTable, primaryKey, serial, text } from 'drizzle-orm/pg-core';
 
 /**
@@ -96,6 +97,8 @@ export const tasks = pgTable('tasks', {
     .references(() => users.id),
   assigneeId: integer('assignee_id').references(() => users.id),
   dueDate: date('due_date', { mode: 'string' }), // YYYY-MM-DD
+  // что остальные могут менять в задаче (решает owner задачи)
+  policy: jsonb('policy').$type<TaskPolicy>().notNull().default(DEFAULT_TASK_POLICY),
   createdAt: createdAt(),
   updatedAt: timestamptz('updated_at').notNull().default(sql`now()`),
 });
@@ -120,6 +123,7 @@ export const subtasks = pgTable('subtasks', {
     .references(() => tasks.id, { onDelete: 'cascade' }),
   title: text('title').notNull(),
   done: boolean('done').notNull().default(false),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: createdAt(),
 });
 
