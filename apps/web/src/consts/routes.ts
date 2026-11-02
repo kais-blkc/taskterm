@@ -4,6 +4,8 @@ export const ROUTES = {
   /** регистрация по приглашению: /register?token=… */
   REGISTER: '/register',
   ADMIN: '/admin',
+  /** сброс пароля по ссылке от админа: /reset?token=… */
+  RESET: '/reset',
   BOARD: (boardId: number | string): string => `/b/${boardId}`,
   TASK: (boardId: number | string, taskId: number | string): string => `/b/${boardId}/t/${taskId}`,
 };

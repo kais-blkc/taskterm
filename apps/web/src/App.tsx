@@ -5,6 +5,7 @@ import { ROUTE_PATTERNS, ROUTES } from './consts/routes';
 import { AdminPage } from './pages/AdminPage';
 import { AuthPage } from './pages/AuthPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { ResetPage } from './pages/ResetPage';
 import { BoardPage } from './pages/BoardPage';
 import { TaskModal } from './features/board/TaskModal';
 import { BoardsPage } from './pages/BoardsPage';
@@ -20,8 +21,12 @@ export function App() {
   const me = useMe();
   if (me.isLoading) return <p className="p-4 text-muted">loading...</p>;
   if (me.isError) return <p className="p-4 text-danger">! api unavailable</p>;
-  // без входа доступны только вход и регистрация по приглашению
-  if (!me.data) return pathname === ROUTES.REGISTER ? <RegisterPage /> : <AuthPage />;
+  // без входа доступны только вход, регистрация по приглашению и сброс пароля по ссылке
+  if (!me.data) {
+    if (pathname === ROUTES.REGISTER) return <RegisterPage />;
+    if (pathname === ROUTES.RESET) return <ResetPage />;
+    return <AuthPage />;
+  }
 
   return (
     <Routes>

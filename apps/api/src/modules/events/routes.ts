@@ -39,10 +39,18 @@ export async function eventRoutes(app: FastifyInstance, opts: { db: Db; hub: Eve
     const unsubscribe = hub.subscribe((event) => {
       queue = queue.then(() => handle(event)).catch(() => {});
     });
+    // блокировка/смена роли/удаление: соединение закрываем, клиент переподключится через refresh
+    const unkick = hub.onKick((id) => {
+      if (id === user.id) {
+        cleanup();
+        res.end();
+      }
+    });
     const heartbeat = setInterval(() => res.write(': ping\n\n'), 25_000);
     const cleanup = () => {
       clearInterval(heartbeat);
       unsubscribe();
+      unkick();
     };
     req.raw.on('close', cleanup);
     app.addHook('onClose', async () => {

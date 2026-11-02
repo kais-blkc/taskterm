@@ -1,3 +1,4 @@
+import { ADMIN_ENDPOINTS } from './admin';
 import { AUTH_ENDPOINTS } from './auth';
 import { BOARDS_ENDPOINTS } from './boards';
 import { EVENTS_ENDPOINTS } from './events';
@@ -15,4 +16,5 @@ export const API_ENDPOINTS = {
   ...USERS_ENDPOINTS,
   ...EVENTS_ENDPOINTS,
   ...INVITES_ENDPOINTS,
+  ...ADMIN_ENDPOINTS,
 };

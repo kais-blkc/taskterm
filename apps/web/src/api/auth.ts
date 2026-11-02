@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { meSchema, type LoginInput, type Me, type RegisterInput } from '@taskterm/shared';
+import { meSchema, resetCheckSchema, type LoginInput, type Me, type RegisterInput } from '@taskterm/shared';
 import { API_ENDPOINTS } from '../consts/endpoints';
 import { api, ApiError, setSessionLostHandler } from './client';
 
@@ -48,6 +48,25 @@ export function useRegister() {
   return useMutation({
     mutationFn: (c: RegisterInput) => api<Me>(API_ENDPOINTS.AUTH_REGISTER, { method: 'POST', body: c }),
     onSuccess: (user) => qc.setQueryData(meKey, user),
+  });
+}
+
+/** Новый пароль по ссылке сброса; сервер сразу входит под этим пользователем */
+export function useResetPassword() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { token: string; password: string }) => api<Me>(API_ENDPOINTS.AUTH_RESET, { method: 'POST', body: v }),
+    onSuccess: (user) => qc.setQueryData(meKey, user),
+  });
+}
+
+export function useResetCheck(token: string) {
+  return useQuery({
+    enabled: token.length > 0,
+    queryKey: ['reset-check', token],
+    retry: false,
+    staleTime: Infinity,
+    queryFn: async () => resetCheckSchema.parse(await api(`${API_ENDPOINTS.AUTH_RESET_CHECK}?token=${encodeURIComponent(token)}`)),
   });
 }
 

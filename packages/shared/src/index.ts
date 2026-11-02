@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+export * from './admin';
 export * from './auth';
 export * from './boards';
 export * from './checklist';

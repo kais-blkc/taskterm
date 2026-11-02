@@ -18,6 +18,7 @@ import {
   transferOwnerSchema,
   type PolicyField,
 } from '@taskterm/shared';
+import { audit } from '../audit/service';
 import { requireUser } from '../auth/guard';
 import { ForbiddenError, LOCKED_MESSAGE, actorOf, requireBoardCan, requireTaskCan } from '../permissions/access';
 import * as svc from './service';
@@ -109,6 +110,7 @@ export async function taskRoutes(app: FastifyInstance, opts: { db: Db; hub: Even
       const { task, role } = await requireTaskCan(db, req.user, req.params.id, 'view');
       if (!canManageTask(actorOf(task, req.user, role))) throw new ForbiddenError('only the task owner can change rights');
       const updated = await svc.setPolicy(db, task.id, req.body);
+      await audit(db, req.user, 'task.policy', `task:${task.boardId}/#${task.number}`, req.body);
       hub.emit({ type: 'board', boardId: task.boardId, by: req.user.id });
       return updated;
     },
@@ -122,6 +124,7 @@ export async function taskRoutes(app: FastifyInstance, opts: { db: Db; hub: Even
       const { task, role } = await requireTaskCan(db, req.user, req.params.id, 'view');
       if (!canManageTask(actorOf(task, req.user, role))) throw new ForbiddenError('only the task owner can transfer it');
       const updated = await svc.transferOwner(db, task.id, req.body.userId);
+      await audit(db, req.user, 'task.owner', `task:${task.boardId}/#${task.number}`, { toUserId: req.body.userId });
       hub.emit({ type: 'board', boardId: task.boardId, by: req.user.id });
       return updated;
     },

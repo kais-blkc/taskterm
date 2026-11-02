@@ -12,7 +12,7 @@ describe('SSE events', () => {
     const res = await signupUser(app, username);
     return `${res.cookies[0]!.name}=${res.cookies[0]!.value}`;
   };
-  const call = (cookie: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE', url: string, payload?: object) =>
+  const call = (cookie: string, method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE', url: string, payload?: object) =>
     app.inject({ method, url, payload, headers: { cookie } });
 
   beforeEach(async () => {
@@ -147,5 +147,20 @@ describe('SSE events', () => {
     await quiet();
     expect(forBoard(stream.events).length).toBe(before);
     stream.stop();
+  });
+
+  it('blocking a user closes their open stream', async () => {
+    const admin = await signupUser(app, 'root', 'secret123', 'admin');
+    const adminCookie = `${admin.cookies[0]!.name}=${admin.cookies[0]!.value}`;
+    const bob = await signupUser(app, 'bobby');
+    const bobCookie = `${bob.cookies[0]!.name}=${bob.cookies[0]!.value}`;
+    const res = await fetch(`${base}/api/events`, { headers: { cookie: bobCookie } });
+    const reader = res.body!.getReader();
+    await reader.read(); // retry: 3000
+    const closed = (async () => {
+      for (;;) if ((await reader.read()).done) return true;
+    })();
+    await call(adminCookie, 'PATCH', `/api/admin/users/${bob.json().id}`, { isActive: false });
+    expect(await Promise.race([closed, new Promise((r) => setTimeout(() => r(false), 2000))])).toBe(true);
   });
 });

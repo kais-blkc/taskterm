@@ -16,6 +16,7 @@ import {
 } from '@taskterm/shared';
 import type { Db } from '../../db/client';
 import type { EventHub } from '../../plugins/hub';
+import { audit } from '../audit/service';
 import { requireUser } from '../auth/guard';
 import { requireBoardCan, requireColumnCan } from '../permissions/access';
 import * as svc from './service';
@@ -67,6 +68,7 @@ export async function boardRoutes(app: FastifyInstance, opts: { db: Db; hub: Eve
   r.delete('/api/boards/:id', { schema: { params: idParamSchema } }, async (req, reply) => {
     await requireBoardCan(db, req.user, req.params.id, 'manageBoard');
     await svc.deleteBoard(db, req.params.id);
+    await audit(db, req.user, 'board.delete', `board:${req.params.id}`);
     hub.emit({ type: 'boards', by: req.user.id });
     return reply.code(204).send();
   });
@@ -124,6 +126,7 @@ export async function boardRoutes(app: FastifyInstance, opts: { db: Db; hub: Eve
       const { id, userId } = req.params;
       await requireBoardCan(db, req.user, id, 'manageBoard');
       await svc.setMemberRole(db, id, userId, req.body.role);
+      await audit(db, req.user, 'board.member', `board:${id}`, { userId, role: req.body.role });
       hub.emit({ type: 'members', boardId: id, by: req.user.id });
       return svc.listMembers(db, id);
     },
@@ -138,6 +141,7 @@ export async function boardRoutes(app: FastifyInstance, opts: { db: Db; hub: Eve
       if (userId !== req.user.id) await requireBoardCan(db, req.user, id, 'manageBoard');
       else await requireBoardCan(db, req.user, id, 'view');
       await svc.removeMember(db, id, userId);
+      await audit(db, req.user, 'board.member_remove', `board:${id}`, { userId });
       hub.emit({ type: 'members', boardId: id, by: req.user.id });
       hub.emit({ type: 'board', boardId: id, by: req.user.id });
       return reply.code(204).send();

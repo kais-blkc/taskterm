@@ -19,6 +19,7 @@ import { userRoutes } from './modules/users/routes';
 import { boardRoutes } from './modules/boards/routes';
 import { eventRoutes } from './modules/events/routes';
 import { EventHub } from './plugins/hub';
+import { adminRoutes } from './modules/admin/routes';
 import { inviteRoutes } from './modules/invites/routes';
 import { commentRoutes } from './modules/comments/routes';
 import { subtaskRoutes } from './modules/subtasks/routes';
@@ -85,6 +86,7 @@ export async function buildApp(config: Config, opts: { logger?: boolean } = {}) 
 
   app.register(authRoutes, { db, config, hub });
   app.register(inviteRoutes, { db, config });
+  app.register(adminRoutes, { db, hub });
   app.register(eventRoutes, { db, hub });
   app.register(userRoutes, { db, hub });
   app.register(boardRoutes, { db, hub });

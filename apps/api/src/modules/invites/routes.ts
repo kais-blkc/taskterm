@@ -11,6 +11,7 @@ import {
 } from '@taskterm/shared';
 import type { Config } from '../../config';
 import type { Db } from '../../db/client';
+import { audit } from '../audit/service';
 import { requireAdmin } from '../auth/guard';
 import * as svc from './service';
 
@@ -31,6 +32,7 @@ export async function inviteRoutes(app: FastifyInstance, opts: { db: Db; config:
     { ...admin, schema: { body: createInviteSchema, response: { 201: inviteCreatedSchema, 400: apiErrorSchema, ...err } } },
     async (req, reply) => {
       const { invite, token } = await svc.createInvite(db, req.user.id, req.body);
+      await audit(db, req.user, 'invite.create', `invite:${invite.email}`, { role: invite.role, boards: invite.boards.length });
       return reply.code(201).send({ ...invite, token });
     },
   );
@@ -40,12 +42,14 @@ export async function inviteRoutes(app: FastifyInstance, opts: { db: Db; config:
     { ...admin, schema: { params: idParamSchema, response: { 201: inviteCreatedSchema, ...err } } },
     async (req, reply) => {
       const { invite, token } = await svc.resendInvite(db, req.params.id, req.user.id);
+      await audit(db, req.user, 'invite.resend', `invite:${invite.email}`);
       return reply.code(201).send({ ...invite, token });
     },
   );
 
   r.delete('/api/invites/:id', { ...admin, schema: { params: idParamSchema } }, async (req, reply) => {
     await svc.revokeInvite(db, req.params.id);
+    await audit(db, req.user, 'invite.revoke', `invite:${req.params.id}`);
     return reply.code(204).send();
   });
 

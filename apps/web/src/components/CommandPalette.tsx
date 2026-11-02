@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMatch, useNavigate } from 'react-router-dom';
 import { useBoard, useBoards } from '../api/boards';
-import { useLogout } from '../api/auth';
+import { useLogout, useMe } from '../api/auth';
 import { ROUTES } from '../consts/routes';
 import { MOD_KEY } from '../lib/keys';
 import { notificationsSupported, useNotifyStore } from '../stores/notifications';
@@ -33,6 +33,7 @@ function PaletteInner({ close }: { close: () => void }) {
   const boards = useBoards();
   const board = useBoard(boardId, Number.isFinite(boardId));
   const logout = useLogout();
+  const isAdmin = useMe().data?.role === 'admin';
   const setPreset = useThemeStore((s) => s.setPreset);
   const notify = useNotifyStore();
   const { setHelpOpen, setAddTaskColumn } = useUiStore.getState();
@@ -44,6 +45,7 @@ function PaletteInner({ close }: { close: () => void }) {
   const all = useMemo<Cmd[]>(() => {
     const cmds: Cmd[] = [];
     cmds.push({ id: 'home', group: 'actions', label: 'go: все доски', run: () => navigate(ROUTES.HOME) });
+    if (isAdmin) cmds.push({ id: 'admin', group: 'actions', label: 'go: админ-панель', run: () => navigate(ROUTES.ADMIN) });
     if (board.data) {
       const first = board.data.columns[0];
       if (first) {

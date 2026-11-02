@@ -4,4 +4,6 @@ export const AUTH_ENDPOINTS = {
   AUTH_LOGOUT: '/auth/logout',
   AUTH_REFRESH: '/auth/refresh',
   AUTH_ME: '/auth/me',
+  AUTH_RESET: '/auth/reset',
+  AUTH_RESET_CHECK: '/auth/reset/check',
 };

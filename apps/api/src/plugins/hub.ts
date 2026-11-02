@@ -21,6 +21,18 @@ export class EventHub {
     }
   }
 
+  private kickers = new Set<(userId: number) => void>();
+
+  /** Закрыть открытые потоки пользователя (блокировка, смена роли, удаление) */
+  onKick(fn: (userId: number) => void) {
+    this.kickers.add(fn);
+    return () => this.kickers.delete(fn);
+  }
+
+  kick(userId: number) {
+    for (const fn of this.kickers) fn(userId);
+  }
+
   get size() {
     return this.listeners.size;
   }

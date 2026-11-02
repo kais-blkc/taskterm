@@ -146,3 +146,28 @@ export const invites = pgTable('invites', {
   revokedAt: timestamptz('revoked_at'),
   createdAt: createdAt(),
 });
+
+/** Одноразовая ссылка сброса пароля, которую создаёт админ (почты нет — ссылку он пересылает сам) */
+export const passwordResets = pgTable('password_resets', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  tokenHash: text('token_hash').notNull().unique(),
+  createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  expiresAt: timestamptz('expires_at').notNull(),
+  usedAt: timestamptz('used_at'),
+  createdAt: createdAt(),
+});
+
+/** Журнал действий: кто, что и над чем сделал */
+export const auditLog = pgTable('audit_log', {
+  id: serial('id').primaryKey(),
+  actorId: integer('actor_id').references(() => users.id, { onDelete: 'set null' }),
+  // имя на момент действия: после удаления пользователя запись остаётся читаемой
+  actorName: text('actor_name').notNull(),
+  action: text('action').notNull(),
+  target: text('target').notNull().default(''),
+  details: jsonb('details').$type<Record<string, unknown>>().notNull().default({}),
+  createdAt: createdAt(),
+});

@@ -13,6 +13,7 @@ export class ApiError extends Error {
 const NO_REFRESH = new Set<string>([
   API_ENDPOINTS.AUTH_LOGIN,
   API_ENDPOINTS.AUTH_REGISTER,
+  API_ENDPOINTS.AUTH_RESET,
   API_ENDPOINTS.AUTH_REFRESH,
 ]);
 

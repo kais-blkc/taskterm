@@ -1,12 +1,14 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
-import { apiErrorSchema, loginSchema, meSchema, registerSchema } from '@taskterm/shared';
+import { z } from 'zod';
+import { apiErrorSchema, loginSchema, meSchema, registerSchema, resetCheckSchema, resetPasswordSchema } from '@taskterm/shared';
 import type { Config } from '../../config';
 import type { Db } from '../../db/client';
 import type { EventHub } from '../../plugins/hub';
 import { FailureThrottle } from '../../plugins/throttle';
 import { ACCESS_COOKIE, REFRESH_COOKIE, requireUser } from './guard';
 import { InviteError, acceptInvite } from '../invites/service';
+import { AdminError, applyReset, checkReset } from '../admin/service';
 import {
   AuthError,
   endAllSessions,
@@ -59,6 +61,35 @@ export async function authRoutes(app: FastifyInstance, opts: { db: Db; config: C
         return toAuthUser(row);
       } catch (e) {
         if (e instanceof InviteError) return reply.code(e.status as 400).send({ error: e.message });
+        return fail(reply, e);
+      }
+    },
+  );
+
+  // сброс пароля по одноразовой ссылке от админа
+  r.get(
+    '/api/auth/reset/check',
+    { ...limit, schema: { querystring: z.object({ token: z.string().min(1).max(200) }), response: { 200: resetCheckSchema, 404: apiErrorSchema, 429: apiErrorSchema } } },
+    async (req, reply) => {
+      try {
+        return await checkReset(db, req.query.token);
+      } catch (e) {
+        if (e instanceof AdminError) return reply.code(404).send({ error: e.message });
+        throw e;
+      }
+    },
+  );
+
+  r.post(
+    '/api/auth/reset',
+    { ...limit, schema: { body: resetPasswordSchema, response: { 200: meSchema, ...errors } } },
+    async (req, reply) => {
+      try {
+        const row = await applyReset(db, req.body.token, req.body.password);
+        setCookies(reply, await startSession(db, secret, row, req.headers['user-agent']));
+        return toAuthUser(row);
+      } catch (e) {
+        if (e instanceof AdminError) return reply.code(400).send({ error: e.message });
         return fail(reply, e);
       }
     },
