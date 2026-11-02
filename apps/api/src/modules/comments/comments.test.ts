@@ -8,7 +8,7 @@ describe('comments', () => {
   let bob: string;
   let taskId: number;
 
-  const call = (cookie: string, method: 'GET' | 'POST' | 'PATCH' | 'DELETE', url: string, payload?: object) =>
+  const call = (cookie: string, method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE', url: string, payload?: object) =>
     app.inject({ method, url, payload, headers: { cookie } });
   const register = async (username: string) => {
     const res = await app.inject({
@@ -25,6 +25,8 @@ describe('comments', () => {
     alice = await register('alice');
     bob = await register('bob');
     const board = (await call(alice, 'POST', '/api/boards', { name: 'B' })).json();
+    const bobId = (await call(alice, 'GET', '/api/users')).json().find((u: any) => u.username === 'bob').id;
+    await call(alice, 'PUT', `/api/boards/${board.id}/members/${bobId}`, { role: 'editor' });
     const full = (await call(alice, 'GET', `/api/boards/${board.id}`)).json();
     const t = await call(alice, 'POST', `/api/boards/${board.id}/tasks`, { columnId: full.columns[0].id, title: 't' });
     taskId = t.json().id;

@@ -6,7 +6,7 @@ describe('boards & tasks', () => {
   let app: Awaited<ReturnType<typeof buildApp>>;
   let cookie: string;
 
-  const call = (method: 'GET' | 'POST' | 'PATCH' | 'DELETE', url: string, payload?: object) =>
+  const call = (method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE', url: string, payload?: object) =>
     app.inject({ method, url, payload, headers: { cookie } });
 
   beforeEach(async () => {
@@ -144,7 +144,7 @@ describe('assignees', () => {
   it('lists users without hashes, assigns, unassigns, rejects unknown user', async () => {
     const alice = await register('alice');
     const bob = await register('bob');
-    const call = (method: 'GET' | 'POST' | 'PATCH', url: string, payload?: object) =>
+    const call = (method: 'GET' | 'POST' | 'PATCH' | 'PUT', url: string, payload?: object) =>
       app.inject({ method, url, payload, headers: { cookie: alice.cookie } });
 
     const list = (await call('GET', '/api/users')).json();
@@ -155,6 +155,9 @@ describe('assignees', () => {
     const full = (await call('GET', `/api/boards/${board.id}`)).json();
     const task = (await call('POST', `/api/boards/${board.id}/tasks`, { columnId: full.columns[0].id, title: 't' })).json();
     expect(task.assigneeId).toBeNull();
+    // не участник доски не может быть исполнителем
+    expect((await call('PATCH', `/api/tasks/${task.id}`, { assigneeId: bob.id })).statusCode).toBe(400);
+    await call('PUT', `/api/boards/${board.id}/members/${bob.id}`, { role: 'editor' });
 
     const assigned = await call('PATCH', `/api/tasks/${task.id}`, { assigneeId: bob.id });
     expect(assigned.json().assigneeId).toBe(bob.id);
@@ -184,7 +187,7 @@ describe('deadlines', () => {
   });
   afterEach(() => app.close());
 
-  const call = (method: 'GET' | 'POST' | 'PATCH', url: string, payload?: object) =>
+  const call = (method: 'GET' | 'POST' | 'PATCH' | 'PUT', url: string, payload?: object) =>
     app.inject({ method, url, payload, headers: { cookie } });
 
   const mk = async (extra: object = {}) => {

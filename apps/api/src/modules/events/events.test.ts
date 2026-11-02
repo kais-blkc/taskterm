@@ -15,7 +15,7 @@ describe('SSE events', () => {
     });
     return `${res.cookies[0]!.name}=${res.cookies[0]!.value}`;
   };
-  const call = (cookie: string, method: 'GET' | 'POST', url: string, payload?: object) =>
+  const call = (cookie: string, method: 'GET' | 'POST' | 'PUT' | 'DELETE', url: string, payload?: object) =>
     app.inject({ method, url, payload, headers: { cookie } });
 
   beforeEach(async () => {
@@ -72,6 +72,7 @@ describe('SSE events', () => {
     const bobId = (await call(bob, 'GET', '/api/users')).json().find((u: any) => u.username === 'bob').id;
     const aliceId = (await call(alice, 'GET', '/api/users')).json().find((u: any) => u.username === 'alice').id;
     const board = (await call(alice, 'POST', '/api/boards', { name: 'B' })).json();
+    await call(alice, 'PUT', `/api/boards/${board.id}/members/${bobId}`, { role: 'editor' });
     const full = (await call(alice, 'GET', `/api/boards/${board.id}`)).json();
     const task = (
       await call(alice, 'POST', `/api/boards/${board.id}/tasks`, { columnId: full.columns[0].id, title: 'T' })
@@ -95,8 +96,10 @@ describe('SSE events', () => {
     const bob = await register('bob');
     const stream = await listen(bob);
 
+    const bobId = (await call(alice, 'GET', '/api/users')).json().find((u: any) => u.username === 'bob').id;
     const board = (await call(alice, 'POST', '/api/boards', { name: 'B' })).json();
     await stream.waitFor((e) => e.type === 'boards');
+    await call(alice, 'PUT', `/api/boards/${board.id}/members/${bobId}`, { role: 'editor' });
 
     const full = (await call(alice, 'GET', `/api/boards/${board.id}`)).json();
     const task = (
@@ -113,6 +116,39 @@ describe('SSE events', () => {
     expect(notify.recipients).toHaveLength(1);
     expect(notify.recipients).not.toContain(notify.by);
     await stream.waitFor((e) => e.type === 'comments' && e.taskId === task.id);
+    stream.stop();
+  });
+
+  it('only board members receive that board\'s events (membership changes apply live)', async () => {
+    const alice = await register('alice');
+    const bob = await register('bob');
+    const bobId = (await call(alice, 'GET', '/api/users')).json().find((u: any) => u.username === 'bob').id;
+    const board = (await call(alice, 'POST', '/api/boards', { name: 'B' })).json();
+    const colId = (await call(alice, 'GET', `/api/boards/${board.id}`)).json().columns[0].id;
+    const addTask = async (title: string) =>
+      (await call(alice, 'POST', `/api/boards/${board.id}/tasks`, { columnId: colId, title })).json();
+    const quiet = () => new Promise((r) => setTimeout(r, 150));
+    const forBoard = (events: ServerEvent[]) =>
+      events.filter((e) => 'boardId' in e && e.type !== 'members' && e.boardId === board.id);
+
+    const stream = await listen(bob);
+    const t1 = await addTask('hidden');
+    await call(alice, 'POST', `/api/tasks/${t1.id}/comments`, { body: 'secret' });
+    await call(alice, 'POST', `/api/tasks/${t1.id}/subtasks`, { title: 'secret too' });
+    await quiet();
+    expect(forBoard(stream.events)).toEqual([]); // посторонний ничего не видит
+
+    await call(alice, 'PUT', `/api/boards/${board.id}/members/${bobId}`, { role: 'viewer' });
+    await stream.waitFor((e) => e.type === 'members' && e.boardId === board.id);
+    await addTask('visible');
+    await stream.waitFor((e) => e.type === 'board' && e.boardId === board.id); // теперь события идут
+
+    await call(alice, 'DELETE', `/api/boards/${board.id}/members/${bobId}`);
+    await stream.waitFor((e) => e.type === 'members' && e.boardId === board.id && e !== stream.events.find((x) => x.type === 'members'));
+    const before = forBoard(stream.events).length;
+    await addTask('hidden again');
+    await quiet();
+    expect(forBoard(stream.events).length).toBe(before);
     stream.stop();
   });
 });

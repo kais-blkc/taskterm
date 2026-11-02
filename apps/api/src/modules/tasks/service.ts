@@ -2,7 +2,7 @@ import { and, asc, eq, ne, sql } from 'drizzle-orm';
 import { generateKeyBetween } from 'fractional-indexing';
 import type { MoveTaskInput } from '@taskterm/shared';
 import { first, type Db } from '../../db/client';
-import { boards, columns, tasks, users } from '../../db/schema';
+import { boardMembers, boards, columns, tasks } from '../../db/schema';
 import { NotFoundError } from '../boards/service';
 
 export class BadRequestError extends Error {
@@ -64,10 +64,16 @@ export async function updateTask(
   id: number,
   patch: { title?: string; description?: string; assigneeId?: number | null; dueDate?: string | null },
 ) {
-  await getTask(db, id);
+  const task = await getTask(db, id);
   if (patch.assigneeId) {
-    const user = first(await db.select({ id: users.id }).from(users).where(eq(users.id, patch.assigneeId)));
-    if (!user) throw new BadRequestError('assignee not found');
+    // исполнитель — только участник доски
+    const member = first(
+      await db
+        .select({ userId: boardMembers.userId })
+        .from(boardMembers)
+        .where(and(eq(boardMembers.boardId, task.boardId), eq(boardMembers.userId, patch.assigneeId))),
+    );
+    if (!member) throw new BadRequestError('assignee is not a board member');
   }
   const [row] = await db
     .update(tasks)

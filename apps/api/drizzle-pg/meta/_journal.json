@@ -22,6 +22,13 @@
       "when": 1793622964198,
       "tag": "0002_drop_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793623373725,
+      "tag": "0003_board_members",
+      "breakpoints": true
     }
   ]
 }

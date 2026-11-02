@@ -2,11 +2,10 @@ import { asc, eq } from 'drizzle-orm';
 import { first, type Db } from '../../db/client';
 import { comments, users } from '../../db/schema';
 import { NotFoundError } from '../boards/service';
+import { ForbiddenError } from '../permissions/access';
 import { getTask } from '../tasks/service';
 
-export class ForbiddenError extends Error {
-  status = 403;
-}
+export { ForbiddenError };
 
 const select = {
   id: comments.id,
@@ -58,9 +57,10 @@ export async function updateComment(db: Db, id: number, userId: number, body: st
   return getComment(db, id);
 }
 
-export async function deleteComment(db: Db, id: number, userId: number) {
+/** force — владелец доски может удалить чужой комментарий */
+export async function deleteComment(db: Db, id: number, userId: number, force = false) {
   const c = await getComment(db, id);
-  if (c.authorId !== userId) throw new ForbiddenError('not your comment');
+  if (c.authorId !== userId && !force) throw new ForbiddenError('not your comment');
   await db.delete(comments).where(eq(comments.id, id));
   return c.taskId;
 }

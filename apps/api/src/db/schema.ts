@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { boolean, customType, date, integer, pgTable, serial, text } from 'drizzle-orm/pg-core';
+import { boolean, customType, date, integer, pgTable, primaryKey, serial, text } from 'drizzle-orm/pg-core';
 
 /**
  * timestamptz, наружу всегда ISO-строка (`2026-11-02T12:00:00.000Z`).
@@ -54,6 +54,21 @@ export const boards = pgTable('boards', {
     .references(() => users.id),
   createdAt: createdAt(),
 });
+
+export const boardMembers = pgTable(
+  'board_members',
+  {
+    boardId: integer('board_id')
+      .notNull()
+      .references(() => boards.id, { onDelete: 'cascade' }),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    role: text('role').$type<'owner' | 'editor' | 'commenter' | 'viewer'>().notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.boardId, t.userId] })],
+);
 
 export const columns = pgTable('columns', {
   id: serial('id').primaryKey(),

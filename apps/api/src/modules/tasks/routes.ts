@@ -10,7 +10,9 @@ import {
 } from '@taskterm/shared';
 import type { Db } from '../../db/client';
 import type { EventHub } from '../../plugins/hub';
+import { canDeleteTask } from '@taskterm/shared';
 import { requireUser } from '../auth/guard';
+import { ForbiddenError, requireBoardCan, requireTaskCan } from '../permissions/access';
 import * as svc from './service';
 
 export async function taskRoutes(app: FastifyInstance, opts: { db: Db; hub: EventHub }) {
@@ -18,12 +20,13 @@ export async function taskRoutes(app: FastifyInstance, opts: { db: Db; hub: Even
   const r = app.withTypeProvider<ZodTypeProvider>();
   r.addHook('preHandler', requireUser(db));
 
-  const err = { 400: apiErrorSchema, 401: apiErrorSchema, 404: apiErrorSchema };
+  const err = { 400: apiErrorSchema, 401: apiErrorSchema, 403: apiErrorSchema, 404: apiErrorSchema };
 
   r.post(
     '/api/boards/:id/tasks',
     { schema: { params: idParamSchema, body: createTaskSchema, response: { 201: taskSchema, ...err } } },
     async (req, reply) => {
+      await requireBoardCan(db, req.user, req.params.id, 'createTask');
       const task = await svc.createTask(db, req.params.id, req.user.id, req.body);
       hub.emit({ type: 'board', boardId: task.boardId, by: req.user.id });
       return reply.code(201).send(task);
@@ -33,14 +36,14 @@ export async function taskRoutes(app: FastifyInstance, opts: { db: Db; hub: Even
   r.get(
     '/api/tasks/:id',
     { schema: { params: idParamSchema, response: { 200: taskSchema, ...err } } },
-    async (req) => svc.getTask(db, req.params.id),
+    async (req) => (await requireTaskCan(db, req.user, req.params.id, 'view')).task,
   );
 
   r.patch(
     '/api/tasks/:id',
     { schema: { params: idParamSchema, body: updateTaskSchema, response: { 200: taskSchema, ...err } } },
     async (req) => {
-      const before = await svc.getTask(db, req.params.id);
+      const { task: before } = await requireTaskCan(db, req.user, req.params.id, 'editTask');
       const task = await svc.updateTask(db, req.params.id, req.body);
       hub.emit({ type: 'board', boardId: task.boardId, by: req.user.id });
       // назначили другого человека (не себя) — ему уведомление
@@ -63,6 +66,8 @@ export async function taskRoutes(app: FastifyInstance, opts: { db: Db; hub: Even
   );
 
   r.delete('/api/tasks/:id', { schema: { params: idParamSchema } }, async (req, reply) => {
+    const { task, role } = await requireTaskCan(db, req.user, req.params.id, 'view');
+    if (!canDeleteTask(role, task.authorId === req.user.id)) throw new ForbiddenError('not allowed for your role');
     const boardId = await svc.deleteTask(db, req.params.id);
     hub.emit({ type: 'board', boardId, by: req.user.id });
     return reply.code(204).send();
@@ -72,6 +77,7 @@ export async function taskRoutes(app: FastifyInstance, opts: { db: Db; hub: Even
     '/api/tasks/:id/move',
     { schema: { params: idParamSchema, body: moveTaskSchema, response: { 200: taskSchema, ...err } } },
     async (req) => {
+      await requireTaskCan(db, req.user, req.params.id, 'editTask');
       const task = await svc.moveTask(db, req.params.id, req.body);
       hub.emit({ type: 'board', boardId: task.boardId, by: req.user.id });
       return task;

@@ -7,6 +7,7 @@ export * from './subtasks';
 export * from './colors';
 export * from './comments';
 export * from './events';
+export * from './permissions';
 
 export const healthResponseSchema = z.object({
   status: z.literal('ok'),

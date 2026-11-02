@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { boardRoleSchema } from './permissions';
 import { subtaskStatSchema } from './subtasks';
 
 const name = z.string().trim().min(1).max(100);
@@ -16,6 +17,8 @@ export const boardSchema = z.object({
   id: z.number().int(),
   name: z.string(),
   createdAt: z.string(),
+  /** роль текущего пользователя на доске (админ приложения видит себя как owner) */
+  myRole: boardRoleSchema,
 });
 export type Board = z.infer<typeof boardSchema>;
 

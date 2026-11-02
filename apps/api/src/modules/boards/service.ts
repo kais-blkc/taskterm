@@ -1,33 +1,44 @@
-import { asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import { generateKeyBetween } from 'fractional-indexing';
-import { defaultColumnNames } from '@taskterm/shared';
+import { defaultColumnNames, type BoardRole } from '@taskterm/shared';
 import { first, type Db } from '../../db/client';
-import { boards, columns, subtasks, tasks } from '../../db/schema';
+import { boardMembers, boards, columns, subtasks, tasks, users } from '../../db/schema';
+import type { AuthUser } from '../auth/service';
+import { NotFoundError } from '../permissions/access';
 
-export class NotFoundError extends Error {
-  status = 404;
-}
+export { NotFoundError };
 
-export function listBoards(db: Db) {
-  return db.select().from(boards).orderBy(asc(boards.id));
+/** Доски, доступные пользователю, с его ролью. Админ приложения видит все как owner. */
+export async function listBoards(db: Db, user: AuthUser) {
+  if (user.role === 'admin') {
+    return (await db.select().from(boards).orderBy(asc(boards.id))).map((b) => ({ ...b, myRole: 'owner' as const }));
+  }
+  const rows = await db
+    .select({ board: boards, myRole: boardMembers.role })
+    .from(boardMembers)
+    .innerJoin(boards, eq(boards.id, boardMembers.boardId))
+    .where(eq(boardMembers.userId, user.id))
+    .orderBy(asc(boards.id));
+  return rows.map((r) => ({ ...r.board, myRole: r.myRole }));
 }
 
 export function createBoard(db: Db, name: string, userId: number) {
   return db.transaction(async (tx) => {
     const [board] = await tx.insert(boards).values({ name, createdBy: userId }).returning();
+    await tx.insert(boardMembers).values({ boardId: board!.id, userId, role: 'owner' });
     let prev: string | null = null;
     for (const colName of defaultColumnNames) {
       prev = generateKeyBetween(prev, null);
       await tx.insert(columns).values({ boardId: board!.id, name: colName, position: prev });
     }
-    return board!;
+    return { ...board!, myRole: 'owner' as const };
   });
 }
 
-export async function updateBoard(db: Db, id: number, name: string) {
+export async function updateBoard(db: Db, id: number, name: string, myRole: BoardRole) {
   const row = first(await db.update(boards).set({ name }).where(eq(boards.id, id)).returning());
   if (!row) throw new NotFoundError('board not found');
-  return row;
+  return { ...row, myRole };
 }
 
 export async function deleteBoard(db: Db, id: number) {
@@ -35,11 +46,11 @@ export async function deleteBoard(db: Db, id: number) {
   if (!rows.length) throw new NotFoundError('board not found');
 }
 
-export async function getBoardFull(db: Db, id: number) {
+export async function getBoardFull(db: Db, id: number, myRole: BoardRole) {
   const board = first(await db.select().from(boards).where(eq(boards.id, id)));
   if (!board) throw new NotFoundError('board not found');
   return {
-    board,
+    board: { ...board, myRole },
     columns: await db.select().from(columns).where(eq(columns.boardId, id)).orderBy(asc(columns.position)),
     tasks: await db.select().from(tasks).where(eq(tasks.boardId, id)).orderBy(asc(tasks.position)),
     subtaskStats: await db
@@ -80,4 +91,60 @@ export async function deleteColumn(db: Db, id: number) {
   const row = first(await db.delete(columns).where(eq(columns.id, id)).returning({ boardId: columns.boardId }));
   if (!row) throw new NotFoundError('column not found');
   return row.boardId;
+}
+
+export class MemberError extends Error {
+  status = 400;
+}
+
+export function listMembers(db: Db, boardId: number) {
+  return db
+    .select({ id: users.id, username: users.username, color: users.color, role: boardMembers.role })
+    .from(boardMembers)
+    .innerJoin(users, eq(users.id, boardMembers.userId))
+    .where(eq(boardMembers.boardId, boardId))
+    .orderBy(asc(users.username));
+}
+
+async function ownerCount(db: Db, boardId: number) {
+  const [row] = await db
+    .select({ n: sql<number>`count(*)`.mapWith(Number) })
+    .from(boardMembers)
+    .where(and(eq(boardMembers.boardId, boardId), eq(boardMembers.role, 'owner')));
+  return row!.n;
+}
+
+/** Добавить участника или сменить ему роль. На доске всегда остаётся хотя бы один owner. */
+export async function setMemberRole(db: Db, boardId: number, userId: number, role: BoardRole) {
+  const target = first(await db.select({ id: users.id, isActive: users.isActive }).from(users).where(eq(users.id, userId)));
+  if (!target) throw new NotFoundError('user not found');
+  const current = first(
+    await db
+      .select({ role: boardMembers.role })
+      .from(boardMembers)
+      .where(and(eq(boardMembers.boardId, boardId), eq(boardMembers.userId, userId))),
+  );
+  if (current?.role === 'owner' && role !== 'owner' && (await ownerCount(db, boardId)) <= 1) {
+    throw new MemberError('на доске должен остаться хотя бы один владелец');
+  }
+  await db
+    .insert(boardMembers)
+    .values({ boardId, userId, role })
+    .onConflictDoUpdate({ target: [boardMembers.boardId, boardMembers.userId], set: { role } });
+}
+
+export async function removeMember(db: Db, boardId: number, userId: number) {
+  const current = first(
+    await db
+      .select({ role: boardMembers.role })
+      .from(boardMembers)
+      .where(and(eq(boardMembers.boardId, boardId), eq(boardMembers.userId, userId))),
+  );
+  if (!current) throw new NotFoundError('member not found');
+  if (current.role === 'owner' && (await ownerCount(db, boardId)) <= 1) {
+    throw new MemberError('на доске должен остаться хотя бы один владелец');
+  }
+  await db.delete(boardMembers).where(and(eq(boardMembers.boardId, boardId), eq(boardMembers.userId, userId)));
+  // снимаем исполнителя с его задач на этой доске: у него больше нет доступа
+  await db.update(tasks).set({ assigneeId: null }).where(and(eq(tasks.boardId, boardId), eq(tasks.assigneeId, userId)));
 }
