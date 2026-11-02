@@ -1,0 +1,557 @@
+{
+ "intro#000": {
+  "t": 0,
+  "kind": "boot"
+ },
+ "intro#001": {
+  "t": 0.8,
+  "kind": "type:10",
+  "v": 1.1
+ },
+ "intro#002": {
+  "t": 2.2,
+  "kind": "voice:intro"
+ },
+ "intro#003": {
+  "t": 2.2,
+  "kind": "pop"
+ },
+ "intro#004": {
+  "t": 3.0000000000000004,
+  "kind": "pop"
+ },
+ "intro#005": {
+  "t": 3.6000000000000005,
+  "kind": "tick"
+ },
+ "intro#006": {
+  "t": 3.7600000000000007,
+  "kind": "tick"
+ },
+ "intro#007": {
+  "t": 3.9200000000000004,
+  "kind": "tick"
+ },
+ "intro#008": {
+  "t": 4.08,
+  "kind": "tick"
+ },
+ "intro#009": {
+  "t": 4.24,
+  "kind": "tick"
+ },
+ "intro#010": {
+  "t": 4.4,
+  "kind": "tick"
+ },
+ "intro#011": {
+  "t": 6.700000000000001,
+  "kind": "whoosh"
+ },
+ "login#000": {
+  "t": 7.233333333333333,
+  "kind": "whoosh"
+ },
+ "login#001": {
+  "t": 8.033333333333333,
+  "kind": "voice:login"
+ },
+ "login#002": {
+  "t": 8.733333333333334,
+  "kind": "click"
+ },
+ "login#003": {
+  "t": 9.003333333333334,
+  "kind": "type:4",
+  "v": 0.5
+ },
+ "login#004": {
+  "t": 10.103333333333333,
+  "kind": "click"
+ },
+ "login#005": {
+  "t": 10.373333333333335,
+  "kind": "type:8",
+  "v": 0.6
+ },
+ "login#006": {
+  "t": 11.573333333333334,
+  "kind": "click"
+ },
+ "login#007": {
+  "t": 11.843333333333334,
+  "kind": "type:10",
+  "v": 0.7
+ },
+ "login#008": {
+  "t": 13.243333333333332,
+  "kind": "click"
+ },
+ "login#009": {
+  "t": 13.613333333333333,
+  "kind": "chime"
+ },
+ "boards#000": {
+  "t": 15.633333333333333,
+  "kind": "whoosh"
+ },
+ "boards#001": {
+  "t": 16.433333333333334,
+  "kind": "voice:boards"
+ },
+ "boards#002": {
+  "t": 17.133333333333333,
+  "kind": "click"
+ },
+ "boards#003": {
+  "t": 17.423333333333332,
+  "kind": "type:4",
+  "v": 0.5
+ },
+ "boards#004": {
+  "t": 18.173333333333332,
+  "kind": "pop"
+ },
+ "boards#005": {
+  "t": 19.423333333333332,
+  "kind": "click"
+ },
+ "boards#006": {
+  "t": 19.71333333333333,
+  "kind": "type:4",
+  "v": 0.5
+ },
+ "boards#007": {
+  "t": 20.46333333333333,
+  "kind": "pop"
+ },
+ "boards#008": {
+  "t": 21.863333333333333,
+  "kind": "click"
+ },
+ "kanban#000": {
+  "t": 22.966666666666665,
+  "kind": "whoosh"
+ },
+ "kanban#001": {
+  "t": 23.766666666666666,
+  "kind": "voice:kanban"
+ },
+ "kanban#002": {
+  "t": 24.466666666666665,
+  "kind": "click"
+ },
+ "kanban#003": {
+  "t": 24.756666666666664,
+  "kind": "type:14",
+  "v": 0.7
+ },
+ "kanban#004": {
+  "t": 25.656666666666666,
+  "kind": "pop"
+ },
+ "kanban#005": {
+  "t": 26.856666666666666,
+  "kind": "click"
+ },
+ "kanban#006": {
+  "t": 27.146666666666665,
+  "kind": "type:15",
+  "v": 0.7
+ },
+ "kanban#007": {
+  "t": 28.046666666666667,
+  "kind": "pop"
+ },
+ "kanban#008": {
+  "t": 29.596666666666668,
+  "kind": "lift"
+ },
+ "kanban#009": {
+  "t": 29.546666666666667,
+  "kind": "click"
+ },
+ "kanban#010": {
+  "t": 30.616666666666667,
+  "kind": "drop"
+ },
+ "task#000": {
+  "t": 32.43333333333333,
+  "kind": "whoosh"
+ },
+ "task#001": {
+  "t": 34.03333333333333,
+  "kind": "click"
+ },
+ "task#002": {
+  "t": 34.20333333333333,
+  "kind": "whoosh"
+ },
+ "task#003": {
+  "t": 34.85333333333333,
+  "kind": "voice:task1"
+ },
+ "task#004": {
+  "t": 35.55333333333333,
+  "kind": "click"
+ },
+ "task#005": {
+  "t": 35.72333333333333,
+  "kind": "pop"
+ },
+ "task#006": {
+  "t": 36.67333333333333,
+  "kind": "click"
+ },
+ "task#007": {
+  "t": 36.843333333333334,
+  "kind": "tick"
+ },
+ "task#008": {
+  "t": 38.11333333333333,
+  "kind": "voice:task2"
+ },
+ "task#009": {
+  "t": 38.81333333333333,
+  "kind": "click"
+ },
+ "task#010": {
+  "t": 38.983333333333334,
+  "kind": "pop"
+ },
+ "task#011": {
+  "t": 41.93333333333333,
+  "kind": "voice:task3"
+ },
+ "task#012": {
+  "t": 42.633333333333326,
+  "kind": "click"
+ },
+ "task#013": {
+  "t": 43.00333333333333,
+  "kind": "type:114",
+  "v": 2.2
+ },
+ "task#014": {
+  "t": 45.80333333333333,
+  "kind": "click"
+ },
+ "task#015": {
+  "t": 45.97333333333333,
+  "kind": "ok"
+ },
+ "subtasks#000": {
+  "t": 47.8,
+  "kind": "whoosh"
+ },
+ "subtasks#001": {
+  "t": 48.55,
+  "kind": "voice:sub1"
+ },
+ "subtasks#002": {
+  "t": 49.349999999999994,
+  "kind": "click"
+ },
+ "subtasks#003": {
+  "t": 49.72,
+  "kind": "type:71",
+  "v": 2.2
+ },
+ "subtasks#004": {
+  "t": 51.919999999999995,
+  "kind": "type:26",
+  "v": 0.5
+ },
+ "subtasks#005": {
+  "t": 53.72,
+  "kind": "click"
+ },
+ "subtasks#006": {
+  "t": 53.89,
+  "kind": "ok"
+ },
+ "subtasks#007": {
+  "t": 54.089999999999996,
+  "kind": "pop"
+ },
+ "subtasks#008": {
+  "t": 54.209999999999994,
+  "kind": "pop"
+ },
+ "subtasks#009": {
+  "t": 54.33,
+  "kind": "pop"
+ },
+ "subtasks#010": {
+  "t": 54.449999999999996,
+  "kind": "pop"
+ },
+ "subtasks#011": {
+  "t": 55.949999999999996,
+  "kind": "click"
+ },
+ "subtasks#012": {
+  "t": 56.12,
+  "kind": "check"
+ },
+ "subtasks#013": {
+  "t": 56.72,
+  "kind": "voice:sub2"
+ },
+ "subtasks#014": {
+  "t": 57.519999999999996,
+  "kind": "click"
+ },
+ "subtasks#015": {
+  "t": 57.69,
+  "kind": "type:42",
+  "v": 1.4
+ },
+ "subtasks#016": {
+  "t": 59.69,
+  "kind": "click"
+ },
+ "subtasks#017": {
+  "t": 59.86,
+  "kind": "send"
+ },
+ "realtime#000": {
+  "t": 61.96666666666667,
+  "kind": "whoosh"
+ },
+ "realtime#001": {
+  "t": 62.766666666666666,
+  "kind": "voice:rt1"
+ },
+ "realtime#002": {
+  "t": 63.66666666666667,
+  "kind": "click"
+ },
+ "realtime#003": {
+  "t": 63.836666666666666,
+  "kind": "type:26",
+  "v": 1.2
+ },
+ "realtime#004": {
+  "t": 65.63666666666667,
+  "kind": "click"
+ },
+ "realtime#005": {
+  "t": 65.80666666666667,
+  "kind": "send"
+ },
+ "realtime#006": {
+  "t": 66.45666666666666,
+  "kind": "pop"
+ },
+ "realtime#007": {
+  "t": 66.85666666666667,
+  "kind": "ping"
+ },
+ "realtime#008": {
+  "t": 67.45666666666666,
+  "kind": "voice:rt2"
+ },
+ "customize#000": {
+  "t": 71.16666666666667,
+  "kind": "whoosh"
+ },
+ "customize#001": {
+  "t": 71.96666666666667,
+  "kind": "voice:cust1"
+ },
+ "customize#002": {
+  "t": 72.76666666666667,
+  "kind": "click"
+ },
+ "customize#003": {
+  "t": 72.93666666666667,
+  "kind": "pop"
+ },
+ "customize#004": {
+  "t": 73.63666666666667,
+  "kind": "sweep"
+ },
+ "customize#005": {
+  "t": 74.98666666666668,
+  "kind": "sweep"
+ },
+ "customize#006": {
+  "t": 76.33666666666667,
+  "kind": "sweep"
+ },
+ "customize#007": {
+  "t": 77.68666666666667,
+  "kind": "sweep"
+ },
+ "customize#008": {
+  "t": 79.03666666666668,
+  "kind": "sweep"
+ },
+ "customize#009": {
+  "t": 79.93666666666667,
+  "kind": "click"
+ },
+ "customize#010": {
+  "t": 81.45666666666668,
+  "kind": "click"
+ },
+ "customize#011": {
+  "t": 81.62666666666668,
+  "kind": "pop"
+ },
+ "customize#012": {
+  "t": 81.87666666666668,
+  "kind": "voice:cust2"
+ },
+ "customize#013": {
+  "t": 82.67666666666668,
+  "kind": "click"
+ },
+ "customize#014": {
+  "t": 82.84666666666668,
+  "kind": "ok"
+ },
+ "hotkeys#000": {
+  "t": 86.4,
+  "kind": "whoosh"
+ },
+ "hotkeys#001": {
+  "t": 87.2,
+  "kind": "voice:hot1"
+ },
+ "hotkeys#002": {
+  "t": 87.2,
+  "kind": "keypress"
+ },
+ "hotkeys#003": {
+  "t": 88.02000000000001,
+  "kind": "keypress"
+ },
+ "hotkeys#004": {
+  "t": 88.19000000000001,
+  "kind": "tick"
+ },
+ "hotkeys#005": {
+  "t": 88.87,
+  "kind": "keypress"
+ },
+ "hotkeys#006": {
+  "t": 89.04,
+  "kind": "tick"
+ },
+ "hotkeys#007": {
+  "t": 89.72,
+  "kind": "keypress"
+ },
+ "hotkeys#008": {
+  "t": 89.89,
+  "kind": "tick"
+ },
+ "hotkeys#009": {
+  "t": 90.57000000000001,
+  "kind": "keypress"
+ },
+ "hotkeys#010": {
+  "t": 90.74000000000001,
+  "kind": "whoosh"
+ },
+ "hotkeys#011": {
+  "t": 91.79,
+  "kind": "keypress"
+ },
+ "hotkeys#012": {
+  "t": 91.96000000000001,
+  "kind": "whoosh"
+ },
+ "hotkeys#013": {
+  "t": 92.66000000000001,
+  "kind": "voice:hot2"
+ },
+ "hotkeys#014": {
+  "t": 92.66000000000001,
+  "kind": "keypress"
+ },
+ "hotkeys#015": {
+  "t": 92.83000000000001,
+  "kind": "pop"
+ },
+ "hotkeys#016": {
+  "t": 93.08000000000001,
+  "kind": "type:3",
+  "v": 0.5
+ },
+ "hotkeys#017": {
+  "t": 96.78,
+  "kind": "keypress"
+ },
+ "hotkeys#018": {
+  "t": 97.35000000000001,
+  "kind": "voice:hot3"
+ },
+ "hotkeys#019": {
+  "t": 97.35000000000001,
+  "kind": "keypress"
+ },
+ "hotkeys#020": {
+  "t": 97.52000000000001,
+  "kind": "pop"
+ },
+ "outro#000": {
+  "t": 101,
+  "kind": "boot"
+ },
+ "outro#001": {
+  "t": 101.8,
+  "kind": "voice:out1"
+ },
+ "outro#002": {
+  "t": 101.6,
+  "kind": "type:22",
+  "v": 1.3
+ },
+ "outro#003": {
+  "t": 103.2,
+  "kind": "beep"
+ },
+ "outro#004": {
+  "t": 103.75,
+  "kind": "beep"
+ },
+ "outro#005": {
+  "t": 104.3,
+  "kind": "chime"
+ },
+ "outro#006": {
+  "t": 105.35,
+  "kind": "voice:out2"
+ },
+ "outro#007": {
+  "t": 105.35,
+  "kind": "tick"
+ },
+ "outro#008": {
+  "t": 105.49,
+  "kind": "tick"
+ },
+ "outro#009": {
+  "t": 105.63,
+  "kind": "tick"
+ },
+ "outro#010": {
+  "t": 105.77,
+  "kind": "tick"
+ },
+ "outro#011": {
+  "t": 105.91,
+  "kind": "tick"
+ },
+ "outro#012": {
+  "t": 106.05,
+  "kind": "tick"
+ },
+ "outro#013": {
+  "t": 106.19,
+  "kind": "tick"
+ }
+}

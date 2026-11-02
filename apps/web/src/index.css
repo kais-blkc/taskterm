@@ -1,0 +1,150 @@
+@import 'tailwindcss';
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-elev: var(--bg-elev);
+  --color-fg: var(--fg);
+  --color-muted: var(--fg-muted);
+  --color-accent: var(--accent);
+  --color-line: var(--border);
+  --color-danger: var(--danger);
+  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, Menlo, monospace;
+}
+
+/* значения по умолчанию до применения темы из стора */
+:root {
+  --bg: #0c0d0d;
+  --bg-elev: #151716;
+  --fg: #e6e8e7;
+  --fg-muted: #8b918e;
+  --accent: #33ff99;
+  --border: #2a2f2c;
+  --danger: #ff5f56;
+  --font-size: 14px;
+}
+
+html {
+  font-size: var(--font-size);
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-mono);
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--bg);
+}
+
+input,
+button,
+select,
+textarea {
+  font: inherit;
+}
+
+/* Tailwind v4 сбрасывает cursor у кнопок — возвращаем указатель на всё кликабельное */
+button,
+[role='button'],
+[role='option'],
+select,
+summary,
+a[href],
+label:has(input[type='checkbox'], input[type='radio']),
+input[type='color'],
+input[type='range'],
+input[type='checkbox'],
+input[type='radio'] {
+  cursor: pointer;
+}
+button:disabled,
+[aria-disabled='true'],
+input:disabled {
+  cursor: not-allowed;
+}
+
+.cursor::after {
+  content: '▍';
+  margin-left: 2px;
+  color: var(--accent);
+  animation: blink 1s steps(1) infinite;
+}
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.md > :first-child { margin-top: 0; }
+.md > :last-child { margin-bottom: 0; }
+.md p, .md ul, .md ol, .md pre, .md blockquote { margin: 0.5em 0; }
+.md ul { list-style: '- '; padding-left: 1.5em; }
+.md ol { padding-left: 1.5em; }
+.md a { color: var(--accent); text-decoration: underline; }
+.md h1, .md h2, .md h3 { color: var(--fg); font-weight: 700; margin: 0.8em 0 0.3em; font-size: 1em; }
+.md h1::before { content: '# '; } .md h2::before { content: '## '; } .md h3::before { content: '### '; }
+.md code { background: var(--bg); border: 1px solid var(--border); padding: 0 0.3em; }
+.md pre { background: var(--bg); border: 1px solid var(--border); padding: 0.5em; overflow-x: auto; }
+.md pre code { border: 0; padding: 0; }
+.md blockquote { border-left: 2px solid var(--fg-muted); padding-left: 0.8em; color: var(--fg-muted); }
+
+/* ── кнопки: рамка = «на это можно нажать» ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35em;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--fg);
+  padding: 0 0.6em;
+  line-height: 1.7;
+  white-space: nowrap;
+  transition: border-color 0.12s, color 0.12s, background-color 0.12s;
+}
+.btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.btn:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+.btn:disabled {
+  opacity: 0.4;
+}
+/* главное действие: save / send / login */
+.btn-primary {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--bg);
+}
+/* разрушающее действие: подсвечивается красным */
+.btn-danger:hover:not(:disabled) {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+/* включённое состояние: вкладка, фильтр, переключатель */
+.btn-active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.btn-icon {
+  padding: 0 0.4em;
+}
+
+/* подтверждение разрушающего действия */
+.btn-danger-solid {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.btn-danger-solid:hover:not(:disabled) {
+  background: var(--danger);
+  color: var(--bg);
+}

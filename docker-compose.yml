@@ -1,0 +1,18 @@
+services:
+  app:
+    build: .
+    image: taskterm
+    container_name: taskterm
+    restart: unless-stopped
+    ports:
+      - '${APP_PORT:-3100}:3100'
+    environment:
+      ACCESS_PASSWORD: ${ACCESS_PASSWORD:?задай ACCESS_PASSWORD в .env}
+      # true — только если перед приложением стоит HTTPS (иначе cookie входа не сохранится)
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+    volumes:
+      # именованный том: у него правильные права для пользователя node (bind-папка на Linux была бы root)
+      - taskterm-data:/data
+
+volumes:
+  taskterm-data:
