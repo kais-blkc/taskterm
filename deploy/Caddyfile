@@ -1,0 +1,6 @@
+# HTTPS-прокси для профиля compose `https`: сертификат Let's Encrypt выпускается сам.
+# DOMAIN задаётся в .env; домен должен указывать на сервер, порты 80 и 443 — открыты.
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy app:3100
+}

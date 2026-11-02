@@ -25,7 +25,8 @@ services:
       db:
         condition: service_healthy
     ports:
-      - '${APP_PORT:-3100}:3100'
+      # APP_BIND=127.0.0.1, если наружу приложение смотрит только через Caddy (профиль https)
+      - '${APP_BIND:-0.0.0.0}:${APP_PORT:-3100}:3100'
     environment:
       JWT_SECRET: ${JWT_SECRET:?задай JWT_SECRET в .env (openssl rand -base64 48)}
       ADMIN_USERNAME: ${ADMIN_USERNAME:-}
@@ -37,5 +38,25 @@ services:
       # true — только если перед приложением стоит HTTPS (иначе cookie входа не сохранится)
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
 
+  # HTTPS: docker compose --profile https up -d  (нужны DOMAIN, COOKIE_SECURE=true, TRUST_PROXY=true)
+  caddy:
+    image: caddy:2-alpine
+    container_name: taskterm-caddy
+    profiles: ['https']
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - '80:80'
+      - '443:443'
+    environment:
+      DOMAIN: ${DOMAIN:-}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
 volumes:
   taskterm-pg:
+  caddy-data:
+  caddy-config:

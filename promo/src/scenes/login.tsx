@@ -8,10 +8,8 @@ export default makeScene2D(function* (view) {
   const form = createRef<Rect>();
   const user = createRef<Txt>();
   const pass = createRef<Txt>();
-  const key = createRef<Txt>();
   const f1 = createRef<Rect>();
   const f2 = createRef<Rect>();
-  const f3 = createRef<Rect>();
   const btn = createRef<Rect>();
   const ok = createRef<Rect>();
   const win = createRef<Rect>();
@@ -22,14 +20,11 @@ export default makeScene2D(function* (view) {
       <Rect ref={form} y={30}>
         <TL text="$ taskterm" x={-260} y={-250} fontSize={52} fontWeight={700} />
         <Btn label="login" x={-260 + 52} y={-175} w={104} height={40} stroke={C.accent} />
-        <Btn label="register" x={-260 + 52 + 130} y={-175} w={140} height={40} />
         <TL text="username:" x={-260} y={-112} fontSize={22} fill={C.muted} />
         <Field ref={f1} textRef={user} w={520} y={-62} />
         <TL text="password:" x={-260} y={-8} fontSize={22} fill={C.muted} />
         <Field ref={f2} textRef={pass} w={520} y={42} />
-        <TL text="access key:" x={-260} y={96} fontSize={22} fill={C.muted} />
-        <Field ref={f3} textRef={key} w={520} y={146} />
-        <Btn ref={btn} label="> login" primary x={-260 + 75} y={236} w={150} height={46} />
+        <Btn ref={btn} label="> login" primary x={-260 + 75} y={140} w={150} height={46} />
       </Rect>
       <Rect ref={ok} opacity={0} y={20}>
         <T text="✓ вход выполнен" fontSize={52} fill={C.accent} y={-30} />
@@ -37,7 +32,7 @@ export default makeScene2D(function* (view) {
       </Rect>
     </Win>,
   );
-  view.add(<Caption ref={cap} n="01" title="Вход" sub="логин, пароль и общий ключ доступа команды" />);
+  view.add(<Caption ref={cap} n="01" title="Вход" sub="логин и пароль; аккаунт выдаёт администратор по приглашению" />);
   view.add(cur.node);
 
   // координаты курсора — в системе сцены (окно смещено на y=-30, форма на +30)
@@ -60,13 +55,7 @@ export default makeScene2D(function* (view) {
   yield* typeText(pass, '••••••••', 0.6);
   yield* f2().stroke(C.border, 0.1);
 
-  yield* moveCursor(cur.ref, ...at(-60, 146), 0.5);
-  yield* click(cur.ref);
-  yield* f3().stroke(C.accent, 0.1);
-  yield* typeText(key, '••••••••••', 0.7);
-  yield* f3().stroke(C.border, 0.1);
-
-  yield* moveCursor(cur.ref, ...at(-185, 236), 0.6);
+  yield* moveCursor(cur.ref, ...at(-185, 140), 0.6);
   yield* all(btn().fill(C.accent, 0.15), click(cur.ref));
   yield* waitFor(0.2);
   mark('chime');

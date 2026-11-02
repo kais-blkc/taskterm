@@ -8,8 +8,8 @@
 
 - Стек: pnpm-монорепо. `apps/api` — Fastify 5 + zod (`fastify-type-provider-zod`) + Drizzle ORM + PostgreSQL (`postgres`; в тестах встроенный pglite). `apps/web` — React 19 + Vite + TanStack Query (данные сервера) + Zustand (только UI-состояние) + react-router + dnd-kit + Tailwind v4. `packages/shared` — zod-схемы и общие типы/парсеры (экспортирует TS-исходники, не собирается).
 - Решено остаться на Fastify + Drizzle (NestJS/Prisma обсуждали, переход не нужен).
-- В работе: роли/инвайты/JWT/админка/права задач — план и прогресс в `docs/PLAN_ROLES_PG.md` (сделаны этапы 0–6: git, Postgres, JWT, роли на досках, инвайты, права задачи, админ-панель).
-- Прод: compose из двух контейнеров — `app` (API раздаёт собранный фронт) и `db` (Postgres 17, том `taskterm-pg`). Инструкция: `docs/DEPLOY.md`, краткая — `README.md`.
+- В работе: роли/инвайты/JWT/админка/права задач — план и прогресс в `docs/PLAN_ROLES_PG.md` (сделаны все этапы 0–7: git, Postgres, JWT, роли на досках, инвайты, права задачи, админ-панель, Docker/HTTPS/бэкап).
+- Прод: compose из двух контейнеров — `app` (API раздаёт собранный фронт) и `db` (Postgres 17, том `taskterm-pg`); профиль `https` добавляет Caddy (`deploy/Caddyfile`, `DOMAIN`); бэкап — `scripts/backup.sh` (cron). Инструкция: `docs/DEPLOY.md`, краткая — `README.md`.
 - Фичи на потом: `docs/FEATURES_LATER.md`.
 - Папка `promo/` — отдельный проект: промо-видео (Motion Canvas). Не входит в workspace и в Docker-образ.
 - Репозиторий под git (ветка `main`, `git init` сделан 2026-11-02).
@@ -24,7 +24,9 @@ pnpm dev                  # web http://localhost:5180 (strictPort), api :3100, �
 pnpm test                 # api: 113 тестов (vitest + fastify.inject + pglite, 15–30 с), web: 6 (lib/dates)
 pnpm typecheck
 pnpm --filter @taskterm/api exec drizzle-kit generate   # новая миграция
-docker compose up -d --build                            # прод-режим (APP_PORT, POSTGRES_PASSWORD, JWT_SECRET, ADMIN_USERNAME/PASSWORD, COOKIE_SECURE)
+docker compose up -d --build                            # прод-режим (+ `--profile https` для Caddy)
+scripts/backup.sh                                       # pg_dump в backups/, чистка старше 14 дней
+# переменные прод-режима: APP_PORT, APP_BIND, POSTGRES_PASSWORD, JWT_SECRET, ADMIN_USERNAME/PASSWORD, COOKIE_SECURE, TRUST_PROXY, DOMAIN
 ```
 
 - Порты: 3100 api, 5180 web, 5442 dev-Postgres. 5173 занят чужим Vite-проектом, 3001 — Docker, поэтому порты нестандартные.
@@ -86,10 +88,10 @@ Promo (`promo/`): Motion Canvas, сцены `src/scenes/*.tsx`, общий на�
 
 ## Открыто / TODO
 
-- Пользователь ещё не прокликал UI в браузере — ждём список багов.
-- Перед публикацией: HTTPS (Caddy в compose не добавлен; нужен и для уведомлений вне localhost), лимит попыток входа (rate limit), `git init`, регулярный бэкап тома (cron). До этого не выставлять в интернет.
-- Нет: полноценной админки (пользователи, блокировка, журнал — этап 6), прав на уровне отдельной задачи (этап 5), отправки писем (SMTP нет: ссылку-приглашение админ пересылает сам).
-- Нет смены пароля, удаления пользователя, чистки просроченных сессий, CI.
+- Не проверено глазами в браузере: UI под owner/editor, секция `rights` задачи, блокировка живого пользователя, `/reset`, Caddy с реальным доменом (логика покрыта API-тестами).
+- Перед публикацией в интернет: включить профиль `https` (DOMAIN, COOKIE_SECURE, TRUST_PROXY, APP_BIND=127.0.0.1), cron на `scripts/backup.sh` + копия дампов на другую машину, второй админ.
+- Нет: отправки писем (SMTP нет — приглашения и ссылки сброса админ пересылает сам), смены пароля самим пользователем, чистки просроченных приглашений, CI.
 - Напоминания о дедлайнах (нужен планировщик), перетаскивание подзадач, несколько исполнителей — не сделано.
+- Промо-видео: сцена `login` переписана (без регистрации и ключа), но видео и озвучка не перерендерены — `taskterm-promo.mp4` показывает старый вход.
 - Озвучка видео: голос Milena не прослушан автором (проверялось числами); если не понравится — запись диктором или другой TTS.
 - Реплики видео читаются по-русски фонетически («тасктерм», «докер компоуз ап»).

@@ -36,10 +36,13 @@ docker compose up -d --build
 - Обновление: `git pull && docker compose up -d --build`.
 - `COOKIE_SECURE=true` ставь только если перед приложением HTTPS. При `true` по обычному HTTP войти не получится: браузер не сохранит cookie.
 
+- HTTPS: `docker compose --profile https up -d` (Caddy, нужен `DOMAIN` в `.env`, см. `docs/DEPLOY.md`).
+- Роли: администратор приложения (`admin` в шапке: пользователи, приглашения, доски, журнал) и роли на досках — владелец, редактор, комментатор, наблюдатель. Права отдельной задачи настраивает её owner.
+
 ### Бэкап и восстановление БД
 
 ```bash
-# бэкап (контейнер можно не останавливать)
+# бэкап (контейнер можно не останавливать); по cron — scripts/backup.sh
 docker compose exec -T db pg_dump -U taskterm -Fc taskterm > taskterm-backup.dump
 
 # восстановление в пустую БД
