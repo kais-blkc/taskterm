@@ -21,7 +21,7 @@ pnpm install
 cp .env.example .env      # ACCESS_PASSWORD; локальный .env уже есть (dev-значение)
 docker compose -f docker-compose.dev.yml up -d   # dev-Postgres localhost:5442 (taskterm/taskterm)
 pnpm dev                  # web http://localhost:5180 (strictPort), api :3100, прокси /api
-pnpm test                 # api: 43 теста (vitest + fastify.inject + pglite, ~13 с), web: 6 (lib/dates)
+pnpm test                 # api: 43 теста (vitest + fastify.inject + pglite, 15–30 с), web: 6 (lib/dates)
 pnpm typecheck
 pnpm --filter @taskterm/api exec drizzle-kit generate   # новая миграция
 docker compose up -d --build                            # прод-режим (APP_PORT, ACCESS_PASSWORD, POSTGRES_PASSWORD, COOKIE_SECURE)
