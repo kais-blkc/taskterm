@@ -1,8 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   boardFullSchema,
+  boardMemberSchema,
   boardSchema,
   type Board,
+  type BoardRole,
   type BoardFull,
   type MoveTaskInput,
   type Task,
@@ -13,6 +15,7 @@ import { api } from './client';
 
 export const boardsKey = ['boards'] as const;
 export const boardKey = (id: number) => ['board', id] as const;
+export const membersKey = (id: number) => ['members', id] as const;
 
 export function useBoards() {
   return useQuery({
@@ -101,4 +104,33 @@ export function useBoardMutations(boardId: number) {
   });
 
   return { addColumn, renameColumn, deleteColumn, addTask, deleteTask, moveTask };
+}
+
+export function useMembers(boardId: number, enabled = true) {
+  return useQuery({
+    enabled,
+    queryKey: membersKey(boardId),
+    queryFn: async () => z.array(boardMemberSchema).parse(await api(API_ENDPOINTS.BOARD_MEMBERS(boardId))),
+  });
+}
+
+/** Участники доски: добавить/сменить роль, убрать (или выйти самому) */
+export function useMemberMutations(boardId: number) {
+  const qc = useQueryClient();
+  const refresh = () => {
+    void qc.invalidateQueries({ queryKey: membersKey(boardId) });
+    void qc.invalidateQueries({ queryKey: boardKey(boardId) });
+    void qc.invalidateQueries({ queryKey: boardsKey });
+  };
+  return {
+    setRole: useMutation({
+      mutationFn: (v: { userId: number; role: BoardRole }) =>
+        api(API_ENDPOINTS.BOARD_MEMBER(boardId, v.userId), { method: 'PUT', body: { role: v.role } }),
+      onSuccess: refresh,
+    }),
+    remove: useMutation({
+      mutationFn: (userId: number) => api<void>(API_ENDPOINTS.BOARD_MEMBER(boardId, userId), { method: 'DELETE' }),
+      onSuccess: refresh,
+    }),
+  };
 }

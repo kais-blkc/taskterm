@@ -57,6 +57,8 @@ export function TaskCard({
   stat,
   finished,
   selected,
+  canDrag,
+  canDelete,
   onDelete,
   onOpen,
 }: {
@@ -66,25 +68,28 @@ export function TaskCard({
   stat?: SubtaskStat;
   finished?: boolean;
   selected?: boolean;
+  canDrag: boolean;
+  canDelete: boolean;
   onDelete: () => void;
   onOpen: () => void;
 }) {
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({
     id: `task-${task.id}`,
     data: { type: 'task', task },
+    disabled: !canDrag,
   });
   return (
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1 }}
       data-task-id={task.id}
-      className={`group relative cursor-grab touch-none active:cursor-grabbing ${selected ? 'outline outline-2 outline-offset-1 outline-accent' : ''}`}
+      className={`group relative ${canDrag ? 'cursor-grab touch-none active:cursor-grabbing' : 'cursor-pointer'} ${selected ? 'outline outline-2 outline-offset-1 outline-accent' : ''}`}
       onClick={onOpen}
       {...attributes}
       {...listeners}
     >
       <TaskCardView task={task} assignee={assignee} mine={mine} stat={stat} finished={finished} />
-      <button
+      {canDelete && <button
         type="button"
         title="delete"
         onPointerDown={(e) => e.stopPropagation()}
@@ -100,7 +105,7 @@ export function TaskCard({
         className="btn btn-danger btn-icon absolute right-1 top-1 hidden bg-elev group-hover:inline-flex"
       >
         ×
-      </button>
+      </button>}
     </div>
   );
 }

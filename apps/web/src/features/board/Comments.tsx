@@ -54,7 +54,17 @@ function CommentForm({
   );
 }
 
-function CommentItem({ c, mine, taskId }: { c: Comment; mine: boolean; taskId: number }) {
+function CommentItem({
+  c,
+  canEdit,
+  canDelete,
+  taskId,
+}: {
+  c: Comment;
+  canEdit: boolean;
+  canDelete: boolean;
+  taskId: number;
+}) {
   const m = useCommentMutations(taskId);
   const [editing, setEditing] = useState(false);
   const author = useUsers().byId.get(c.authorId);
@@ -65,12 +75,14 @@ function CommentItem({ c, mine, taskId }: { c: Comment; mine: boolean; taskId: n
           <UserTag user={author} fallback={c.authorName} /> · {formatDateTime(c.createdAt)}
           {c.editedAt && ' · (изм.)'}
         </span>
-        {mine && !editing && (
+        {(canEdit || canDelete) && !editing && (
           <span className="flex gap-2">
-            <button type="button" onClick={() => setEditing(true)} className="btn">
-              edit
-            </button>
-            <button
+            {canEdit && (
+              <button type="button" onClick={() => setEditing(true)} className="btn">
+                edit
+              </button>
+            )}
+            {canDelete && <button
               type="button"
               onClick={async () => {
                 if (await confirmDialog({ title: 'Удалить комментарий?', message: 'Это действие нельзя отменить.', danger: true })) {
@@ -80,7 +92,7 @@ function CommentItem({ c, mine, taskId }: { c: Comment; mine: boolean; taskId: n
               className="btn btn-danger"
             >
               delete
-            </button>
+            </button>}
           </span>
         )}
       </div>
@@ -99,7 +111,19 @@ function CommentItem({ c, mine, taskId }: { c: Comment; mine: boolean; taskId: n
   );
 }
 
-export function Comments({ taskId, userId }: { taskId: number; userId: number }) {
+export function Comments({
+  taskId,
+  userId,
+  canComment,
+  canModerate,
+}: {
+  taskId: number;
+  userId: number;
+  /** писать комментарии, править и удалять свои */
+  canComment: boolean;
+  /** удалять чужие (владелец доски) */
+  canModerate: boolean;
+}) {
   const { data, isLoading, error } = useComments(taskId);
   const m = useCommentMutations(taskId);
   return (
@@ -108,10 +132,22 @@ export function Comments({ taskId, userId }: { taskId: number; userId: number })
       {isLoading && <p className="text-muted">loading...</p>}
       {error && <p className="text-danger">! failed to load comments</p>}
       <ul className="space-y-2">
-        {data?.map((c) => <CommentItem key={c.id} c={c} mine={c.authorId === userId} taskId={taskId} />)}
+        {data?.map((c) => (
+          <CommentItem
+            key={c.id}
+            c={c}
+            taskId={taskId}
+            canEdit={canComment && c.authorId === userId}
+            canDelete={(canComment && c.authorId === userId) || canModerate}
+          />
+        ))}
       </ul>
       {m.add.error && <p className="text-danger">! {m.add.error.message}</p>}
-      <CommentForm submitLabel="send" pending={m.add.isPending} onSubmit={(body) => m.add.mutate(body)} />
+      {canComment ? (
+        <CommentForm submitLabel="send" pending={m.add.isPending} onSubmit={(body) => m.add.mutate(body)} />
+      ) : (
+        <p className="text-muted">// у тебя роль «наблюдатель» — комментировать нельзя</p>
+      )}
     </section>
   );
 }

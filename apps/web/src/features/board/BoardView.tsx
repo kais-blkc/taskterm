@@ -10,7 +10,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core';
-import type { BoardFull, Task } from '@taskterm/shared';
+import { canDeleteTask, roleCan, type BoardFull, type Task } from '@taskterm/shared';
 import { useMe } from '../../api/auth';
 import { ROUTES } from '../../consts/routes';
 import { daysUntil } from '../../lib/dates';
@@ -33,6 +33,10 @@ export function BoardView({ data }: { data: BoardFull }) {
   const users = useUsers();
   // 'all' | 'me' | 'none' | id исполнителя
   const [filter, setFilter] = useState<string>('all');
+  const role = data.board.myRole;
+  const canEdit = roleCan(role, 'editTask');
+  const canCreate = roleCan(role, 'createTask');
+  const canManage = roleCan(role, 'manageBoard');
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   const lastColumnId = data.columns.at(-1)?.id;
@@ -109,6 +113,7 @@ export function BoardView({ data }: { data: BoardFull }) {
           return;
         case 'n': {
           e.preventDefault();
+          if (!canCreate) return;
           const colId = ci !== -1 ? data.columns[ci]!.id : data.columns[0]?.id;
           if (colId !== undefined) ui.setAddTaskColumn(colId);
           return;
@@ -120,7 +125,7 @@ export function BoardView({ data }: { data: BoardFull }) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [data, byColumn, navigate, taskModalOpen]);
+  }, [data, byColumn, navigate, taskModalOpen, canCreate]);
 
   const onDragStart = (e: DragStartEvent) => {
     setDragCursor(true);
@@ -132,7 +137,7 @@ export function BoardView({ data }: { data: BoardFull }) {
     setActive(null);
     const task = e.active.data.current?.task as Task | undefined;
     const over = e.over;
-    if (!task || !over) return;
+    if (!task || !over || !canEdit) return;
 
     const overData = over.data.current;
     if (overData?.type === 'column') {
@@ -201,6 +206,10 @@ export function BoardView({ data }: { data: BoardFull }) {
             stats={statsByTask}
             finished={c.id === lastColumnId}
             meId={meId}
+            canEdit={canEdit}
+            canCreate={canCreate}
+            canManage={canManage}
+            canDeleteTask={(t) => canDeleteTask(role, t.authorId === meId)}
             onRename={(name) => m.renameColumn.mutate({ id: c.id, name })}
             onDelete={() => m.deleteColumn.mutate(c.id)}
             onAddTask={(title) => m.addTask.mutate({ columnId: c.id, title })}
@@ -208,9 +217,11 @@ export function BoardView({ data }: { data: BoardFull }) {
             onOpenTask={(id) => navigate(ROUTES.TASK(data.board.id, id))}
           />
         ))}
-        <div className="w-60 shrink-0 pt-1">
-          <InlineAdd label="column" placeholder="column name, enter" onSubmit={(name) => m.addColumn.mutate(name)} />
-        </div>
+        {canManage && (
+          <div className="w-60 shrink-0 pt-1">
+            <InlineAdd label="column" placeholder="column name, enter" onSubmit={(name) => m.addColumn.mutate(name)} />
+          </div>
+        )}
       </div>
       <DragOverlay>{active && (
           <TaskCardView

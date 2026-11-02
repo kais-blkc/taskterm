@@ -6,7 +6,7 @@ import { notificationsSupported, useNotifyStore } from '../stores/notifications'
 import { API_BASE, API_ENDPOINTS } from '../consts/endpoints';
 import { ROUTES } from '../consts/routes';
 import { meKey } from './auth';
-import { boardKey, boardsKey } from './boards';
+import { boardKey, boardsKey, membersKey } from './boards';
 import { refreshSession } from './client';
 import { subtasksKey } from './subtasks';
 import { commentsKey } from './tasks';
@@ -84,7 +84,12 @@ export function useServerEvents(user: User) {
           case 'boards':
             void qc.invalidateQueries({ queryKey: boardsKey });
             break;
-          case 'board':
+          case 'members':
+          void qc.invalidateQueries({ queryKey: membersKey(e.boardId) });
+          void qc.invalidateQueries({ queryKey: boardKey(e.boardId) });
+          void qc.invalidateQueries({ queryKey: boardsKey });
+          break;
+        case 'board':
             void qc.invalidateQueries({ queryKey: boardKey(e.boardId) });
             break;
           case 'subtasks':

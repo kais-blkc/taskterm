@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { userSchema, type User } from '@taskterm/shared';
+import { userSchema, type Me, type User } from '@taskterm/shared';
 import { z } from 'zod';
 import { API_ENDPOINTS } from '../consts/endpoints';
 import { api } from './client';
@@ -22,7 +22,7 @@ export function useSetColor() {
   return useMutation({
     mutationFn: (color: string) => api<User>(API_ENDPOINTS.USERS_ME_COLOR, { method: 'PATCH', body: { color } }),
     onSuccess: (user) => {
-      qc.setQueryData(meKey, user);
+      qc.setQueryData<Me | null>(meKey, (old) => (old ? { ...old, ...user } : old));
       void qc.invalidateQueries({ queryKey: usersKey });
     },
   });

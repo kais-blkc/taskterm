@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import type { Task, User } from '@taskterm/shared';
-import { useBoard } from '../../api/boards';
+import { roleCan, type BoardRole, type Task, type User } from '@taskterm/shared';
+import { useBoard, useMembers } from '../../api/boards';
 import { ROUTES } from '../../consts/routes';
 import { useUpdateTask } from '../../api/tasks';
 import { useUsers } from '../../api/users';
@@ -18,15 +18,20 @@ function TaskBody({
   isFinished,
   user,
   boardId,
+  role,
 }: {
   task: Task;
   columnName: string;
   isFinished: boolean;
   user: User;
   boardId: number;
+  role: BoardRole;
 }) {
   const update = useUpdateTask(boardId);
   const users = useUsers();
+  const members = useMembers(boardId);
+  // править поля задачи, подзадачи и описание может редактор и выше; остальные только читают
+  const canEdit = roleCan(role, 'editTask');
   const [editingTitle, setEditingTitle] = useState(false);
   const [editingDesc, setEditingDesc] = useState(false);
   const [desc, setDesc] = useState(task.description);
@@ -37,7 +42,7 @@ function TaskBody({
         <div className="text-muted">
           #{task.number} · <span className="text-fg">{columnName}</span>
         </div>
-        {editingTitle ? (
+        {editingTitle && canEdit ? (
           <input
             autoFocus
             defaultValue={task.title}
@@ -55,9 +60,9 @@ function TaskBody({
           />
         ) : (
           <h1
-            className="mt-1 cursor-text text-lg font-bold"
-            title="клик — редактировать"
-            onClick={() => setEditingTitle(true)}
+            className={`mt-1 text-lg font-bold ${canEdit ? 'cursor-text' : ''}`}
+            title={canEdit ? 'клик — редактировать' : undefined}
+            onClick={() => canEdit && setEditingTitle(true)}
           >
             {task.title}
           </h1>
@@ -74,12 +79,13 @@ function TaskBody({
         <dd className="flex flex-wrap items-center gap-3">
           <Select
             className="min-w-48"
-            disabled={update.isPending}
+            disabled={update.isPending || !canEdit}
             value={task.assigneeId ? String(task.assigneeId) : ''}
             placeholder="— не назначен —"
             options={[
               { value: '', label: '— не назначен —' },
-              ...(users.data ?? []).map((u) => ({
+              // исполнитель — только участник доски
+              ...(members.data ?? []).map((u) => ({
                 value: String(u.id),
                 label: `@${u.username}${u.id === user.id ? ' (я)' : ''}`,
                 icon: <ColorDot color={u.color} />,
@@ -87,7 +93,7 @@ function TaskBody({
             ]}
             onChange={(v) => update.mutate({ id: task.id, assigneeId: v ? Number(v) : null })}
           />
-          {task.assigneeId !== user.id && (
+          {canEdit && task.assigneeId !== user.id && members.data?.some((x) => x.id === user.id) && (
             <button
               type="button"
               disabled={update.isPending}
@@ -103,11 +109,11 @@ function TaskBody({
           <input
             type="date"
             value={task.dueDate ?? ''}
-            disabled={update.isPending}
+            disabled={update.isPending || !canEdit}
             onChange={(e) => update.mutate({ id: task.id, dueDate: e.target.value || null })}
             className="border border-line bg-elev px-2 py-0.5 outline-none focus:border-accent"
           />
-          {[
+          {canEdit && [
             ['сегодня', 0],
             ['завтра', 1],
             ['+7 дней', 7],
@@ -124,9 +130,11 @@ function TaskBody({
           ))}
           {task.dueDate && (
             <>
-              <button type="button" disabled={update.isPending} onClick={() => update.mutate({ id: task.id, dueDate: null })} className="btn btn-danger">
-                убрать
-              </button>
+              {canEdit && (
+                <button type="button" disabled={update.isPending} onClick={() => update.mutate({ id: task.id, dueDate: null })} className="btn btn-danger">
+                  убрать
+                </button>
+              )}
               <span className={DUE_CLASS[dueInfo(task.dueDate, isFinished).state]}>
                 {dueInfo(task.dueDate, isFinished).label}
               </span>
@@ -144,7 +152,7 @@ function TaskBody({
       <section className="space-y-2">
         <h3 className="flex justify-between">
           <span>## description</span>
-          {!editingDesc && (
+          {canEdit && !editingDesc && (
             <button
               type="button"
               className="btn"
@@ -186,9 +194,14 @@ function TaskBody({
         )}
       </section>
 
-      <Subtasks taskId={task.id} boardId={boardId} />
+      <Subtasks taskId={task.id} boardId={boardId} readOnly={!canEdit} />
 
-      <Comments taskId={task.id} userId={user.id} />
+      <Comments
+        taskId={task.id}
+        userId={user.id}
+        canComment={roleCan(role, 'comment')}
+        canModerate={roleCan(role, 'deleteAnyComment')}
+      />
     </div>
   );
 }
@@ -234,6 +247,7 @@ export function TaskModal({ user }: { user: User }) {
             isFinished={task.columnId === data.columns.at(-1)?.id}
             user={user}
             boardId={boardId}
+            role={data.board.myRole}
           />
         )}
       </div>

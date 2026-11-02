@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { ROLE_LABELS } from '@taskterm/shared';
 import { ROUTES } from '../consts/routes';
 import { useBoards, useCreateBoard, useDeleteBoard } from '../api/boards';
 import { InlineAdd } from '../components/InlineAdd';
@@ -13,15 +14,16 @@ export function BoardsPage() {
     <div className="mx-auto max-w-xl p-6">
       <h1 className="mb-4">$ ls boards/</h1>
       {boards.isLoading && <p className="text-muted">loading...</p>}
-      {boards.data?.length === 0 && <p className="text-muted">// пока нет досок — создай первую</p>}
+      {boards.data?.length === 0 && <p className="text-muted">// нет доступных досок — создай свою или попроси владельца добавить тебя</p>}
       <ul className="mb-4 space-y-1">
         {boards.data?.map((b) => (
           <li key={b.id} className="flex items-center justify-between border border-line bg-elev px-3 py-2 hover:border-accent">
             <Link to={ROUTES.BOARD(b.id)} className="flex-1 hover:text-accent">
               <span className="text-muted">├── </span>
               {b.name}
+              {b.myRole !== 'owner' && <span className="ml-2 text-xs text-muted">[{ROLE_LABELS[b.myRole]}]</span>}
             </Link>
-            <button
+            {b.myRole === 'owner' && <button
               type="button"
               title="удалить доску"
               className="btn btn-danger btn-icon"
@@ -35,7 +37,7 @@ export function BoardsPage() {
               }}
             >
               ×
-            </button>
+            </button>}
           </li>
         ))}
       </ul>

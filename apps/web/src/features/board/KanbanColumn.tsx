@@ -14,6 +14,10 @@ export function KanbanColumn({
   stats,
   finished,
   meId,
+  canEdit,
+  canCreate,
+  canManage,
+  canDeleteTask,
   onRename,
   onDelete,
   onAddTask,
@@ -27,6 +31,12 @@ export function KanbanColumn({
   /** последняя колонка доски («Сделано») */
   finished: boolean;
   meId: number;
+  /** перетаскивать задачи (роль editor и выше) */
+  canEdit: boolean;
+  canCreate: boolean;
+  /** колонки: переименовать/удалить (owner) */
+  canManage: boolean;
+  canDeleteTask: (t: Task) => boolean;
   onRename: (name: string) => void;
   onDelete: () => void;
   onAddTask: (title: string) => void;
@@ -60,11 +70,15 @@ export function KanbanColumn({
             }}
           />
         ) : (
-          <h2 className="cursor-text" onDoubleClick={() => setEditing(true)} title="двойной клик — переименовать">
+          <h2
+            className={canManage ? 'cursor-text' : ''}
+            onDoubleClick={() => canManage && setEditing(true)}
+            title={canManage ? 'двойной клик — переименовать' : undefined}
+          >
             ## {column.name} <span className="text-muted">({tasks.length})</span>
           </h2>
         )}
-        <button
+        {canManage && <button
           type="button"
           title="удалить колонку"
           className="btn btn-danger btn-icon"
@@ -80,7 +94,7 @@ export function KanbanColumn({
           }}
         >
           ×
-        </button>
+        </button>}
       </header>
       <div ref={setNodeRef} className="flex min-h-16 flex-1 flex-col gap-2 p-2">
         <SortableContext items={tasks.map((t) => `task-${t.id}`)} strategy={verticalListSortingStrategy}>
@@ -93,11 +107,13 @@ export function KanbanColumn({
               stat={stats.get(t.id)}
               finished={finished}
               selected={t.id === selectedTaskId}
+              canDrag={canEdit}
+              canDelete={canDeleteTask(t)}
               onDelete={() => onDeleteTask(t.id)} onOpen={() => onOpenTask(t.id)} />
           ))}
         </SortableContext>
       </div>
-      <div className="border-t border-line p-2">
+      {canCreate && <div className="border-t border-line p-2">
         <InlineAdd
           label="task"
           placeholder="title, enter"
@@ -105,7 +121,7 @@ export function KanbanColumn({
           open={addingHere}
           onOpenChange={(o) => setAddTaskColumn(o ? column.id : null)}
         />
-      </div>
+      </div>}
     </section>
   );
 }
