@@ -202,7 +202,7 @@ export function BoardView({ data }: { data: BoardFull }) {
           onChange={setFilter}
         />
       </div>
-      <div className="board-columns flex snap-x items-start gap-3 overflow-x-auto p-4">
+      <div className="board-columns flex snap-x scroll-px-4 items-start gap-3 overflow-x-auto p-4">
         {data.columns.map((c) => (
           <KanbanColumn
             key={c.id}
