@@ -56,14 +56,14 @@ export function KanbanColumn({
 
   return (
     <section
-      className={`flex w-72 shrink-0 flex-col border bg-bg ${highlighted ? 'border-accent' : 'border-line'}`}
+      className={`kanban-column flex w-72 shrink-0 flex-col border bg-bg ${highlighted ? 'border-accent' : 'border-line'}`}
     >
-      <header className="flex items-center justify-between border-b border-line px-2 py-1.5">
+      <header className="kanban-column-header flex items-center justify-between border-b border-line px-2 py-1.5">
         {editing ? (
           <input
             autoFocus
             defaultValue={column.name}
-            className="w-40 border border-accent bg-elev px-1 outline-none"
+            className="kanban-column-rename-input w-40 border border-accent bg-elev px-1 outline-none"
             onBlur={(e) => {
               const v = e.target.value.trim();
               if (v && v !== column.name) onRename(v);
@@ -76,7 +76,7 @@ export function KanbanColumn({
           />
         ) : (
           <h2
-            className={canManage ? 'cursor-text' : ''}
+            className={`kanban-column-title ${canManage ? 'cursor-text' : ''}`}
             onDoubleClick={() => canManage && setEditing(true)}
             title={canManage ? 'двойной клик — переименовать' : undefined}
           >
@@ -86,7 +86,7 @@ export function KanbanColumn({
         {canManage && <button
           type="button"
           title="удалить колонку"
-          className="btn btn-danger btn-icon"
+          className="kanban-column-delete btn btn-danger btn-icon"
           onClick={async () => {
             const ok = await confirmDialog({
               title: `Удалить колонку «${column.name}»?`,
@@ -101,7 +101,7 @@ export function KanbanColumn({
           ×
         </button>}
       </header>
-      <div ref={setNodeRef} className="flex min-h-16 flex-1 flex-col gap-2 p-2">
+      <div ref={setNodeRef} className="kanban-column-tasks flex min-h-16 flex-1 flex-col gap-2 p-2">
         <SortableContext items={tasks.map((t) => `task-${t.id}`)} strategy={verticalListSortingStrategy}>
           {tasks.map((t) => (
             <TaskCard
@@ -118,7 +118,7 @@ export function KanbanColumn({
           ))}
         </SortableContext>
       </div>
-      {canCreate && <div className="border-t border-line p-2">
+      {canCreate && <div className="kanban-column-add border-t border-line p-2">
         <InlineAdd
           label="task"
           placeholder="title, enter"

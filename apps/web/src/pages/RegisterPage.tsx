@@ -22,28 +22,28 @@ export function RegisterPage() {
   const unavailable = check.error instanceof ApiError && check.error.status >= 500;
 
   return (
-    <main className="mx-auto mt-24 max-w-sm px-4">
-      <h1 className="mb-6">
+    <main className="register-page mx-auto mt-24 max-w-sm px-4">
+      <h1 className="page-title mb-6">
         <span className="text-muted">$</span> taskterm register <span className="cursor" />
       </h1>
-      {check.isLoading && <p className="text-muted">loading...</p>}
+      {check.isLoading && <p className="register-loading text-muted">loading...</p>}
       {invalid && !check.isLoading && (
-        <div className="space-y-3">
+        <div className="register-invalid space-y-3">
           <p className="text-danger">
             ! {unavailable ? 'сервер недоступен, попробуй позже' : 'приглашение недействительно или просрочено'}
           </p>
           <p className="text-muted">// попроси администратора выслать новую ссылку</p>
-          <Link to={ROUTES.HOME} className="btn inline-block">
+          <Link to={ROUTES.HOME} className="register-back-link btn inline-block">
             ← ко входу
           </Link>
         </div>
       )}
       {check.data && (
-        <form onSubmit={handleSubmit((v) => reg.mutate({ ...v, token }))} className="space-y-4">
+        <form onSubmit={handleSubmit((v) => reg.mutate({ ...v, token }))} className="register-form space-y-4">
           <p className="text-muted">
             @{check.data.invitedBy} приглашает тебя. Email: <span className="text-fg">{check.data.email}</span>
           </p>
-          <label className="block">
+          <label className="form-field block">
             <span className="text-muted">username:</span>
             <input
               autoComplete="username"
@@ -52,7 +52,7 @@ export function RegisterPage() {
             />
             {errors.username && <span className="text-danger">! {errors.username.message}</span>}
           </label>
-          <label className="block">
+          <label className="form-field block">
             <span className="text-muted">password:</span>
             <input
               type="password"
@@ -62,8 +62,8 @@ export function RegisterPage() {
             />
             {errors.password && <span className="text-danger">! {errors.password.message}</span>}
           </label>
-          {reg.error && <p className="text-danger">! {reg.error.message}</p>}
-          <button type="submit" disabled={reg.isPending} className="btn btn-primary px-3">
+          {reg.error && <p className="form-error text-danger">! {reg.error.message}</p>}
+          <button type="submit" disabled={reg.isPending} className="register-submit btn btn-primary px-3">
             {reg.isPending ? '...' : '> create account'}
           </button>
         </form>

@@ -24,7 +24,7 @@ export function InlineAdd({
 
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} className="btn">
+      <button type="button" onClick={() => setOpen(true)} className="inline-add-button btn">
         + {label}
       </button>
     );
@@ -34,7 +34,7 @@ export function InlineAdd({
     setValue('');
   };
   return (
-    <form
+    <form className="inline-add-form"
       onSubmit={(e) => {
         e.preventDefault();
         const v = value.trim();
@@ -49,7 +49,7 @@ export function InlineAdd({
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => e.key === 'Escape' && close()}
         onBlur={() => !value.trim() && close()}
-        className="w-full border border-accent bg-elev px-2 py-1 outline-none"
+        className="inline-add-input w-full border border-accent bg-elev px-2 py-1 outline-none"
       />
     </form>
   );

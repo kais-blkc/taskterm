@@ -49,7 +49,7 @@ export function TaskRights({ task, boardId }: { task: Task; boardId: number }) {
   const heirs = (members.data ?? []).filter((m) => m.id !== task.authorId && roleCan(m.role, 'editTask'));
 
   return (
-    <section className="space-y-2">
+    <section className="task-rights space-y-2">
       <h3 className="flex flex-wrap items-center justify-between gap-2">
         <span>
           ## rights{' '}
@@ -60,10 +60,10 @@ export function TaskRights({ task, boardId }: { task: Task; boardId: number }) {
         </button>
       </h3>
       {open && (
-        <div className="space-y-3 border border-line bg-bg p-3">
+        <div className="task-rights-panel space-y-3 border border-line bg-bg p-3">
           <div>
             <p className="mb-1 text-muted">// что могут делать редакторы доски (ты, владелец доски и админ — всегда всё):</p>
-            <ul className="grid gap-x-4 gap-y-1 sm:grid-cols-2">
+            <ul className="task-rights-list grid gap-x-4 gap-y-1 sm:grid-cols-2">
               {LOCKS.map(({ key, label }) => (
                 <li key={key}>
                   <button
@@ -97,7 +97,7 @@ export function TaskRights({ task, boardId }: { task: Task; boardId: number }) {
               onChange={(v) => apply({ subtasks: v as SubtaskMode })}
             />
             <span className="text-muted">владелец</span>
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="task-rights-owner flex flex-wrap items-center gap-3">
               <UserTag user={users.byId.get(task.authorId)} />
               <Select
                 className="min-w-56"
@@ -119,7 +119,7 @@ export function TaskRights({ task, boardId }: { task: Task; boardId: number }) {
             </div>
           </div>
           {(setPolicy.error || transfer.error) && <p className="text-danger">! {(setPolicy.error ?? transfer.error)?.message}</p>}
-          <div className="flex flex-wrap gap-2">
+          <div className="task-rights-presets flex flex-wrap gap-2">
             <button type="button" className="btn" disabled={setPolicy.isPending || isPolicyDefault(p)} onClick={() => apply({ ...DEFAULT_TASK_POLICY })}>
               отметить все
             </button>

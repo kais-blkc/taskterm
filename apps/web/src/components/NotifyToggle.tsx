@@ -22,7 +22,7 @@ export function NotifyToggle() {
       onClick={toggle}
       disabled={denied}
       title={denied ? 'уведомления заблокированы в настройках браузера' : 'уведомления о комментариях'}
-      className={`btn ${on ? 'btn-active' : ''} disabled:cursor-not-allowed disabled:line-through`}
+      className={`notify-toggle btn ${on ? 'btn-active' : ''} disabled:cursor-not-allowed disabled:line-through`}
     >
       notify: {on ? 'on' : 'off'}
     </button>

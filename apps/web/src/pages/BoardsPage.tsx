@@ -11,22 +11,22 @@ export function BoardsPage() {
   const del = useDeleteBoard();
 
   return (
-    <div className="mx-auto max-w-xl p-6">
-      <h1 className="mb-4">$ ls boards/</h1>
+    <div className="boards-page mx-auto max-w-xl p-6">
+      <h1 className="page-title mb-4">$ ls boards/</h1>
       {boards.isLoading && <p className="text-muted">loading...</p>}
       {boards.data?.length === 0 && <p className="text-muted">// нет доступных досок — создай свою или попроси владельца добавить тебя</p>}
-      <ul className="mb-4 space-y-1">
+      <ul className="boards-list mb-4 space-y-1">
         {boards.data?.map((b) => (
-          <li key={b.id} className="flex items-center justify-between border border-line bg-elev px-3 py-2 hover:border-accent">
-            <Link to={ROUTES.BOARD(b.id)} className="flex-1 hover:text-accent">
+          <li key={b.id} className="boards-list-item flex items-center justify-between border border-line bg-elev px-3 py-2 hover:border-accent">
+            <Link to={ROUTES.BOARD(b.id)} className="boards-list-link flex-1 hover:text-accent">
               <span className="text-muted">├── </span>
               {b.name}
-              {b.myRole !== 'owner' && <span className="ml-2 text-xs text-muted">[{ROLE_LABELS[b.myRole]}]</span>}
+              {b.myRole !== 'owner' && <span className="boards-list-role ml-2 text-xs text-muted">[{ROLE_LABELS[b.myRole]}]</span>}
             </Link>
             {b.myRole === 'owner' && <button
               type="button"
               title="удалить доску"
-              className="btn btn-danger btn-icon"
+              className="boards-delete-button btn btn-danger btn-icon"
               onClick={async () => {
                 const ok = await confirmDialog({
                   title: `Удалить доску «${b.name}»?`,

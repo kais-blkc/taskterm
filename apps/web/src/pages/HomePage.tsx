@@ -33,29 +33,29 @@ export function Layout({ user }: { user: Me }) {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
   return (
-    <div>
-      <header className="flex items-center justify-between border-b border-line px-4 py-2">
-        <Link to={ROUTES.HOME} className="hover:text-accent">
+    <div className="app-layout">
+      <header className="app-header flex items-center justify-between border-b border-line px-4 py-2">
+        <Link to={ROUTES.HOME} className="app-brand hover:text-accent">
           $ taskterm
         </Link>
-        <div className="flex items-center gap-2">
+        <div className="app-header-actions flex items-center gap-2">
           <button
             type="button"
             onClick={() => useUiStore.getState().setPaletteOpen(true)}
-            className="btn"
+            className="palette-button btn"
             title="командная палитра"
           >
             {MOD_KEY}+K
           </button>
           {user.role === 'admin' && (
-            <Link to={ROUTES.ADMIN} className="btn" title="админ-панель">
+            <Link to={ROUTES.ADMIN} className="admin-link btn" title="админ-панель">
               admin
             </Link>
           )}
           <NotifyToggle />
           <ThemeSettings />
           <ProfileMenu user={user} />
-          <button type="button" onClick={() => logout.mutate()} className="btn btn-danger">
+          <button type="button" onClick={() => logout.mutate()} className="logout-button btn btn-danger">
             logout
           </button>
         </div>

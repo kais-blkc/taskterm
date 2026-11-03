@@ -14,22 +14,22 @@ export function BoardPage() {
   const me = useMe().data;
   const [membersOpen, setMembersOpen] = useState(false);
 
-  if (isLoading) return <p className="p-4 text-muted">loading...</p>;
+  if (isLoading) return <p className="board-loading p-4 text-muted">loading...</p>;
   if (error || !data) {
     const notFound = error instanceof ApiError && error.status === 404;
-    return <p className="p-4 text-danger">! {notFound ? 'board not found' : 'failed to load board'}</p>;
+    return <p className="board-error p-4 text-danger">! {notFound ? 'board not found' : 'failed to load board'}</p>;
   }
   return (
-    <div>
-      <div className="px-4 pt-3">
-        <Link to={ROUTES.HOME} className="text-muted hover:text-accent">
+    <div className="board-page">
+      <div className="board-header px-4 pt-3">
+        <Link to={ROUTES.HOME} className="board-back-link text-muted hover:text-accent">
           ← boards
         </Link>
-        <span className="ml-3"># {data.board.name}</span>
-        <span className="ml-3 text-muted" title="твоя роль на доске">
+        <span className="board-name ml-3"># {data.board.name}</span>
+        <span className="board-role ml-3 text-muted" title="твоя роль на доске">
           [{ROLE_LABELS[data.board.myRole]}]
         </span>
-        <button type="button" className="btn ml-3" onClick={() => setMembersOpen(true)}>
+        <button type="button" className="board-members-button btn ml-3" onClick={() => setMembersOpen(true)}>
           участники
         </button>
       </div>

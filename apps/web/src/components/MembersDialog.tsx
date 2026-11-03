@@ -47,10 +47,10 @@ export function MembersDialog({
 
   return (
     <div
-      className="fixed inset-0 z-30 flex items-start justify-center overflow-y-auto bg-black/60 p-4 pt-16"
+      className="members-overlay fixed inset-0 z-30 flex items-start justify-center overflow-y-auto bg-black/60 p-4 pt-16"
       onMouseDown={(e) => !box.current?.contains(e.target as Node) && onClose()}
     >
-      <div ref={box} className="w-full max-w-xl space-y-4 border border-accent bg-elev p-5 shadow-2xl">
+      <div ref={box} className="members-dialog w-full max-w-xl space-y-4 border border-accent bg-elev p-5 shadow-2xl">
         <div className="flex items-center justify-between">
           <h2>## members</h2>
           <button type="button" className="btn btn-danger" onClick={onClose}>
@@ -59,9 +59,9 @@ export function MembersDialog({
         </div>
 
         {members.isLoading && <p className="text-muted">loading...</p>}
-        <ul className="space-y-1">
+        <ul className="members-list space-y-1">
           {members.data?.map((u) => (
-            <li key={u.id} className="flex items-center justify-between gap-3 border border-line bg-bg px-2 py-1.5">
+            <li key={u.id} className="members-item flex items-center justify-between gap-3 border border-line bg-bg px-2 py-1.5">
               <UserTag user={u} />
               <span className="flex items-center gap-2">
                 {canManage ? (
@@ -102,7 +102,7 @@ export function MembersDialog({
         {error && <p className="text-danger">! {error.message}</p>}
 
         {canManage && (
-          <div className="space-y-2 border-t border-line pt-3">
+          <div className="members-add space-y-2 border-t border-line pt-3">
             <div className="text-muted">+ добавить участника</div>
             <div className="flex flex-wrap items-center gap-2">
               <Select
@@ -127,7 +127,7 @@ export function MembersDialog({
           </div>
         )}
 
-        <dl className="space-y-0.5 border-t border-line pt-3 text-xs text-muted">
+        <dl className="members-roles-legend space-y-0.5 border-t border-line pt-3 text-xs text-muted">
           {BOARD_ROLES.map((r) => (
             <div key={r} className="flex gap-2">
               <dt className="w-24 shrink-0 text-fg">{ROLE_LABELS[r]}</dt>

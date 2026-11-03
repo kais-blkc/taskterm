@@ -19,8 +19,8 @@ export function App() {
   useSessionGuard();
   const { pathname } = useLocation();
   const me = useMe();
-  if (me.isLoading) return <p className="p-4 text-muted">loading...</p>;
-  if (me.isError) return <p className="p-4 text-danger">! api unavailable</p>;
+  if (me.isLoading) return <p className="app-loading p-4 text-muted">loading...</p>;
+  if (me.isError) return <p className="app-error p-4 text-danger">! api unavailable</p>;
   // без входа доступны только вход, регистрация по приглашению и сброс пароля по ссылке
   if (!me.data) {
     if (pathname === ROUTES.REGISTER) return <RegisterPage />;

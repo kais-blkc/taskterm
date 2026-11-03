@@ -28,8 +28,8 @@ function DeleteDialog({ user, heirs, pending, error, onSubmit, onClose }: {
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
   return (
-    <div className="fixed inset-0 z-30 flex items-start justify-center bg-black/60 p-4 pt-24" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="w-full max-w-md space-y-3 border border-danger bg-elev p-4">
+    <div className="delete-user-overlay fixed inset-0 z-30 flex items-start justify-center bg-black/60 p-4 pt-24" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="delete-user-dialog w-full max-w-md space-y-3 border border-danger bg-elev p-4">
         <h2>Удалить @{user.username}?</h2>
         <p className="text-muted">
           Его доски, задачи, комментарии и приглашения перейдут выбранному пользователю, а в задачах он перестанет быть ответственным.
@@ -63,7 +63,7 @@ export function UsersPanel({ meId }: { meId: number }) {
   const error = m.update.error ?? m.reset.error;
 
   return (
-    <section className="space-y-3">
+    <section className="users-panel space-y-3">
       <h2>## пользователи {users.data && <span className="text-muted">({users.data.length})</span>}</h2>
       {users.isLoading && <p className="text-muted">loading...</p>}
       {error && <p className="text-danger">! {error.message}</p>}
@@ -75,11 +75,11 @@ export function UsersPanel({ meId }: { meId: number }) {
           onClose={() => setLink(null)}
         />
       )}
-      <ul className="space-y-1">
+      <ul className="users-list space-y-1">
         {users.data?.map((u) => {
           const self = u.id === meId;
           return (
-            <li key={u.id} className="flex flex-wrap items-center justify-between gap-3 border border-line bg-bg px-3 py-2">
+            <li key={u.id} className="user-row flex flex-wrap items-center justify-between gap-3 border border-line bg-bg px-3 py-2">
               <div className="min-w-0 space-y-0.5">
                 <div className="flex items-center gap-2">
                   <ColorDot color={u.color} />
@@ -91,7 +91,7 @@ export function UsersPanel({ meId }: { meId: number }) {
                   {u.email ?? 'без email'} · досок: {u.boardsCount} · вход: {u.lastLoginAt ? formatDateTime(u.lastLoginAt) : 'ещё не входил'}
                 </div>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="user-actions flex flex-wrap items-center gap-2">
                 <Select
                   className="w-44"
                   value={u.role}

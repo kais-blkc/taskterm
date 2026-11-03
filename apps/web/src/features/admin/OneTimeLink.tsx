@@ -4,7 +4,7 @@ import { useState } from 'react';
 export function OneTimeLink({ title, hint, link, onClose }: { title: string; hint: string; link: string; onClose: () => void }) {
   const [copied, setCopied] = useState(false);
   return (
-    <div className="space-y-2 border border-accent bg-bg p-3">
+    <div className="one-time-link space-y-2 border border-accent bg-bg p-3">
       <div>
         {title} <span className="text-muted">({hint})</span>
       </div>

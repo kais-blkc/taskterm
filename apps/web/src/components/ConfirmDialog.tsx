@@ -39,23 +39,23 @@ export function ConfirmDialog() {
   const accent = opts.danger ? 'border-danger' : 'border-accent';
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-start justify-center bg-black/70 p-4 pt-32"
+      className="confirm-overlay fixed inset-0 z-[60] flex items-start justify-center bg-black/70 p-4 pt-32"
       onMouseDown={(e) => e.target === e.currentTarget && answer(false)}
     >
-      <div role="alertdialog" aria-modal="true" aria-label={opts.title} className={`w-full max-w-md space-y-4 border bg-elev p-5 shadow-2xl ${accent}`}>
+      <div role="alertdialog" aria-modal="true" aria-label={opts.title} className={`confirm-dialog w-full max-w-md space-y-4 border bg-elev p-5 shadow-2xl ${accent}`}>
         <h2 className={opts.danger ? 'text-danger' : ''}>
           <span className="text-muted">{opts.danger ? '! ' : '? '}</span>
           {opts.title}
         </h2>
         {opts.message && <div className="text-muted">{opts.message}</div>}
-        <div className="flex justify-end gap-2">
-          <button ref={cancelRef} type="button" className="btn" onClick={() => answer(false)}>
+        <div className="confirm-actions flex justify-end gap-2">
+          <button ref={cancelRef} type="button" className="confirm-cancel btn" onClick={() => answer(false)}>
             {opts.cancelLabel ?? 'cancel'}
           </button>
           <button
             ref={okRef}
             type="button"
-            className={`btn ${opts.danger ? 'btn-danger-solid' : 'btn-primary'}`}
+            className={`confirm-accept btn ${opts.danger ? 'btn-danger-solid' : 'btn-primary'}`}
             onClick={() => answer(true)}
           >
             {opts.confirmLabel ?? (opts.danger ? 'delete' : 'ok')}

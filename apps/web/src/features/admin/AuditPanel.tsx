@@ -26,13 +26,13 @@ export function AuditPanel() {
   const audit = useAudit();
   const rows = audit.data?.pages.flat() ?? [];
   return (
-    <section className="space-y-2">
+    <section className="audit-panel space-y-2">
       <h2>## журнал действий</h2>
       {audit.isLoading && <p className="text-muted">loading...</p>}
       {!audit.isLoading && rows.length === 0 && <p className="text-muted">// записей пока нет</p>}
-      <ul className="space-y-1">
+      <ul className="audit-list space-y-1">
         {rows.map((e) => (
-          <li key={e.id} className="border border-line bg-bg px-3 py-1.5">
+          <li key={e.id} className="audit-entry border border-line bg-bg px-3 py-1.5">
             <div>
               <span className="text-muted">{formatDateTime(e.createdAt)}</span> @{e.actorName}{' '}
               <span>{ACTIONS[e.action] ?? e.action}</span> {e.target && <span className="text-muted">{e.target}</span>}

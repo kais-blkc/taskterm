@@ -25,10 +25,10 @@ export function TaskCardView({
   return (
     <div
       style={assignee ? { borderLeft: `3px solid ${assignee.color}` } : undefined}
-      className={`border bg-elev px-2 py-1.5 ${dragging ? 'cursor-grabbing border-accent shadow-lg' : 'border-line hover:border-accent'}`}
+      className={`task-card border bg-elev px-2 py-1.5 ${dragging ? 'cursor-grabbing border-accent shadow-lg' : 'border-line hover:border-accent'}`}
     >
       <span className="text-muted">#{task.number}</span> {task.title}
-      <div className="mt-1 flex items-center justify-between gap-2 text-xs text-muted">
+      <div className="task-card-meta mt-1 flex items-center justify-between gap-2 text-xs text-muted">
         <span>
           → {assignee ? <UserTag user={assignee} /> : 'не назначена'}
           {mine && ' (я)'}
@@ -83,7 +83,7 @@ export function TaskCard({
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1 }}
       data-task-id={task.id}
-      className={`group relative ${canDrag ? 'cursor-grab touch-none active:cursor-grabbing' : 'cursor-pointer'} ${selected ? 'outline outline-2 outline-offset-1 outline-accent' : ''}`}
+      className={`task-card-sortable group relative ${canDrag ? 'cursor-grab touch-none active:cursor-grabbing' : 'cursor-pointer'} ${selected ? 'outline outline-2 outline-offset-1 outline-accent' : ''}`}
       onClick={onOpen}
       {...attributes}
       {...listeners}
@@ -102,7 +102,7 @@ export function TaskCard({
           });
           if (ok) onDelete();
         }}
-        className="btn btn-danger btn-icon absolute right-1 top-1 hidden bg-elev group-hover:inline-flex"
+        className="task-card-delete btn btn-danger btn-icon absolute right-1 top-1 hidden bg-elev group-hover:inline-flex"
       >
         ×
       </button>}

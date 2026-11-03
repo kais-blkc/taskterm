@@ -23,12 +23,12 @@ export function ThemeSettings() {
   const colors = currentColors(store);
 
   return (
-    <div ref={root} className="relative">
+    <div ref={root} className="theme-settings relative">
       <button type="button" onClick={() => setOpen(!open)} className={`btn ${open ? 'btn-active' : ''}`}>
         theme
       </button>
       {open && (
-        <div className="absolute right-0 z-10 mt-2 w-72 space-y-3 border border-line bg-elev p-3 shadow-lg">
+        <div className="theme-settings-popup absolute right-0 z-10 mt-2 w-72 space-y-3 border border-line bg-elev p-3 shadow-lg">
           <PresetSelect />
           <div className="space-y-1">
             {THEME_TOKENS.map((t) => (

@@ -172,7 +172,7 @@ export function BoardView({ data }: { data: BoardFull }) {
         setActive(null);
       }}
     >
-      <div className="flex flex-wrap items-center gap-2 px-4 pt-3 text-muted">
+      <div className="board-filters flex flex-wrap items-center gap-2 px-4 pt-3 text-muted">
         <span>filter:</span>
         {[
           ['all', 'все'],
@@ -184,7 +184,7 @@ export function BoardView({ data }: { data: BoardFull }) {
             key={v}
             type="button"
             onClick={() => setFilter(v!)}
-            className={`btn ${filter === v ? 'btn-active' : ''}`}
+            className={`board-filter-button btn ${filter === v ? 'btn-active' : ''}`}
           >
             {label}
           </button>
@@ -197,7 +197,7 @@ export function BoardView({ data }: { data: BoardFull }) {
           onChange={setFilter}
         />
       </div>
-      <div className="flex items-start gap-3 overflow-x-auto p-4">
+      <div className="board-columns flex items-start gap-3 overflow-x-auto p-4">
         {data.columns.map((c) => (
           <KanbanColumn
             key={c.id}
@@ -219,7 +219,7 @@ export function BoardView({ data }: { data: BoardFull }) {
           />
         ))}
         {canManage && (
-          <div className="w-60 shrink-0 pt-1">
+          <div className="board-add-column w-60 shrink-0 pt-1">
             <InlineAdd label="column" placeholder="column name, enter" onSubmit={(name) => m.addColumn.mutate(name)} />
           </div>
         )}

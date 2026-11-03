@@ -18,7 +18,7 @@ function Progress({ done, total }: { done: number; total: number }) {
   const cells = 10;
   const filled = total ? Math.round((done / total) * cells) : 0;
   return (
-    <span className="text-muted" title={`${done} из ${total}`}>
+    <span className="subtasks-progress text-muted" title={`${done} из ${total}`}>
       <span className={done === total && total > 0 ? 'text-accent' : ''}>{'█'.repeat(filled)}</span>
       {'░'.repeat(cells - filled)} {done}/{total}
     </span>
@@ -44,7 +44,7 @@ function SubtaskRow({
 }) {
   const [editing, setEditing] = useState(false);
   return (
-    <li className="group flex items-center gap-2 border border-transparent px-1 py-0.5 hover:border-line">
+    <li className="subtask group flex items-center gap-2 border border-transparent px-1 py-0.5 hover:border-line">
       <button
         type="button"
         role="checkbox"
@@ -62,7 +62,7 @@ function SubtaskRow({
         <input
           autoFocus
           defaultValue={s.title}
-          className="flex-1 border border-accent bg-bg px-1 outline-none"
+          className="subtask-rename-input flex-1 border border-accent bg-bg px-1 outline-none"
           onBlur={(e) => {
             const v = e.target.value.trim();
             if (v && v !== s.title) onRename(v);
@@ -87,7 +87,7 @@ function SubtaskRow({
         type="button"
         title="удалить подзадачу"
         onClick={onRemove}
-        className="btn btn-danger btn-icon invisible group-focus-within:visible group-hover:visible"
+        className="subtask-delete btn btn-danger btn-icon invisible group-focus-within:visible group-hover:visible"
       >
         ×
       </button>}
@@ -125,7 +125,7 @@ export function Subtasks({ task, boardId, actor, userId }: { task: Task; boardId
   };
 
   return (
-    <section className="space-y-2">
+    <section className="subtasks space-y-2">
       <h3 className="flex flex-wrap items-center justify-between gap-2">
         <span>## subtasks</span>
         {total > 0 && <Progress done={done} total={total} />}
@@ -133,7 +133,7 @@ export function Subtasks({ task, boardId, actor, userId }: { task: Task; boardId
       {isLoading && <p className="text-muted">loading...</p>}
       {error && <p className="text-danger">! failed to load subtasks</p>}
       {data && data.length === 0 && <p className="text-muted">// подзадач нет</p>}
-      <ul className="space-y-0.5">
+      <ul className="subtasks-list space-y-0.5">
         {data?.map((s) => (
           <SubtaskRow
             key={s.id}
@@ -156,7 +156,7 @@ export function Subtasks({ task, boardId, actor, userId }: { task: Task; boardId
       )}
 
       {!canAdd ? null : listMode ? (
-        <div className="space-y-2">
+        <div className="subtasks-bulk-form space-y-2">
           <textarea
             autoFocus
             rows={6}
@@ -208,7 +208,7 @@ export function Subtasks({ task, boardId, actor, userId }: { task: Task; boardId
                 }
               }
             }}
-            className="flex-1 border border-line bg-bg px-2 py-1 outline-none focus:border-accent"
+            className="subtask-add-input flex-1 border border-line bg-bg px-2 py-1 outline-none focus:border-accent"
           />
           <button type="submit" disabled={!title.trim()} className="btn">
             add

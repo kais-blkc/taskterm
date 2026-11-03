@@ -17,16 +17,16 @@ export function ResetPage() {
   const unavailable = check.error instanceof ApiError && check.error.status >= 500;
 
   return (
-    <main className="mx-auto mt-24 max-w-sm px-4">
-      <h1 className="mb-6">
+    <main className="reset-page mx-auto mt-24 max-w-sm px-4">
+      <h1 className="page-title mb-6">
         <span className="text-muted">$</span> taskterm reset <span className="cursor" />
       </h1>
-      {check.isLoading && <p className="text-muted">loading...</p>}
+      {check.isLoading && <p className="reset-loading text-muted">loading...</p>}
       {(!token || check.isError) && !check.isLoading && (
-        <div className="space-y-3">
+        <div className="reset-invalid space-y-3">
           <p className="text-danger">! {unavailable ? 'сервер недоступен, попробуй позже' : 'ссылка недействительна или просрочена'}</p>
           <p className="text-muted">// попроси администратора выдать новую</p>
-          <Link to={ROUTES.HOME} className="btn inline-block">
+          <Link to={ROUTES.HOME} className="reset-back-link btn inline-block">
             ← ко входу
           </Link>
         </div>
@@ -37,12 +37,12 @@ export function ResetPage() {
             e.preventDefault();
             if (parsed.success && !mismatch) reset.mutate({ token, password });
           }}
-          className="space-y-4"
+          className="reset-form space-y-4"
         >
           <p className="text-muted">
             Новый пароль для <span className="text-fg">@{check.data.username}</span>
           </p>
-          <label className="block">
+          <label className="form-field block">
             <span className="text-muted">password:</span>
             <input
               type="password"
@@ -53,7 +53,7 @@ export function ResetPage() {
             />
             {password !== '' && !parsed.success && <span className="text-danger">! от 6 до 128 символов</span>}
           </label>
-          <label className="block">
+          <label className="form-field block">
             <span className="text-muted">repeat:</span>
             <input
               type="password"
@@ -64,8 +64,8 @@ export function ResetPage() {
             />
             {mismatch && <span className="text-danger">! пароли не совпадают</span>}
           </label>
-          {reset.error && <p className="text-danger">! {reset.error.message}</p>}
-          <button type="submit" disabled={reset.isPending || !parsed.success || mismatch || !repeat} className="btn btn-primary px-3">
+          {reset.error && <p className="form-error text-danger">! {reset.error.message}</p>}
+          <button type="submit" disabled={reset.isPending || !parsed.success || mismatch || !repeat} className="reset-submit btn btn-primary px-3">
             {reset.isPending ? '...' : '> сменить пароль'}
           </button>
         </form>

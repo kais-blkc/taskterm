@@ -91,8 +91,8 @@ export function InvitesPanel() {
   };
 
   return (
-    <div className="space-y-6">
-      <section className="space-y-3 border border-line bg-elev p-4">
+    <div className="invites-panel space-y-6">
+      <section className="invite-form space-y-3 border border-line bg-elev p-4">
         <h2>## новое приглашение</h2>
         <div className="flex flex-wrap items-center gap-2">
           <input
@@ -109,7 +109,7 @@ export function InvitesPanel() {
         <div className="space-y-2">
           <div className="text-muted">доступ к доскам (можно выдать позже, из окна «участники» на доске)</div>
           {grants.map((g) => (
-            <div key={g.boardId} className="flex items-center gap-2">
+            <div key={g.boardId} className="invite-board-grant flex items-center gap-2">
               <span className="w-48 truncate">{boardName(g.boardId)}</span>
               <Select
                 className="w-40"
@@ -143,13 +143,13 @@ export function InvitesPanel() {
 
       {created && <LinkBox created={created} onClose={() => setCreated(null)} />}
 
-      <section className="space-y-2">
+      <section className="invites-list-section space-y-2">
         <h2>## приглашения {invites.data && <span className="text-muted">({invites.data.length})</span>}</h2>
         {invites.isLoading && <p className="text-muted">loading...</p>}
         {invites.data?.length === 0 && <p className="text-muted">// приглашений пока нет</p>}
-        <ul className="space-y-1">
+        <ul className="invites-list space-y-1">
           {invites.data?.map((i: Invite) => (
-            <li key={i.id} className="flex flex-wrap items-center justify-between gap-2 border border-line bg-bg px-3 py-2">
+            <li key={i.id} className="invite flex flex-wrap items-center justify-between gap-2 border border-line bg-bg px-3 py-2">
               <div className="min-w-0 space-y-0.5">
                 <div>
                   {i.email} <span className={STATUS[i.status].cls}>[{STATUS[i.status].label}]</span>

@@ -43,7 +43,7 @@ function TaskBody({
   const [desc, setDesc] = useState(task.description);
 
   return (
-    <div className="space-y-5">
+    <div className="task-body space-y-5">
       <div>
         <div className="text-muted">
           #{task.number} · <span className="text-fg">{columnName}</span>
@@ -52,7 +52,7 @@ function TaskBody({
           <input
             autoFocus
             defaultValue={task.title}
-            className="mt-1 w-full border border-accent bg-elev px-2 py-1 text-lg outline-none"
+            className="task-title-input mt-1 w-full border border-accent bg-elev px-2 py-1 text-lg outline-none"
             onBlur={(e) => {
               const v = e.target.value.trim();
               if (v && v !== task.title) update.mutate({ id: task.id, title: v });
@@ -66,7 +66,7 @@ function TaskBody({
           />
         ) : (
           <h1
-            className={`mt-1 text-lg font-bold ${can('title') ? 'cursor-text' : ''}`}
+            className={`task-title mt-1 text-lg font-bold ${can('title') ? 'cursor-text' : ''}`}
             title={can('title') ? 'клик — редактировать' : undefined}
             onClick={() => can('title') && setEditingTitle(true)}
           >
@@ -76,14 +76,14 @@ function TaskBody({
         )}
       </div>
 
-      <dl className="grid grid-cols-[7rem_1fr] items-center gap-y-1 border border-line bg-bg p-3">
+      <dl className="task-details grid grid-cols-[7rem_1fr] items-center gap-y-1 border border-line bg-bg p-3">
         <dt className="text-muted">owner</dt>
         <dd>
           <UserTag user={users.byId.get(task.authorId)} />
           <span className="text-muted"> · {formatDateTime(task.createdAt)}</span>
         </dd>
         <dt className="text-muted">ответственный{lockedBy('assignee') && lock}</dt>
-        <dd className="flex flex-wrap items-center gap-3">
+        <dd className="task-assignee flex flex-wrap items-center gap-3">
           <Select
             className="min-w-48"
             disabled={update.isPending || !can('assignee')}
@@ -112,7 +112,7 @@ function TaskBody({
           )}
         </dd>
         <dt className="text-muted">дедлайн{lockedBy('dueDate') && lock}</dt>
-        <dd className="flex flex-wrap items-center gap-2">
+        <dd className="task-due-date flex flex-wrap items-center gap-2">
           <input
             type="date"
             value={task.dueDate ?? ''}
@@ -156,7 +156,7 @@ function TaskBody({
         )}
       </dl>
 
-      <section className="space-y-2">
+      <section className="task-description space-y-2">
         <h3 className="flex justify-between">
           <span>## description{lockedBy('description') && lock}</span>
           {can('description') && !editingDesc && (
@@ -179,7 +179,7 @@ function TaskBody({
               rows={8}
               value={desc}
               onChange={(e) => setDesc(e.target.value)}
-              className="block w-full resize-y border border-line bg-bg px-2 py-1 outline-none focus:border-accent"
+              className="task-description-input block w-full resize-y border border-line bg-bg px-2 py-1 outline-none focus:border-accent"
             />
             <div className="flex gap-2">
               <button
@@ -238,10 +238,10 @@ export function TaskModal({ user }: { user: User }) {
   const column = data?.columns.find((c) => c.id === task?.columnId);
 
   return (
-    <div className="fixed inset-0 z-20 flex items-start justify-center overflow-y-auto bg-black/60 p-4 pt-12" onMouseDown={(e) => e.target === e.currentTarget && close()}>
-      <div className="w-full max-w-3xl border border-accent bg-elev p-5 shadow-2xl">
+    <div className="task-modal-overlay fixed inset-0 z-20 flex items-start justify-center overflow-y-auto bg-black/60 p-4 pt-12" onMouseDown={(e) => e.target === e.currentTarget && close()}>
+      <div className="task-modal w-full max-w-3xl border border-accent bg-elev p-5 shadow-2xl">
         <div className="mb-3 flex justify-end">
-          <button type="button" onClick={close} className="btn btn-danger">
+          <button type="button" onClick={close} className="task-modal-close btn btn-danger">
             close <span className="text-muted">esc</span>
           </button>
         </div>

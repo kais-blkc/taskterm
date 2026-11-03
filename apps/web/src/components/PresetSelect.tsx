@@ -6,7 +6,7 @@ function Swatches({ id }: { id: string }) {
   const c = findPreset(id).colors;
   return (
     <span
-      className="inline-flex h-5 w-14 shrink-0 items-center justify-center gap-1 border"
+      className="theme-swatches inline-flex h-5 w-14 shrink-0 items-center justify-center gap-1 border"
       style={{ background: c.bg, borderColor: c.border }}
     >
       <i className="block h-2 w-2" style={{ background: c.fg }} />

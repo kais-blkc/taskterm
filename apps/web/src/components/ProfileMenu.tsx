@@ -22,14 +22,14 @@ export function ProfileMenu({ user }: { user: User }) {
     others.find((o) => o.color && colorDistance(color, o.color) < COLOR_MIN_DISTANCE);
 
   return (
-    <div ref={root} className="relative">
+    <div ref={root} className="profile-menu relative">
       <button type="button" onClick={() => setOpen(!open)} title="сменить цвет">
         <UserTag user={user} />
       </button>
       {open && (
-        <div className="absolute right-0 z-20 mt-2 w-64 space-y-3 border border-line bg-elev p-3 shadow-lg">
+        <div className="profile-menu-popup absolute right-0 z-20 mt-2 w-64 space-y-3 border border-line bg-elev p-3 shadow-lg">
           <div className="text-muted">твой цвет</div>
-          <div className="grid grid-cols-8 gap-1.5">
+          <div className="profile-color-grid grid grid-cols-8 gap-1.5">
             {USER_PALETTE.map((c) => {
               const owner = takenBy(c);
               const selected = c.toLowerCase() === user.color.toLowerCase();

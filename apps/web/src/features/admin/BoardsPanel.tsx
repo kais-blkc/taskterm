@@ -10,13 +10,13 @@ export function BoardsPanel({ meId }: { meId: number }) {
   const boards = useAdminBoards();
   const [open, setOpen] = useState<number | null>(null);
   return (
-    <section className="space-y-2">
+    <section className="admin-boards-panel space-y-2">
       <h2>## доски {boards.data && <span className="text-muted">({boards.data.length})</span>}</h2>
       {boards.isLoading && <p className="text-muted">loading...</p>}
       {boards.data?.length === 0 && <p className="text-muted">// досок пока нет</p>}
-      <ul className="space-y-1">
+      <ul className="admin-boards-list space-y-1">
         {boards.data?.map((b) => (
-          <li key={b.id} className="flex flex-wrap items-center justify-between gap-2 border border-line bg-bg px-3 py-2">
+          <li key={b.id} className="admin-board flex flex-wrap items-center justify-between gap-2 border border-line bg-bg px-3 py-2">
             <div className="min-w-0 space-y-0.5">
               <Link to={ROUTES.BOARD(b.id)} className="hover:text-accent">
                 {b.name}

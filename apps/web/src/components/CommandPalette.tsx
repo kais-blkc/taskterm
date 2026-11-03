@@ -122,11 +122,11 @@ function PaletteInner({ close }: { close: () => void }) {
   let lastGroup = '';
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-4 pt-24"
+      className="palette-overlay fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-4 pt-24"
       onMouseDown={(e) => e.target === e.currentTarget && close()}
     >
-      <div className="w-full max-w-xl border border-accent bg-elev shadow-2xl" onKeyDown={onKeyDown}>
-        <div className="flex items-center gap-2 border-b border-line px-3 py-2">
+      <div className="palette-dialog w-full max-w-xl border border-accent bg-elev shadow-2xl" onKeyDown={onKeyDown}>
+        <div className="palette-input-row flex items-center gap-2 border-b border-line px-3 py-2">
           <span className="text-muted">&gt;</span>
           <input
             autoFocus
@@ -137,19 +137,19 @@ function PaletteInner({ close }: { close: () => void }) {
           />
           <kbd className="text-xs text-muted">{MOD_KEY}+K</kbd>
         </div>
-        <ul ref={listRef} className="max-h-80 overflow-y-auto py-1">
+        <ul ref={listRef} className="palette-list max-h-80 overflow-y-auto py-1">
           {results.length === 0 && <li className="px-3 py-2 text-muted">// ничего не найдено</li>}
           {results.map((c, i) => {
             const header = c.group !== lastGroup;
             lastGroup = c.group;
             return (
               <li key={c.id}>
-                {header && <div className="px-3 pt-2 text-xs text-muted">## {c.group}</div>}
+                {header && <div className="palette-group-title px-3 pt-2 text-xs text-muted">## {c.group}</div>}
                 <div
                   data-idx={i}
                   onMouseEnter={() => setActive(i)}
                   onClick={() => run(c)}
-                  className={`flex cursor-pointer items-center justify-between px-3 py-1 ${
+                  className={`palette-item flex cursor-pointer items-center justify-between px-3 py-1 ${
                     i === active ? 'bg-accent text-bg' : ''
                   }`}
                 >

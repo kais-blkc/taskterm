@@ -84,14 +84,14 @@ export function Select({
   };
 
   return (
-    <div ref={root} className={`relative ${className}`} onKeyDown={onKeyDown}>
+    <div ref={root} className={`select relative ${className}`} onKeyDown={onKeyDown}>
       <button
         type="button"
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => (open ? close() : setOpen(true))}
-        className="flex w-full items-center gap-2 border border-line bg-bg px-2 py-1 text-left hover:border-accent focus:border-accent focus:outline-none"
+        className="select-button flex w-full items-center gap-2 border border-line bg-bg px-2 py-1 text-left hover:border-accent focus:border-accent focus:outline-none"
       >
         {current?.icon}
         <span className={`flex-1 truncate ${current ? '' : 'text-muted'}`}>{current?.label ?? placeholder}</span>
@@ -100,7 +100,7 @@ export function Select({
       {open && (
         <ul
           role="listbox"
-          className={`absolute left-0 z-30 mt-1 max-h-72 min-w-full overflow-y-auto border border-accent bg-elev ${menuClassName}`}
+          className={`select-menu absolute left-0 z-30 mt-1 max-h-72 min-w-full overflow-y-auto border border-accent bg-elev ${menuClassName}`}
           onMouseLeave={() => {
             setHover(-1);
             onPreview?.(null);
@@ -113,7 +113,7 @@ export function Select({
               aria-selected={o.value === value}
               onMouseEnter={() => highlight(i)}
               onClick={() => choose(o.value)}
-              className={`flex cursor-pointer items-center gap-2 whitespace-nowrap px-2 py-1 ${
+              className={`select-option flex cursor-pointer items-center gap-2 whitespace-nowrap px-2 py-1 ${
                 i === hover ? 'bg-accent text-bg' : ''
               }`}
             >

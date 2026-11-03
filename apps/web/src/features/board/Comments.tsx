@@ -28,7 +28,7 @@ function CommentForm({
     }
   };
   return (
-    <div className="space-y-2">
+    <div className="comment-form space-y-2">
       <textarea
         value={value}
         rows={3}
@@ -69,7 +69,7 @@ function CommentItem({
   const [editing, setEditing] = useState(false);
   const author = useUsers().byId.get(c.authorId);
   return (
-    <li className="border border-line bg-bg p-2" style={author ? { borderLeft: `3px solid ${author.color}` } : undefined}>
+    <li className="comment border border-line bg-bg p-2" style={author ? { borderLeft: `3px solid ${author.color}` } : undefined}>
       <div className="mb-1 flex items-center justify-between text-muted">
         <span>
           <UserTag user={author} fallback={c.authorName} /> · {formatDateTime(c.createdAt)}
@@ -130,11 +130,11 @@ export function Comments({
   const { data, isLoading, error } = useComments(taskId);
   const m = useCommentMutations(taskId);
   return (
-    <section className="space-y-3">
+    <section className="comments space-y-3">
       <h3>## comments {data && <span className="text-muted">({data.length})</span>}</h3>
       {isLoading && <p className="text-muted">loading...</p>}
       {error && <p className="text-danger">! failed to load comments</p>}
-      <ul className="space-y-2">
+      <ul className="comments-list space-y-2">
         {data?.map((c) => (
           <CommentItem
             key={c.id}

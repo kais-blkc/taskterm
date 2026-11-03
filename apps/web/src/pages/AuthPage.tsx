@@ -13,7 +13,7 @@ export function AuthPage() {
   } = useForm<LoginInput>({ resolver: zodResolver(loginSchema) });
 
   const field = (name: keyof LoginInput, label: string, type = 'text') => (
-    <label className="block">
+    <label className="form-field block">
       <span className="text-muted">{label}:</span>
       <input
         type={type}
@@ -26,19 +26,19 @@ export function AuthPage() {
   );
 
   return (
-    <main className="mx-auto mt-24 max-w-sm px-4">
-      <h1 className="mb-6">
+    <main className="login-page mx-auto mt-24 max-w-sm px-4">
+      <h1 className="page-title mb-6">
         <span className="text-muted">$</span> taskterm <span className="cursor" />
       </h1>
-      <form onSubmit={handleSubmit((v) => login.mutate(v))} className="space-y-4">
+      <form onSubmit={handleSubmit((v) => login.mutate(v))} className="login-form space-y-4">
         {field('username', 'username')}
         {field('password', 'password', 'password')}
-        {login.error && <p className="text-danger">! {login.error.message}</p>}
-        <button type="submit" disabled={login.isPending} className="btn btn-primary px-3">
+        {login.error && <p className="form-error text-danger">! {login.error.message}</p>}
+        <button type="submit" disabled={login.isPending} className="login-submit btn btn-primary px-3">
           {login.isPending ? '...' : '> login'}
         </button>
       </form>
-      <p className="mt-6 text-xs text-muted">// доступ только по приглашению — попроси ссылку у администратора</p>
+      <p className="login-hint mt-6 text-xs text-muted">// доступ только по приглашению — попроси ссылку у администратора</p>
     </main>
   );
 }
