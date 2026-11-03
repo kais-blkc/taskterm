@@ -16,6 +16,18 @@ import { Select } from '../../components/Select';
 import { useUsers } from '../../api/users';
 import { confirmDialog } from '../../stores/confirm';
 
+/** Всё запрещено: поля закрыты, подзадачи только отмечать, комментарии закрыты */
+const ALL_LOCKED: TaskPolicy = {
+  lockTitle: true,
+  lockDescription: true,
+  lockAssignee: true,
+  lockDueDate: true,
+  lockMove: true,
+  commentsLocked: true,
+  subtasks: 'check_only',
+};
+const isAllLocked = (p: TaskPolicy) => (Object.keys(ALL_LOCKED) as (keyof TaskPolicy)[]).every((k) => p[k] === ALL_LOCKED[k]);
+
 const LOCKS: { key: Exclude<keyof TaskPolicy, 'subtasks'>; label: string }[] = [
   { key: 'lockTitle', label: 'менять название' },
   { key: 'lockDescription', label: 'менять описание' },
@@ -107,11 +119,14 @@ export function TaskRights({ task, boardId }: { task: Task; boardId: number }) {
             </div>
           </div>
           {(setPolicy.error || transfer.error) && <p className="text-danger">! {(setPolicy.error ?? transfer.error)?.message}</p>}
-          {!isPolicyDefault(p) && (
-            <button type="button" className="btn" disabled={setPolicy.isPending} onClick={() => apply({ ...DEFAULT_TASK_POLICY })}>
-              разрешить всё
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="btn" disabled={setPolicy.isPending || isPolicyDefault(p)} onClick={() => apply({ ...DEFAULT_TASK_POLICY })}>
+              отметить все
             </button>
-          )}
+            <button type="button" className="btn" disabled={setPolicy.isPending || isAllLocked(p)} onClick={() => apply({ ...ALL_LOCKED })}>
+              снять все
+            </button>
+          </div>
         </div>
       )}
     </section>
