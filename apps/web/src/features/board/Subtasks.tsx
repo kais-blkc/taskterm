@@ -140,7 +140,7 @@ export function Subtasks({ task, boardId, actor, userId }: { task: Task; boardId
             s={s}
             canToggle={canCheck}
             canChange={canChangeSubtask(task.policy, actor, s.createdBy, userId)}
-            canDelete={canDeleteSubtask(task.policy, actor)}
+            canDelete={canDeleteSubtask(task.policy, actor, s.createdBy, userId)}
             onToggle={() => m.update.mutate({ id: s.id, done: !s.done })}
             onRename={(t) => m.update.mutate({ id: s.id, title: t })}
             onRemove={() => m.remove.mutate(s.id)}
@@ -151,7 +151,7 @@ export function Subtasks({ task, boardId, actor, userId }: { task: Task; boardId
 
       {restricted && (
         <p className="text-muted">
-          🔒 owner задачи ограничил подзадачи: {SUBTASK_MODE_LABELS[task.policy.subtasks]}, удалять нельзя
+          🔒 owner задачи ограничил подзадачи: {SUBTASK_MODE_LABELS[task.policy.subtasks]}; пункты owner задачи менять и удалять нельзя
         </p>
       )}
 

@@ -31,7 +31,7 @@ export async function subtaskRoutes(app: FastifyInstance, opts: { db: Db; hub: E
     const actor = actorOf(task, user, role);
     if (!canCheckSubtask(actor)) throw new ForbiddenError('not allowed for your role');
     if (change === 'rename' && !canChangeSubtask(task.policy, actor, subtask.createdBy, user.id)) throw new ForbiddenError(LOCKED_MESSAGE);
-    if (change === 'delete' && !canDeleteSubtask(task.policy, actor)) throw new ForbiddenError(LOCKED_MESSAGE);
+    if (change === 'delete' && !canDeleteSubtask(task.policy, actor, subtask.createdBy, user.id)) throw new ForbiddenError(LOCKED_MESSAGE);
   };
   const guardAdd = async (user: User, taskId: number) => {
     const { task, role } = await requireTaskCan(db, user, taskId, 'editTask');

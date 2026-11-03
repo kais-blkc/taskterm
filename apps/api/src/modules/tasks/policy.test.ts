@@ -46,14 +46,17 @@ describe('task policy rules (shared)', () => {
     expect(canChangeSubtask(mode('check_and_add'), editor, 99, 1)).toBe(false);
     expect(canChangeSubtask(mode('check_and_add'), editor, 1, 1)).toBe(true);
     expect(canChangeSubtask(mode('check_and_add'), editor, null, 1)).toBe(false);
-    expect(canChangeSubtask(mode('check_only'), editor, 1, 1)).toBe(false);
+    expect(canChangeSubtask(mode('check_only'), editor, 1, 1)).toBe(true); // свой пункт, добавленный ещё в режиме free
     expect(canChangeSubtask(mode('check_only'), boardOwner, 99, 1)).toBe(true);
-    // удалять можно только в free и обходящим
-    expect(canDeleteSubtask(mode('free'), editor)).toBe(true);
-    expect(canDeleteSubtask(mode('check_and_add'), editor)).toBe(false);
-    expect(canDeleteSubtask(mode('check_only'), editor)).toBe(false);
-    expect(canDeleteSubtask(mode('check_only'), taskOwner)).toBe(true);
-    expect(canDeleteSubtask(mode('check_only'), boardOwner)).toBe(true);
+    // вне free: свои пункты можно менять и удалять, чужие (и без автора) — нет; free и обходящим — всё
+    for (const m of ['check_only', 'check_and_add'] as const) {
+      expect(canDeleteSubtask(mode(m), editor, 1, 1), m).toBe(true);
+      expect(canDeleteSubtask(mode(m), editor, 99, 1), m).toBe(false);
+      expect(canDeleteSubtask(mode(m), editor, null, 1), m).toBe(false);
+      expect(canDeleteSubtask(mode(m), taskOwner, 99, 1), m).toBe(true);
+      expect(canDeleteSubtask(mode(m), boardOwner, 99, 1), m).toBe(true);
+    }
+    expect(canDeleteSubtask(mode('free'), editor, 99, 1)).toBe(true);
   });
   it('comments lock', () => {
     expect(canCommentOn(locked, { role: 'commenter', isOwner: false })).toBe(false);
@@ -157,7 +160,7 @@ describe('task policy (API)', () => {
     expect(await status(admin, 'DELETE', `/api/subtasks/${mine.id}`)).toBe(204);
   });
 
-  it('subtasks check_and_add: add own, rename only own, nobody deletes', async () => {
+  it('subtasks check_and_add: add own, change and delete only own', async () => {
     const theirs = (await call(author, 'POST', `/api/tasks/${taskId}/subtasks`, { title: 'author item' })).json();
     await policy({ subtasks: 'check_and_add' });
     const own = await call(ed2, 'POST', `/api/tasks/${taskId}/subtasks`, { title: 'my item' });
@@ -170,10 +173,22 @@ describe('task policy (API)', () => {
     expect(await status(ed2, 'PATCH', `/api/subtasks/${theirs.id}`, { title: 'hijack' })).toBe(403);
     expect(await status(ed2, 'DELETE', `/api/subtasks/${theirs.id}`)).toBe(403);
     expect(await status(ed2, 'PATCH', `/api/subtasks/${own.json().id}`, { title: 'edited' })).toBe(200);
-    expect(await status(ed2, 'DELETE', `/api/subtasks/${own.json().id}`)).toBe(403); // даже свой пункт удалять нельзя
+    expect(await status(ed2, 'DELETE', `/api/subtasks/${own.json().id}`)).toBe(204); // свой пункт — можно
     // другой редактор не трогает пункт ed2
     const ed2Item = bulk.json()[0];
     expect(await status(author, 'DELETE', `/api/subtasks/${ed2Item.id}`)).toBe(204); // owner задачи — можно
+  });
+
+  it('own items stay editable after the owner tightens the mode; owner items never are', async () => {
+    const ownerItem = (await call(author, 'POST', `/api/tasks/${taskId}/subtasks`, { title: 'by owner' })).json();
+    const mine = (await call(ed2, 'POST', `/api/tasks/${taskId}/subtasks`, { title: 'by editor' })).json(); // режим free
+    for (const mode of ['check_only', 'check_and_add'] as const) {
+      await policy({ subtasks: mode });
+      expect(await status(ed2, 'PATCH', `/api/subtasks/${ownerItem.id}`, { title: 'x' }), mode).toBe(403);
+      expect(await status(ed2, 'DELETE', `/api/subtasks/${ownerItem.id}`), mode).toBe(403);
+      expect(await status(ed2, 'PATCH', `/api/subtasks/${mine.id}`, { title: `mine ${mode}` }), mode).toBe(200);
+    }
+    expect(await status(ed2, 'DELETE', `/api/subtasks/${mine.id}`)).toBe(204);
   });
 
   it('comments locked: only the task owner and board owner can comment; reading stays open', async () => {

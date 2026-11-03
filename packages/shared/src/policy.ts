@@ -70,17 +70,18 @@ export function canCheckSubtask(a: TaskActor): boolean {
   return roleCan(a.role, 'editTask');
 }
 
-/** Переименовать пункт: free — любой, check_and_add — только свои, check_only — никто (кроме обходящих) */
+/**
+ * Переименовать или удалить пункт. Вне режима free редактор трогает только пункты, которые добавил сам;
+ * пункты owner задачи (и пункты без известного автора) защищены. Обходящие политику — без ограничений.
+ */
 export function canChangeSubtask(policy: TaskPolicy, a: TaskActor, createdBy: number | null, userId: number): boolean {
   if (!roleCan(a.role, 'editTask')) return false;
   if (isPolicyExempt(a) || policy.subtasks === 'free') return true;
-  return policy.subtasks === 'check_and_add' && createdBy !== null && createdBy === userId;
+  return createdBy !== null && createdBy === userId;
 }
 
-/** Удалить пункт: только в режиме free (и обходящим); в check_only и check_and_add удалять нельзя никому */
-export function canDeleteSubtask(policy: TaskPolicy, a: TaskActor): boolean {
-  return roleCan(a.role, 'editTask') && (isPolicyExempt(a) || policy.subtasks === 'free');
-}
+/** Удаление подчиняется тем же правилам, что и переименование */
+export const canDeleteSubtask = canChangeSubtask;
 
 export function canCommentOn(policy: TaskPolicy, a: TaskActor): boolean {
   return roleCan(a.role, 'comment') && (isPolicyExempt(a) || !policy.commentsLocked);
