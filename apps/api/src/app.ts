@@ -23,9 +23,22 @@ import { adminRoutes } from './modules/admin/routes';
 import { inviteRoutes } from './modules/invites/routes';
 import { commentRoutes } from './modules/comments/routes';
 import { subtaskRoutes } from './modules/subtasks/routes';
+import { createTelegramApi, type TelegramApi } from './modules/telegram/api';
+import { createTelegramBot, type TelegramBot } from './modules/telegram/bot';
+import { telegramRoutes } from './modules/telegram/routes';
 import { taskRoutes } from './modules/tasks/routes';
 
-export async function buildApp(config: Config, opts: { logger?: boolean } = {}) {
+declare module 'fastify' {
+  interface FastifyInstance {
+    /** бот Telegram (null — токен не задан); нужен тестам */
+    telegram: TelegramBot | null;
+  }
+}
+
+export async function buildApp(
+  config: Config,
+  opts: { logger?: boolean; /** подмена клиента Telegram (тесты); опрос бота при этом не запускается */ telegram?: TelegramApi } = {},
+) {
   const app = Fastify({ logger: opts.logger ?? true, trustProxy: config.trustProxy }).withTypeProvider<ZodTypeProvider>();
   app.decorate('jwtSecret', config.jwtSecret);
   app.decorate('db', null as unknown as Db); // заполняется ниже, после подключения к БД
@@ -59,6 +72,15 @@ export async function buildApp(config: Config, opts: { logger?: boolean } = {}) 
   await backfillUserColors(db);
   await ensureAdmin(db, config, app.log);
   const hub = new EventHub();
+  // Telegram: уведомления из шины событий + привязка через бота. Опрос запускается только на реальном клиенте.
+  const tgApi = opts.telegram ?? (config.telegramBotToken ? createTelegramApi(config.telegramBotToken) : null);
+  const bot = tgApi ? createTelegramBot({ db, api: tgApi, hub, publicUrl: config.publicUrl, log: app.log }) : null;
+  app.decorate('telegram', bot);
+  if (bot) {
+    if (opts.telegram) bot.subscribeOnly();
+    else app.addHook('onReady', async () => bot.start());
+    app.addHook('onClose', async () => bot.stop());
+  }
 
   app.get('/api/health', { schema: { response: { 200: healthResponseSchema } } }, async () => ({
     status: 'ok' as const,
@@ -93,5 +115,6 @@ export async function buildApp(config: Config, opts: { logger?: boolean } = {}) 
   app.register(taskRoutes, { db, hub });
   app.register(commentRoutes, { db, hub });
   app.register(subtaskRoutes, { db, hub });
+  app.register(telegramRoutes, { db, config, bot });
   return app;
 }

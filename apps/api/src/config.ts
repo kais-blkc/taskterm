@@ -25,6 +25,10 @@ export interface Config {
   trustProxy: boolean;
   /** дополнительные Origin, с которых разрешены изменяющие запросы (кроме своего хоста) */
   allowedOrigins: string[];
+  /** токен бота от @BotFather; без него Telegram-уведомления выключены */
+  telegramBotToken?: string;
+  /** публичный адрес приложения для ссылок в сообщениях (https://taskterm.example.com) */
+  publicUrl?: string;
 }
 
 export const DEV_JWT_SECRET = 'dev-only-secret-change-me-dev-only-secret';
@@ -46,6 +50,8 @@ export function loadConfig(overrides: Partial<Config> = {}): Config {
     loginFailMax: Number(env.LOGIN_FAIL_MAX ?? 8),
     trustProxy: env.TRUST_PROXY === 'true',
     allowedOrigins: (env.ALLOWED_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
+    telegramBotToken: env.TELEGRAM_BOT_TOKEN || undefined,
+    publicUrl: env.PUBLIC_URL?.replace(/\/+$/, '') || undefined,
     ...overrides,
   };
 }

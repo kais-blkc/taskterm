@@ -33,6 +33,8 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       TRUST_PROXY: ${TRUST_PROXY:-false}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      PUBLIC_URL: ${PUBLIC_URL:-}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
       DATABASE_URL: postgres://taskterm:${POSTGRES_PASSWORD}@db:5432/taskterm
       # true — только если перед приложением стоит HTTPS (иначе cookie входа не сохранится)

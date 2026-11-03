@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { COLOR_MIN_DISTANCE, USER_PALETTE, colorDistance, type User } from '@taskterm/shared';
 import { useSetColor, useUsers } from '../api/users';
+import { TelegramSection } from './TelegramSection';
 import { UserTag } from './UserTag';
 
 export function ProfileMenu({ user }: { user: User }) {
@@ -57,6 +58,7 @@ export function ProfileMenu({ user }: { user: User }) {
           </label>
           {setColor.error && <p className="text-danger">! {setColor.error.message}</p>}
           <p className="text-[14px] text-muted">цвет не должен быть похож на цвет другого пользователя</p>
+          <TelegramSection />
         </div>
       )}
     </div>

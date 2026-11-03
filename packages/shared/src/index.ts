@@ -10,6 +10,7 @@ export * from './comments';
 export * from './events';
 export * from './invites';
 export * from './permissions';
+export * from './telegram';
 export * from './policy';
 
 export const healthResponseSchema = z.object({

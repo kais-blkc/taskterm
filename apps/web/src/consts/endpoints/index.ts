@@ -4,6 +4,7 @@ import { BOARDS_ENDPOINTS } from './boards';
 import { EVENTS_ENDPOINTS } from './events';
 import { INVITES_ENDPOINTS } from './invites';
 import { TASKS_ENDPOINTS } from './tasks';
+import { TELEGRAM_ENDPOINTS } from './telegram';
 import { USERS_ENDPOINTS } from './users';
 
 /** Префикс, который добавляет api-клиент ко всем путям из API_ENDPOINTS */
@@ -17,4 +18,5 @@ export const API_ENDPOINTS = {
   ...EVENTS_ENDPOINTS,
   ...INVITES_ENDPOINTS,
   ...ADMIN_ENDPOINTS,
+  ...TELEGRAM_ENDPOINTS,
 };

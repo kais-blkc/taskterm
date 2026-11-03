@@ -26,6 +26,8 @@ export const users = pgTable('users', {
   // растёт при смене пароля/роли, блокировке, «выйти везде» — старые access-токены перестают приниматься
   tokenVersion: integer('token_version').notNull().default(0),
   lastLoginAt: timestamptz('last_login_at'),
+  // чат в Telegram, куда приходят уведомления (привязка через одноразовый код, см. modules/telegram)
+  telegramChatId: text('telegram_chat_id').unique(),
   createdAt: createdAt(),
 });
 
@@ -169,5 +171,16 @@ export const auditLog = pgTable('audit_log', {
   action: text('action').notNull(),
   target: text('target').notNull().default(''),
   details: jsonb('details').$type<Record<string, unknown>>().notNull().default({}),
+  createdAt: createdAt(),
+});
+
+/** Одноразовый код привязки Telegram: пользователь открывает t.me/<бот>?start=<код> */
+export const telegramLinkCodes = pgTable('telegram_link_codes', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  codeHash: text('code_hash').notNull().unique(),
+  expiresAt: timestamptz('expires_at').notNull(),
   createdAt: createdAt(),
 });
