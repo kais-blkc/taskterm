@@ -52,6 +52,9 @@ export const boards = pgTable('boards', {
   id: serial('id').primaryKey(),
   name: text('name').notNull(),
   nextTaskNumber: integer('next_task_number').notNull().default(1),
+  // доска под управлением админов: владелец и участники не могут её переименовывать/удалять,
+  // менять колонки и состав участников (доски, созданные админом, создаются такими)
+  managedByAdmin: boolean('managed_by_admin').notNull().default(false),
   createdBy: integer('created_by')
     .notNull()
     .references(() => users.id),

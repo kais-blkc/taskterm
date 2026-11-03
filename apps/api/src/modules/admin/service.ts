@@ -198,6 +198,13 @@ export async function listBoards(db: Db): Promise<AdminBoard[]> {
       membersCount: ms.length,
       tasksCount: taskCounts.find((t) => t.boardId === b.id)?.n ?? 0,
       owners: ms.filter((m) => m.role === 'owner').map((m) => m.username),
+      managedByAdmin: b.managedByAdmin,
     };
   });
+}
+
+export async function setBoardManaged(db: Db, id: number, managedByAdmin: boolean) {
+  const row = first(await db.update(boards).set({ managedByAdmin }).where(eq(boards.id, id)).returning());
+  if (!row) throw new AdminError('board not found', 404);
+  return row;
 }

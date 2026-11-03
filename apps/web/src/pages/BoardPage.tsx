@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Link, Outlet, useParams } from 'react-router-dom';
-import { ROLE_LABELS, roleCan } from '@taskterm/shared';
+import { ROLE_LABELS } from '@taskterm/shared';
 import { useMe } from '../api/auth';
+import { LockHint } from '../components/Icon';
 import { MembersDialog } from '../components/MembersDialog';
 import { ApiError } from '../api/client';
 import { useBoard } from '../api/boards';
@@ -29,6 +30,9 @@ export function BoardPage() {
         <span className="board-role ml-3 text-muted" title="твоя роль на доске">
           [{ROLE_LABELS[data.board.myRole]}]
         </span>
+        {data.board.managedByAdmin && (
+          <LockHint className="board-protected ml-2" text={data.board.canManage ? 'Доска защищена: управлять ею могут только админы, а ты админ' : 'Доска защищена админом: название, колонки и участников меняют только админы'} />
+        )}
         <button type="button" className="board-members-button btn ml-3" onClick={() => setMembersOpen(true)}>
           участники
         </button>
@@ -37,7 +41,7 @@ export function BoardPage() {
         <MembersDialog
           boardId={id}
           meId={me.id}
-          canManage={roleCan(data.board.myRole, 'manageBoard')}
+          canManage={data.board.canManage}
           onClose={() => setMembersOpen(false)}
         />
       )}

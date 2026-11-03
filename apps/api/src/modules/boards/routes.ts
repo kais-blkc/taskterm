@@ -38,7 +38,7 @@ export async function boardRoutes(app: FastifyInstance, opts: { db: Db; hub: Eve
     '/api/boards',
     { schema: { body: createBoardSchema, response: { 201: boardSchema } } },
     async (req, reply) => {
-      const board = await svc.createBoard(db, req.body.name, req.user.id);
+      const board = await svc.createBoard(db, req.body.name, req.user.id, req.user.role === 'admin');
       hub.emit({ type: 'boards', by: req.user.id });
       return reply.code(201).send(board);
     },
@@ -49,7 +49,7 @@ export async function boardRoutes(app: FastifyInstance, opts: { db: Db; hub: Eve
     { schema: { params: idParamSchema, response: { 200: boardFullSchema, ...err } } },
     async (req) => {
       const role = await requireBoardCan(db, req.user, req.params.id, 'view');
-      return svc.getBoardFull(db, req.params.id, role);
+      return svc.getBoardFull(db, req.params.id, role, req.user.role === 'admin');
     },
   );
 
@@ -58,7 +58,7 @@ export async function boardRoutes(app: FastifyInstance, opts: { db: Db; hub: Eve
     { schema: { params: idParamSchema, body: updateBoardSchema, response: { 200: boardSchema, ...err } } },
     async (req) => {
       const role = await requireBoardCan(db, req.user, req.params.id, 'manageBoard');
-      const board = await svc.updateBoard(db, req.params.id, req.body.name, role);
+      const board = await svc.updateBoard(db, req.params.id, req.body.name, role, req.user.role === 'admin');
       hub.emit({ type: 'boards', by: req.user.id });
       hub.emit({ type: 'board', boardId: board.id, by: req.user.id });
       return board;

@@ -10,12 +10,15 @@ import {
   deleteAdminUserSchema,
   idParamSchema,
   resetCreatedSchema,
+  createBoardSchema,
+  updateAdminBoardSchema,
   updateAdminUserSchema,
 } from '@taskterm/shared';
 import type { Db } from '../../db/client';
 import type { EventHub } from '../../plugins/hub';
 import { audit, listAudit } from '../audit/service';
 import { requireAdmin } from '../auth/guard';
+import { createBoard } from '../boards/service';
 import * as svc from './service';
 
 /** Админ-панель: все роуты только для админа приложения */
@@ -86,6 +89,35 @@ export async function adminRoutes(app: FastifyInstance, opts: { db: Db; hub: Eve
   );
 
   r.get('/api/admin/boards', { schema: { response: { 200: z.array(adminBoardSchema), ...err } } }, async () => svc.listBoards(db));
+
+  // создать доску из админки: она сразу защищена (управлять ею могут только админы)
+  r.post(
+    '/api/admin/boards',
+    { schema: { body: createBoardSchema, response: { 201: adminBoardSchema, ...err } } },
+    async (req, reply) => {
+      const board = await createBoard(db, req.body.name, req.user.id, true);
+      hub.emit({ type: 'boards', by: req.user.id });
+      await audit(db, req.user, 'board.create', `board:${board.id}`, { name: board.name });
+      return reply.code(201).send((await svc.listBoards(db)).find((b) => b.id === board.id)!);
+    },
+  );
+
+  // включить/снять защиту доски
+  r.patch(
+    '/api/admin/boards/:id',
+    { schema: { params: idParamSchema, body: updateAdminBoardSchema, response: { 200: adminBoardSchema, ...err } } },
+    async (req, reply) => {
+      try {
+        const row = await svc.setBoardManaged(db, req.params.id, req.body.managedByAdmin);
+        hub.emit({ type: 'boards', by: req.user.id });
+        hub.emit({ type: 'board', boardId: row.id, by: req.user.id });
+        await audit(db, req.user, req.body.managedByAdmin ? 'board.protect' : 'board.unprotect', `board:${row.id}`);
+        return (await svc.listBoards(db)).find((b) => b.id === row.id)!;
+      } catch (e) {
+        return guard(reply, e);
+      }
+    },
+  );
 
   r.get(
     '/api/admin/audit',

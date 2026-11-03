@@ -37,7 +37,8 @@ export function BoardView({ data }: { data: BoardFull }) {
   const role = data.board.myRole;
   const canEdit = roleCan(role, 'editTask');
   const canCreate = roleCan(role, 'createTask');
-  const canManage = roleCan(role, 'manageBoard');
+  // доска защищена админом — управлять ею (колонки, участники) могут только админы
+  const canManage = data.board.canManage;
   const canMove = (t: Task) => canEditField(t.policy, { role, isOwner: t.authorId === meId }, 'move');
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),

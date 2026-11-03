@@ -37,6 +37,11 @@ export async function requireBoardCan(db: Db, user: AuthUser, boardId: number, a
   const role = await boardRoleOf(db, user, boardId);
   if (!role) throw new NotFoundError('board not found');
   if (!roleCan(role, action)) throw new ForbiddenError('not allowed for your role');
+  // защищённая админом доска: управлять ею (название, колонки, участники, удаление) могут только админы
+  if (action === 'manageBoard' && user.role !== 'admin') {
+    const b = first(await db.select({ managed: boards.managedByAdmin }).from(boards).where(eq(boards.id, boardId)));
+    if (b?.managed) throw new ForbiddenError('board is managed by administrators');
+  }
   return role;
 }
 

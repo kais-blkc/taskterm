@@ -1,6 +1,6 @@
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { generateKeyBetween } from 'fractional-indexing';
-import { defaultColumnNames, type BoardRole } from '@taskterm/shared';
+import { defaultColumnNames, roleCan, type BoardRole } from '@taskterm/shared';
 import { first, type Db } from '../../db/client';
 import { boardMembers, boards, columns, subtasks, tasks, users } from '../../db/schema';
 import type { AuthUser } from '../auth/service';
@@ -8,10 +8,15 @@ import { NotFoundError } from '../permissions/access';
 
 export { NotFoundError };
 
+/** Доска + роль пользователя + может ли он ею управлять (с учётом защиты админом) */
+export function withAccess<B extends { managedByAdmin: boolean }>(board: B, myRole: BoardRole, isAdmin: boolean) {
+  return { ...board, myRole, canManage: roleCan(myRole, 'manageBoard') && (isAdmin || !board.managedByAdmin) };
+}
+
 /** Доски, доступные пользователю, с его ролью. Админ приложения видит все как owner. */
 export async function listBoards(db: Db, user: AuthUser) {
   if (user.role === 'admin') {
-    return (await db.select().from(boards).orderBy(asc(boards.id))).map((b) => ({ ...b, myRole: 'owner' as const }));
+    return (await db.select().from(boards).orderBy(asc(boards.id))).map((b) => withAccess(b, 'owner', true));
   }
   const rows = await db
     .select({ board: boards, myRole: boardMembers.role })
@@ -19,26 +24,27 @@ export async function listBoards(db: Db, user: AuthUser) {
     .innerJoin(boards, eq(boards.id, boardMembers.boardId))
     .where(eq(boardMembers.userId, user.id))
     .orderBy(asc(boards.id));
-  return rows.map((r) => ({ ...r.board, myRole: r.myRole }));
+  return rows.map((r) => withAccess(r.board, r.myRole, false));
 }
 
-export function createBoard(db: Db, name: string, userId: number) {
+/** Доска, созданная админом, сразу под управлением админов (managedByAdmin) */
+export function createBoard(db: Db, name: string, userId: number, isAdmin = false) {
   return db.transaction(async (tx) => {
-    const [board] = await tx.insert(boards).values({ name, createdBy: userId }).returning();
+    const [board] = await tx.insert(boards).values({ name, createdBy: userId, managedByAdmin: isAdmin }).returning();
     await tx.insert(boardMembers).values({ boardId: board!.id, userId, role: 'owner' });
     let prev: string | null = null;
     for (const colName of defaultColumnNames) {
       prev = generateKeyBetween(prev, null);
       await tx.insert(columns).values({ boardId: board!.id, name: colName, position: prev });
     }
-    return { ...board!, myRole: 'owner' as const };
+    return withAccess(board!, 'owner', isAdmin);
   });
 }
 
-export async function updateBoard(db: Db, id: number, name: string, myRole: BoardRole) {
+export async function updateBoard(db: Db, id: number, name: string, myRole: BoardRole, isAdmin: boolean) {
   const row = first(await db.update(boards).set({ name }).where(eq(boards.id, id)).returning());
   if (!row) throw new NotFoundError('board not found');
-  return { ...row, myRole };
+  return withAccess(row, myRole, isAdmin);
 }
 
 export async function deleteBoard(db: Db, id: number) {
@@ -46,11 +52,11 @@ export async function deleteBoard(db: Db, id: number) {
   if (!rows.length) throw new NotFoundError('board not found');
 }
 
-export async function getBoardFull(db: Db, id: number, myRole: BoardRole) {
+export async function getBoardFull(db: Db, id: number, myRole: BoardRole, isAdmin: boolean) {
   const board = first(await db.select().from(boards).where(eq(boards.id, id)));
   if (!board) throw new NotFoundError('board not found');
   return {
-    board: { ...board, myRole },
+    board: withAccess(board, myRole, isAdmin),
     columns: await db.select().from(columns).where(eq(columns.boardId, id)).orderBy(asc(columns.position)),
     tasks: await db.select().from(tasks).where(eq(tasks.boardId, id)).orderBy(asc(tasks.position)),
     subtaskStats: await db

@@ -23,7 +23,7 @@ export function BoardsPage() {
               {b.name}
               {b.myRole !== 'owner' && <span className="boards-list-role ml-2 text-xs text-muted">[{ROLE_LABELS[b.myRole]}]</span>}
             </Link>
-            {b.myRole === 'owner' && <button
+            {b.canManage && <button
               type="button"
               title="удалить доску"
               className="boards-delete-button btn btn-danger btn-icon"

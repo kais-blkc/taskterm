@@ -163,4 +163,68 @@ describe('admin panel', () => {
     expect(page[0].action).toBe('invite.create');
     expect((await call(root, 'GET', '/api/admin/audit?limit=0')).statusCode).toBe(400);
   });
+
+  describe('boards created by an admin are protected', () => {
+    const make = async (url = '/api/admin/boards') => (await call(root, 'POST', url, { name: 'Company' })).json();
+
+    it('admin creates a board from the panel; it is protected and owned by the admin', async () => {
+      const res = await call(root, 'POST', '/api/admin/boards', { name: 'Company' });
+      expect(res.statusCode).toBe(201);
+      expect(res.json()).toMatchObject({ name: 'Company', managedByAdmin: true, owners: ['rootadm'], tasksCount: 0 });
+      expect((await call(member, 'POST', '/api/admin/boards', { name: 'x' })).statusCode).toBe(403);
+      expect((await call(root, 'POST', '/api/admin/boards', { name: '  ' })).statusCode).toBe(400);
+      // обычный POST /api/boards от админа тоже создаёт защищённую доску, от участника — нет
+      expect((await call(root, 'POST', '/api/boards', { name: 'Mine' })).json()).toMatchObject({ managedByAdmin: true, canManage: true });
+      expect((await call(member, 'POST', '/api/boards', { name: 'Theirs' })).json()).toMatchObject({ managedByAdmin: false, canManage: true });
+    });
+
+    it('members, even with the owner role, cannot rename/delete the board, change columns or members', async () => {
+      const b = await make();
+      await call(root, 'PUT', `/api/boards/${b.id}/members/${member.id}`, { role: 'owner' });
+      await call(root, 'PUT', `/api/boards/${b.id}/members/${other.id}`, { role: 'editor' });
+      const col = (await call(root, 'GET', `/api/boards/${b.id}`)).json().columns[0].id;
+
+      const mine = (await call(member, 'GET', `/api/boards/${b.id}`)).json().board;
+      expect(mine).toMatchObject({ myRole: 'owner', managedByAdmin: true, canManage: false });
+      expect((await call(root, 'GET', `/api/boards/${b.id}`)).json().board.canManage).toBe(true);
+      expect((await call(member, 'GET', '/api/boards')).json()[0]).toMatchObject({ canManage: false });
+
+      const denied = [
+        await call(member, 'PATCH', `/api/boards/${b.id}`, { name: 'Hacked' }),
+        await call(member, 'DELETE', `/api/boards/${b.id}`),
+        await call(member, 'POST', `/api/boards/${b.id}/columns`, { name: 'New' }),
+        await call(member, 'PATCH', `/api/columns/${col}`, { name: 'Renamed' }),
+        await call(member, 'DELETE', `/api/columns/${col}`),
+        await call(member, 'PUT', `/api/boards/${b.id}/members/${other.id}`, { role: 'viewer' }),
+        await call(member, 'DELETE', `/api/boards/${b.id}/members/${other.id}`),
+      ];
+      expect(denied.map((r) => r.statusCode)).toEqual([403, 403, 403, 403, 403, 403, 403]);
+
+      // работа с задачами не ограничена: владелец создаёт задачи и удаляет любые
+      const t = await call(other, 'POST', `/api/boards/${b.id}/tasks`, { columnId: col, title: 't' });
+      expect(t.statusCode).toBe(201);
+      expect((await call(member, 'DELETE', `/api/tasks/${t.json().id}`)).statusCode).toBe(204);
+      // выйти с доски участник может
+      expect((await call(other, 'DELETE', `/api/boards/${b.id}/members/${other.id}`)).statusCode).toBe(204);
+
+      // админ управляет всем
+      expect((await call(root, 'PATCH', `/api/boards/${b.id}`, { name: 'Renamed' })).statusCode).toBe(200);
+      expect((await call(root, 'POST', `/api/boards/${b.id}/columns`, { name: 'New' })).statusCode).toBe(201);
+    });
+
+    it('protection can be switched off and on; audit records it', async () => {
+      const b = await make();
+      await call(root, 'PUT', `/api/boards/${b.id}/members/${member.id}`, { role: 'owner' });
+      const off = await call(root, 'PATCH', `/api/admin/boards/${b.id}`, { managedByAdmin: false });
+      expect(off.json().managedByAdmin).toBe(false);
+      expect((await call(member, 'PATCH', `/api/boards/${b.id}`, { name: 'Mine now' })).statusCode).toBe(200);
+      expect((await call(member, 'GET', `/api/boards/${b.id}`)).json().board.canManage).toBe(true);
+      await call(root, 'PATCH', `/api/admin/boards/${b.id}`, { managedByAdmin: true });
+      expect((await call(member, 'PATCH', `/api/boards/${b.id}`, { name: 'again' })).statusCode).toBe(403);
+      expect((await call(root, 'PATCH', '/api/admin/boards/9999', { managedByAdmin: true })).statusCode).toBe(404);
+      expect((await call(member, 'PATCH', `/api/admin/boards/${b.id}`, { managedByAdmin: false })).statusCode).toBe(403);
+      const actions = (await call(root, 'GET', '/api/admin/audit')).json().map((e: any) => e.action);
+      expect(actions).toEqual(expect.arrayContaining(['board.create', 'board.protect', 'board.unprotect']));
+    });
+  });
 });

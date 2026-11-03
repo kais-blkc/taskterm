@@ -56,6 +56,30 @@ export function useAdminBoards() {
   });
 }
 
+export function useAdminBoardMutations() {
+  const qc = useQueryClient();
+  const refresh = () => {
+    void qc.invalidateQueries({ queryKey: ['admin'] });
+    void qc.invalidateQueries({ queryKey: ['boards'] });
+  };
+  return {
+    create: useMutation({
+      mutationFn: async (name: string) =>
+        adminBoardSchema.parse(await api(API_ENDPOINTS.ADMIN_BOARDS, { method: 'POST', body: { name } })),
+      onSuccess: refresh,
+    }),
+    setManaged: useMutation({
+      mutationFn: (v: { id: number; managedByAdmin: boolean }) =>
+        api(API_ENDPOINTS.ADMIN_BOARD_ITEM(v.id), { method: 'PATCH', body: { managedByAdmin: v.managedByAdmin } }),
+      onSuccess: refresh,
+    }),
+    remove: useMutation({
+      mutationFn: (id: number) => api<void>(API_ENDPOINTS.BOARD_ITEM(id), { method: 'DELETE' }),
+      onSuccess: refresh,
+    }),
+  };
+}
+
 export function useAudit() {
   return useInfiniteQuery({
     queryKey: ['admin', 'audit'],

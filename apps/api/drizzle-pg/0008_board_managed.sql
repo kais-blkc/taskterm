@@ -1,0 +1,1 @@
+ALTER TABLE "boards" ADD COLUMN "managed_by_admin" boolean DEFAULT false NOT NULL;

@@ -35,7 +35,10 @@ export const adminBoardSchema = z.object({
   membersCount: z.number().int(),
   tasksCount: z.number().int(),
   owners: z.array(z.string()),
+  managedByAdmin: z.boolean(),
 });
+
+export const updateAdminBoardSchema = z.object({ managedByAdmin: z.boolean() });
 export type AdminBoard = z.infer<typeof adminBoardSchema>;
 
 export const auditEntrySchema = z.object({

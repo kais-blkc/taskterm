@@ -20,6 +20,10 @@ export const boardSchema = z.object({
   createdAt: z.string(),
   /** роль текущего пользователя на доске (админ приложения видит себя как owner) */
   myRole: boardRoleSchema,
+  /** доска защищена админом: управлять ею (название, колонки, участники, удаление) могут только админы */
+  managedByAdmin: z.boolean(),
+  /** можно ли текущему пользователю управлять доской с учётом роли и защиты */
+  canManage: z.boolean(),
 });
 export type Board = z.infer<typeof boardSchema>;
 
