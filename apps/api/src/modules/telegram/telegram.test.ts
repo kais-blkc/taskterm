@@ -123,7 +123,15 @@ describe('telegram notifications', () => {
     expect(api.sent).toHaveLength(1);
     expect(api.sent[0]!.chatId).toBe('111');
     const text = api.sent[0]!.text;
-    expect(text).toContain('Fix &lt;b&gt;login&lt;/b&gt;');
+    expect(text).toBe(
+      [
+        '<b>Доска:</b> B',
+        '<b>Задача:</b> #1 Fix &lt;b&gt;login&lt;/b&gt;',
+        '<b>Действие:</b> новый комментарий от @bobby',
+        '<b>Комментарий:</b> see &lt;script&gt;alert(1)&lt;/script&gt; &amp; more',
+        `https://tt.example.com/b/${boardId}/t/${taskId}`,
+      ].join('\n'),
+    );
     expect(text).toContain('@bobby');
     expect(text).toContain('&lt;script&gt;alert(1)&lt;/script&gt; &amp; more');
     expect(text).not.toContain('<script>');
@@ -137,7 +145,9 @@ describe('telegram notifications', () => {
     await settle();
     expect(api.sent).toHaveLength(1);
     expect(api.sent[0]!).toMatchObject({ chatId: '333' });
-    expect(api.sent[0]!.text).toContain('назначили');
+    expect(api.sent[0]!.text).toContain('<b>Доска:</b> B');
+    expect(api.sent[0]!.text).toContain('<b>Задача:</b> #1');
+    expect(api.sent[0]!.text).toContain('<b>Действие:</b> вас назначили ответственным (@alice)');
 
     api.sent.length = 0;
     await call(alice, 'PATCH', `/api/tasks/${taskId}`, { assigneeId: bob.id }); // bob не привязан

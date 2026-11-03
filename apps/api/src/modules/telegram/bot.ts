@@ -1,5 +1,7 @@
 import type { ServerEvent } from '@taskterm/shared';
-import type { Db } from '../../db/client';
+import { eq } from 'drizzle-orm';
+import { first, type Db } from '../../db/client';
+import { boards } from '../../db/schema';
 import type { EventHub } from '../../plugins/hub';
 import { TelegramError, type TelegramApi, type TelegramUpdate } from './api';
 import { claimLinkCode, deliverableChats, unlinkChat } from './service';
@@ -12,14 +14,18 @@ export const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, 
 const HELP =
   'Это бот уведомлений taskterm. Чтобы подключить аккаунт, откройте профиль в приложении (клик по своему имени) и нажмите «Подключить Telegram».\n\n/stop — отключить уведомления.';
 
-export function formatNotification(e: NotifyEvent, publicUrl?: string): string {
-  const head = `<b>#${e.taskNumber} ${escapeHtml(e.taskTitle)}</b>`;
-  const body =
+/** Подробное уведомление: доска, задача, действие, (для комментария — текст), ссылка */
+export function formatNotification(e: NotifyEvent, boardName: string, publicUrl?: string): string {
+  const lines = [
+    `<b>Доска:</b> ${escapeHtml(boardName)}`,
+    `<b>Задача:</b> #${e.taskNumber} ${escapeHtml(e.taskTitle)}`,
     e.kind === 'assigned'
-      ? `Вас назначили ответственным (@${escapeHtml(e.authorName)}).`
-      : `Новый комментарий от @${escapeHtml(e.authorName)}:\n${escapeHtml(e.snippet)}`;
-  const link = publicUrl ? `\n${publicUrl}/b/${e.boardId}/t/${e.taskId}` : '';
-  return `${head}\n${body}${link}`;
+      ? `<b>Действие:</b> вас назначили ответственным (@${escapeHtml(e.authorName)})`
+      : `<b>Действие:</b> новый комментарий от @${escapeHtml(e.authorName)}`,
+  ];
+  if (e.kind === 'comment' && e.snippet) lines.push(`<b>Комментарий:</b> ${escapeHtml(e.snippet)}`);
+  if (publicUrl) lines.push(`${publicUrl}/b/${e.boardId}/t/${e.taskId}`);
+  return lines.join('\n');
 }
 
 export function createTelegramBot(opts: { db: Db; api: TelegramApi; hub: EventHub; publicUrl?: string; log: Log }) {
@@ -61,7 +67,8 @@ export function createTelegramBot(opts: { db: Db; api: TelegramApi; hub: EventHu
   /** Уведомление из шины событий → всем получателям с привязанным чатом и доступом к доске */
   async function notify(e: NotifyEvent) {
     const targets = await deliverableChats(db, e.recipients, e.boardId);
-    const text = formatNotification(e, publicUrl);
+    const board = first(await db.select({ name: boards.name }).from(boards).where(eq(boards.id, e.boardId)));
+    const text = formatNotification(e, board?.name ?? `#${e.boardId}`, publicUrl);
     await Promise.all(
       targets.map(async (t) => {
         try {
