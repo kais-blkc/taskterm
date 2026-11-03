@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useDroppable } from '@dnd-kit/core';
+import { useDndContext, useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import type { Column, SubtaskStat, Task, User } from '@taskterm/shared';
 import { InlineAdd } from '../../components/InlineAdd';
@@ -44,6 +44,11 @@ export function KanbanColumn({
   onOpenTask: (id: number) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `col-${column.id}`, data: { type: 'column', column } });
+  // над непустой колонкой целью drop становится карточка под курсором, а не сама колонка —
+  // подсвечиваем колонку и в этом случае
+  const { over } = useDndContext();
+  const overTask = over?.data.current?.type === 'task' ? (over.data.current.task as Task) : null;
+  const highlighted = isOver || overTask?.columnId === column.id;
   const [editing, setEditing] = useState(false);
   const selectedTaskId = useUiStore((s) => s.selectedTaskId);
   const addingHere = useUiStore((s) => s.addTaskColumnId === column.id);
@@ -51,7 +56,7 @@ export function KanbanColumn({
 
   return (
     <section
-      className={`flex w-72 shrink-0 flex-col border bg-bg ${isOver ? 'border-accent' : 'border-line'}`}
+      className={`flex w-72 shrink-0 flex-col border bg-bg ${highlighted ? 'border-accent' : 'border-line'}`}
     >
       <header className="flex items-center justify-between border-b border-line px-2 py-1.5">
         {editing ? (
