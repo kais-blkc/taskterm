@@ -88,7 +88,7 @@ export function TaskRights({ task, boardId }: { task: Task; boardId: number }) {
               ))}
             </ul>
           </div>
-          <div className="grid grid-cols-[7rem_1fr] items-center gap-y-2">
+          <div className="grid grid-cols-[max-content_1fr] items-center gap-x-4 gap-y-2">
             <span className="text-muted">подзадачи</span>
             <Select
               className="min-w-64"

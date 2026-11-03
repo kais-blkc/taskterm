@@ -77,7 +77,7 @@ function TaskBody({
         )}
       </div>
 
-      <dl className="task-details grid grid-cols-[7rem_1fr] items-center gap-y-1 border border-line bg-bg p-3">
+      <dl className="task-details grid grid-cols-[max-content_1fr] items-center gap-x-4 gap-y-1 border border-line bg-bg p-3">
         <dt className="text-muted">owner</dt>
         <dd>
           <UserTag user={users.byId.get(task.authorId)} />
