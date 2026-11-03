@@ -43,10 +43,10 @@ export function HelpOverlay() {
   if (!open) return null;
   return (
     <div
-      className="help-overlay fixed inset-0 z-40 flex items-start justify-center bg-black/60 p-4 pt-24"
+      className="help-overlay fixed inset-0 z-40 flex items-start justify-center bg-black/60 p-2 pt-4 sm:p-4 sm:pt-24"
       onMouseDown={(e) => e.target === e.currentTarget && setOpen(false)}
     >
-      <div className="help-dialog w-full max-w-lg space-y-4 border border-accent bg-elev p-5 shadow-2xl">
+      <div className="help-dialog w-full max-w-lg space-y-4 border border-accent bg-elev p-3 sm:p-5 shadow-2xl">
         <h2>$ taskterm --help</h2>
         {GROUPS.map((g) => (
           <section key={g.title}>

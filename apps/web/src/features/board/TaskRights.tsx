@@ -88,20 +88,20 @@ export function TaskRights({ task, boardId }: { task: Task; boardId: number }) {
               ))}
             </ul>
           </div>
-          <div className="grid grid-cols-[max-content_1fr] items-center gap-x-4 gap-y-2">
-            <span className="text-muted">подзадачи</span>
+          <div className="grid grid-cols-1 items-center gap-y-1 sm:grid-cols-[max-content_1fr] sm:gap-x-4 sm:gap-y-2">
+            <span className="mt-2 text-muted sm:mt-0">подзадачи</span>
             <Select
-              className="min-w-64"
+              className="w-full sm:w-auto sm:min-w-64"
               disabled={setPolicy.isPending}
               value={p.subtasks}
               options={subtaskModeSchema.options.map((m) => ({ value: m, label: SUBTASK_MODE_LABELS[m] }))}
               onChange={(v) => apply({ subtasks: v as SubtaskMode })}
             />
-            <span className="text-muted">владелец</span>
+            <span className="mt-2 text-muted sm:mt-0">владелец</span>
             <div className="task-rights-owner flex flex-wrap items-center gap-3">
               <UserTag user={users.byId.get(task.authorId)} />
               <Select
-                className="min-w-56"
+                className="w-full sm:w-auto sm:min-w-56"
                 disabled={transfer.isPending || heirs.length === 0}
                 value=""
                 placeholder="передать владение…"

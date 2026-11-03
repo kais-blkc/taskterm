@@ -85,7 +85,7 @@ export function TaskCard({
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1 }}
       data-task-id={task.id}
-      className={`task-card-sortable group relative ${canDrag ? 'cursor-grab touch-none active:cursor-grabbing' : 'cursor-pointer'} ${selected ? 'outline outline-2 outline-offset-1 outline-accent' : ''}`}
+      className={`task-card-sortable group relative ${canDrag ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'} ${selected ? 'outline outline-2 outline-offset-1 outline-accent' : ''}`}
       onClick={onOpen}
       {...attributes}
       {...listeners}
@@ -104,7 +104,7 @@ export function TaskCard({
           });
           if (ok) onDelete();
         }}
-        className="task-card-delete btn btn-danger btn-icon absolute right-1 top-1 hidden bg-elev group-hover:inline-flex"
+        className="task-card-delete btn btn-danger btn-icon absolute right-1 top-1 hidden bg-elev group-hover:inline-flex [@media(hover:none)]:inline-flex"
       >
         ×
       </button>}

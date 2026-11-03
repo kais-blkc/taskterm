@@ -88,7 +88,7 @@ function SubtaskRow({
         type="button"
         title="удалить подзадачу"
         onClick={onRemove}
-        className="subtask-delete btn btn-danger btn-icon invisible group-focus-within:visible group-hover:visible"
+        className="subtask-delete btn btn-danger btn-icon invisible group-focus-within:visible group-hover:visible [@media(hover:none)]:visible"
       >
         ×
       </button>}
@@ -193,7 +193,7 @@ export function Subtasks({ task, boardId, actor, userId }: { task: Task; boardId
             e.preventDefault();
             submit();
           }}
-          className="flex gap-2"
+          className="flex flex-wrap gap-2"
         >
           <input
             value={title}
@@ -211,7 +211,7 @@ export function Subtasks({ task, boardId, actor, userId }: { task: Task; boardId
                 }
               }
             }}
-            className="subtask-add-input flex-1 border border-line bg-bg px-2 py-1 outline-none focus:border-accent"
+            className="subtask-add-input min-w-0 flex-1 basis-full border border-line bg-bg px-2 py-1 outline-none focus:border-accent sm:basis-0"
           />
           <button type="submit" disabled={!title.trim()} className="btn">
             add

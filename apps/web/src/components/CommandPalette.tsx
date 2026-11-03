@@ -122,7 +122,7 @@ function PaletteInner({ close }: { close: () => void }) {
   let lastGroup = '';
   return (
     <div
-      className="palette-overlay fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-4 pt-24"
+      className="palette-overlay fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-2 pt-4 sm:p-4 sm:pt-24"
       onMouseDown={(e) => e.target === e.currentTarget && close()}
     >
       <div className="palette-dialog w-full max-w-xl border border-accent bg-elev shadow-2xl" onKeyDown={onKeyDown}>

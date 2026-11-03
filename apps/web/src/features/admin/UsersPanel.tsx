@@ -28,7 +28,7 @@ function DeleteDialog({ user, heirs, pending, error, onSubmit, onClose }: {
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
   return (
-    <div className="delete-user-overlay fixed inset-0 z-30 flex items-start justify-center bg-black/60 p-4 pt-24" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="delete-user-overlay fixed inset-0 z-30 flex items-start justify-center bg-black/60 p-2 pt-4 sm:p-4 sm:pt-24" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="delete-user-dialog w-full max-w-md space-y-3 border border-danger bg-elev p-4">
         <h2>Удалить @{user.username}?</h2>
         <p className="text-muted">

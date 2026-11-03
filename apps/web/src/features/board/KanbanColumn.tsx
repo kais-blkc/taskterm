@@ -56,7 +56,7 @@ export function KanbanColumn({
 
   return (
     <section
-      className={`kanban-column flex w-72 shrink-0 flex-col border bg-bg ${highlighted ? 'border-accent' : 'border-line'}`}
+      className={`kanban-column flex w-[85vw] max-w-72 shrink-0 snap-start sm:w-72 flex-col border bg-bg ${highlighted ? 'border-accent' : 'border-line'}`}
     >
       <header className="kanban-column-header flex items-center justify-between border-b border-line px-2 py-1.5">
         {editing ? (

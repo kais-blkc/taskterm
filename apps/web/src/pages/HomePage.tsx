@@ -34,15 +34,15 @@ export function Layout({ user }: { user: Me }) {
   }, []);
   return (
     <div className="app-layout">
-      <header className="app-header flex items-center justify-between border-b border-line px-4 py-2">
-        <Link to={ROUTES.HOME} className="app-brand hover:text-accent">
+      <header className="app-header flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-2">
+        <Link to={ROUTES.HOME} className="app-brand whitespace-nowrap hover:text-accent">
           $ taskterm
         </Link>
-        <div className="app-header-actions flex items-center gap-2">
+        <div className="app-header-actions flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => useUiStore.getState().setPaletteOpen(true)}
-            className="palette-button btn"
+            className="palette-button btn max-sm:hidden"
             title="командная палитра"
           >
             {MOD_KEY}+K

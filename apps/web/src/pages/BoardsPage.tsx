@@ -11,7 +11,7 @@ export function BoardsPage() {
   const del = useDeleteBoard();
 
   return (
-    <div className="boards-page mx-auto max-w-xl p-6">
+    <div className="boards-page mx-auto max-w-xl p-3 sm:p-6">
       <h1 className="page-title mb-4">$ ls boards/</h1>
       {boards.isLoading && <p className="text-muted">loading...</p>}
       {boards.data?.length === 0 && <p className="text-muted text-[14px]">// нет доступных досок — создай свою или попроси владельца добавить тебя</p>}

@@ -20,7 +20,7 @@ export function AdminPage({ user }: { user: Me }) {
   const [tab, setTab] = useState<Tab>('users');
   if (user.role !== 'admin') return <Navigate to={ROUTES.HOME} replace />;
   return (
-    <div className="admin-page mx-auto max-w-4xl space-y-4 p-6">
+    <div className="admin-page mx-auto max-w-4xl space-y-4 p-3 sm:p-6">
       <h1 className="page-title">$ admin</h1>
       <nav className="admin-tabs flex flex-wrap gap-2">
         {TABS.map((t) => (

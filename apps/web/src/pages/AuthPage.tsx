@@ -26,7 +26,7 @@ export function AuthPage() {
   );
 
   return (
-    <main className="login-page mx-auto mt-24 max-w-sm px-4">
+    <main className="login-page mx-auto mt-10 max-w-sm sm:mt-24 px-4">
       <h1 className="page-title mb-6">
         <span className="text-muted">$</span> taskterm <span className="cursor" />
       </h1>

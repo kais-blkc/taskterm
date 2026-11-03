@@ -77,16 +77,16 @@ function TaskBody({
         )}
       </div>
 
-      <dl className="task-details grid grid-cols-[max-content_1fr] items-center gap-x-4 gap-y-1 border border-line bg-bg p-3">
-        <dt className="text-muted">owner</dt>
+      <dl className="task-details grid grid-cols-1 items-center gap-y-1 sm:grid-cols-[max-content_1fr] sm:gap-x-4 border border-line bg-bg p-3">
+        <dt className="mt-2 text-muted first:mt-0 sm:mt-0">owner</dt>
         <dd>
           <UserTag user={users.byId.get(task.authorId)} />
           <span className="text-muted"> · {formatDateTime(task.createdAt)}</span>
         </dd>
-        <dt className="text-muted">ответственный{lockedBy('assignee') && lock}</dt>
+        <dt className="mt-2 text-muted first:mt-0 sm:mt-0">ответственный{lockedBy('assignee') && lock}</dt>
         <dd className="task-assignee flex flex-wrap items-center gap-3">
           <Select
-            className="min-w-48"
+            className="w-full sm:w-auto sm:min-w-48"
             disabled={update.isPending || !can('assignee')}
             value={task.assigneeId ? String(task.assigneeId) : ''}
             placeholder="— не назначен —"
@@ -112,7 +112,7 @@ function TaskBody({
             </button>
           )}
         </dd>
-        <dt className="text-muted">дедлайн{lockedBy('dueDate') && lock}</dt>
+        <dt className="mt-2 text-muted first:mt-0 sm:mt-0">дедлайн{lockedBy('dueDate') && lock}</dt>
         <dd className="task-due-date flex flex-wrap items-center gap-2">
           <input
             type="date"
@@ -151,7 +151,7 @@ function TaskBody({
         </dd>
         {task.updatedAt !== task.createdAt && (
           <>
-            <dt className="text-muted">обновлена</dt>
+            <dt className="mt-2 text-muted first:mt-0 sm:mt-0">обновлена</dt>
             <dd className="text-muted">{formatDateTime(task.updatedAt)}</dd>
           </>
         )}
@@ -239,8 +239,8 @@ export function TaskModal({ user }: { user: User }) {
   const column = data?.columns.find((c) => c.id === task?.columnId);
 
   return (
-    <div className="task-modal-overlay fixed inset-0 z-20 flex items-start justify-center overflow-y-auto bg-black/60 p-4 pt-12" onMouseDown={(e) => e.target === e.currentTarget && close()}>
-      <div className="task-modal w-full max-w-3xl border border-accent bg-elev p-5 shadow-2xl">
+    <div className="task-modal-overlay fixed inset-0 z-20 flex items-start justify-center overflow-y-auto bg-black/60 p-2 pt-4 sm:p-4 sm:pt-12" onMouseDown={(e) => e.target === e.currentTarget && close()}>
+      <div className="task-modal w-full max-w-3xl border border-accent bg-elev p-3 shadow-2xl sm:p-5">
         <div className="mb-3 flex justify-end">
           <button type="button" onClick={close} className="task-modal-close btn btn-danger">
             close <span className="text-muted">esc</span>

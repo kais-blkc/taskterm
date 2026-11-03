@@ -92,8 +92,13 @@ input:disabled {
 .md blockquote { border-left: 2px solid var(--fg-muted); padding-left: 0.8em; color: var(--fg-muted); }
 
 /* ── кнопки: рамка = «на это можно нажать» ── */
+/* display — в слое components, чтобы утилиты (hidden, max-sm:hidden, group-hover:inline-flex) могли его переопределять */
+@layer components {
+  .btn {
+    display: inline-flex;
+  }
+}
 .btn {
-  display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.35em;

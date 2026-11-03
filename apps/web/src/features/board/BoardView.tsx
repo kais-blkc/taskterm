@@ -3,7 +3,8 @@ import { useMatch, useNavigate } from 'react-router-dom';
 import {
   DndContext,
   DragOverlay,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   closestCorners,
   useSensor,
   useSensors,
@@ -38,7 +39,11 @@ export function BoardView({ data }: { data: BoardFull }) {
   const canCreate = roleCan(role, 'createTask');
   const canManage = roleCan(role, 'manageBoard');
   const canMove = (t: Task) => canEditField(t.policy, { role, isOwner: t.authorId === meId }, 'move');
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    // на телефоне перетаскивание — после долгого нажатия, чтобы не мешать прокрутке
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
+  );
 
   const lastColumnId = data.columns.at(-1)?.id;
   const statsByTask = useMemo(() => new Map(data.subtaskStats.map((s) => [s.taskId, s])), [data.subtaskStats]);
@@ -197,7 +202,7 @@ export function BoardView({ data }: { data: BoardFull }) {
           onChange={setFilter}
         />
       </div>
-      <div className="board-columns flex items-start gap-3 overflow-x-auto p-4">
+      <div className="board-columns flex snap-x items-start gap-3 overflow-x-auto p-4">
         {data.columns.map((c) => (
           <KanbanColumn
             key={c.id}
