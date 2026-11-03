@@ -17,10 +17,10 @@ import { useUsers } from '../../api/users';
 import { confirmDialog } from '../../stores/confirm';
 
 const LOCKS: { key: Exclude<keyof TaskPolicy, 'subtasks'>; label: string }[] = [
-  { key: 'lockTitle', label: 'название' },
-  { key: 'lockDescription', label: 'описание' },
-  { key: 'lockAssignee', label: 'ответственного' },
-  { key: 'lockDueDate', label: 'дедлайн' },
+  { key: 'lockTitle', label: 'менять название' },
+  { key: 'lockDescription', label: 'менять описание' },
+  { key: 'lockAssignee', label: 'менять ответственного' },
+  { key: 'lockDueDate', label: 'менять дедлайн' },
   { key: 'lockMove', label: 'переносить по колонкам' },
   { key: 'commentsLocked', label: 'писать комментарии' },
 ];
@@ -50,24 +50,24 @@ export function TaskRights({ task, boardId }: { task: Task; boardId: number }) {
       {open && (
         <div className="space-y-3 border border-line bg-bg p-3">
           <div>
-            <p className="mb-1 text-muted">// редакторы доски НЕ смогут (ты, владелец доски и админ — без ограничений):</p>
+            <p className="mb-1 text-muted">// что могут делать редакторы доски (ты, владелец доски и админ — всегда всё):</p>
             <ul className="grid gap-x-4 gap-y-1 sm:grid-cols-2">
               {LOCKS.map(({ key, label }) => (
                 <li key={key}>
                   <button
                     type="button"
                     role="checkbox"
-                    aria-checked={p[key]}
+                    aria-checked={!p[key]}
                     disabled={setPolicy.isPending}
                     onClick={() => apply({ [key]: !p[key] })}
                     className="flex items-center gap-2 hover:text-accent"
                   >
                     <span
                       className={`inline-flex h-4 w-4 shrink-0 items-center justify-center border text-xs leading-none ${
-                        p[key] ? 'border-accent bg-accent text-bg' : 'border-fg-muted'
+                        !p[key] ? 'border-accent bg-accent text-bg' : 'border-fg-muted'
                       }`}
                     >
-                      {p[key] && '✓'}
+                      {!p[key] && '✓'}
                     </span>
                     {label}
                   </button>
@@ -109,7 +109,7 @@ export function TaskRights({ task, boardId }: { task: Task; boardId: number }) {
           {(setPolicy.error || transfer.error) && <p className="text-danger">! {(setPolicy.error ?? transfer.error)?.message}</p>}
           {!isPolicyDefault(p) && (
             <button type="button" className="btn" disabled={setPolicy.isPending} onClick={() => apply({ ...DEFAULT_TASK_POLICY })}>
-              снять все ограничения
+              разрешить всё
             </button>
           )}
         </div>
