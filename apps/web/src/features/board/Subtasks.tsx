@@ -12,6 +12,7 @@ import {
   type Task,
   type TaskActor,
 } from '@taskterm/shared';
+import { Icon, LockHint } from '../../components/Icon';
 import { useSubtaskMutations, useSubtasks } from '../../api/subtasks';
 
 function Progress({ done, total }: { done: number; total: number }) {
@@ -56,7 +57,7 @@ function SubtaskRow({
           s.done ? 'border-accent bg-accent text-bg' : 'border-fg-muted hover:border-accent'} ${canToggle ? '' : 'cursor-default'}
         }`}
       >
-        {s.done && '✓'}
+        {s.done && <Icon name="check" className="h-3 w-3" />}
       </button>
       {editing ? (
         <input
@@ -127,7 +128,15 @@ export function Subtasks({ task, boardId, actor, userId }: { task: Task; boardId
   return (
     <section className="subtasks space-y-2">
       <h3 className="flex flex-wrap items-center justify-between gap-2">
-        <span>## subtasks</span>
+        <span>
+          ## subtasks
+          {restricted && (
+            <LockHint
+              className="ml-2"
+              text={`owner задачи ограничил подзадачи: ${SUBTASK_MODE_LABELS[task.policy.subtasks]}. Пункты owner задачи менять и удалять нельзя`}
+            />
+          )}
+        </span>
         {total > 0 && <Progress done={done} total={total} />}
       </h3>
       {isLoading && <p className="text-muted">loading...</p>}
@@ -148,12 +157,6 @@ export function Subtasks({ task, boardId, actor, userId }: { task: Task; boardId
         ))}
       </ul>
       {m.addMany.error && <p className="text-danger">! {m.addMany.error.message}</p>}
-
-      {restricted && (
-        <p className="text-muted">
-          🔒 owner задачи ограничил подзадачи: {SUBTASK_MODE_LABELS[task.policy.subtasks]}; пункты owner задачи менять и удалять нельзя
-        </p>
-      )}
 
       {!canAdd ? null : listMode ? (
         <div className="subtasks-bulk-form space-y-2">

@@ -9,6 +9,7 @@ import {
   type Task,
   type TaskPolicy,
 } from '@taskterm/shared';
+import { Icon, LockHint } from '../../components/Icon';
 import { useMembers } from '../../api/boards';
 import { useSetPolicy, useTransferOwner } from '../../api/tasks';
 import { ColorDot, UserTag } from '../../components/UserTag';
@@ -53,7 +54,7 @@ export function TaskRights({ task, boardId }: { task: Task; boardId: number }) {
       <h3 className="flex flex-wrap items-center justify-between gap-2">
         <span>
           ## rights{' '}
-          {!isPolicyDefault(p) && <span className="text-muted">🔒 есть ограничения</span>}
+          {!isPolicyDefault(p) && <LockHint text="Для редакторов есть ограничения" />}
         </span>
         <button type="button" className="btn" onClick={() => setOpen((v) => !v)}>
           {open ? 'свернуть' : 'настроить'}
@@ -79,7 +80,7 @@ export function TaskRights({ task, boardId }: { task: Task; boardId: number }) {
                         !p[key] ? 'border-accent bg-accent text-bg' : 'border-fg-muted'
                       }`}
                     >
-                      {!p[key] && '✓'}
+                      {!p[key] && <Icon name="check" className="h-3 w-3" />}
                     </span>
                     {label}
                   </button>

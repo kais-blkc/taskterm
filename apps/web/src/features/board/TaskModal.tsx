@@ -5,6 +5,7 @@ import { useBoard, useMembers } from '../../api/boards';
 import { ROUTES } from '../../consts/routes';
 import { useUpdateTask } from '../../api/tasks';
 import { useUsers } from '../../api/users';
+import { LockHint } from '../../components/Icon';
 import { Markdown } from '../../components/Markdown';
 import { addDays, DUE_CLASS, dueInfo, formatDateTime } from '../../lib/dates';
 import { Select } from '../../components/Select';
@@ -37,7 +38,7 @@ function TaskBody({
   const can = (f: Parameters<typeof canEditField>[2]) => canEditField(task.policy, actor, f);
   // поле закрыто политикой, хотя по роли его можно было бы менять
   const lockedBy = (f: Parameters<typeof canEditField>[2]) => canEdit && !can(f);
-  const lock = <span className="text-muted" title="owner задачи закрыл это поле"> 🔒</span>;
+  const lock = <LockHint className="ml-1" text="owner задачи закрыл это поле" />;
   const [editingTitle, setEditingTitle] = useState(false);
   const [editingDesc, setEditingDesc] = useState(false);
   const [desc, setDesc] = useState(task.description);

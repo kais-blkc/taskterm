@@ -1,3 +1,4 @@
+import { Icon } from '../../components/Icon';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { SubtaskStat, Task, User } from '@taskterm/shared';
@@ -41,7 +42,8 @@ export function TaskCardView({
           )}
         {stat && (
           <span title="подзадачи" className={stat.done === stat.total ? 'text-accent' : ''}>
-            ☑ {stat.done}/{stat.total}
+            <Icon name="checklist" className="mr-1 align-[-0.125em]" />
+            {stat.done}/{stat.total}
           </span>
         )}
         </span>

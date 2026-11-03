@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Comment } from '@taskterm/shared';
+import { LockHint } from '../../components/Icon';
 import { useCommentMutations, useComments } from '../../api/tasks';
 import { useUsers } from '../../api/users';
 import { Markdown } from '../../components/Markdown';
@@ -131,7 +132,10 @@ export function Comments({
   const m = useCommentMutations(taskId);
   return (
     <section className="comments space-y-3">
-      <h3>## comments {data && <span className="text-muted">({data.length})</span>}</h3>
+      <h3>
+        ## comments {data && <span className="text-muted">({data.length})</span>}
+        {commentsLocked && <LockHint className="ml-2" text="owner задачи закрыл новые комментарии" />}
+      </h3>
       {isLoading && <p className="text-muted">loading...</p>}
       {error && <p className="text-danger">! failed to load comments</p>}
       <ul className="comments-list space-y-2">
@@ -149,9 +153,7 @@ export function Comments({
       {canComment ? (
         <CommentForm submitLabel="send" pending={m.add.isPending} onSubmit={(body) => m.add.mutate(body)} />
       ) : (
-        <p className="text-muted">
-          {commentsLocked ? '🔒 owner задачи закрыл новые комментарии' : '// у тебя роль «наблюдатель» — комментировать нельзя'}
-        </p>
+        !commentsLocked && <p className="text-muted">// у тебя роль «наблюдатель» — комментировать нельзя</p>
       )}
     </section>
   );

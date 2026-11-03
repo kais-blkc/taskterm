@@ -1,3 +1,4 @@
+import { Icon } from './Icon';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 export interface SelectOption {
@@ -119,7 +120,7 @@ export function Select({
             >
               {o.icon}
               <span className="flex-1">{o.label}</span>
-              {o.value === value && <span>✓</span>}
+              {o.value === value && <Icon name="check" />}
             </li>
           ))}
         </ul>

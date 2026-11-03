@@ -1,3 +1,4 @@
+import { Icon } from '../../components/Icon';
 import { useState } from 'react';
 import {
   BOARD_ROLES,
@@ -51,7 +52,7 @@ function LinkBox({ created, onClose }: { created: InviteCreated; onClose: () => 
             setCopied(true);
           }}
         >
-          {copied ? 'скопировано ✓' : 'копировать'}
+          {copied ? <>скопировано <Icon name="check" /></> : 'копировать'}
         </button>
         <button type="button" className="btn" onClick={onClose}>
           закрыть
