@@ -135,7 +135,7 @@ function PaletteInner({ close }: { close: () => void }) {
             placeholder="доска, задача (#12), тема, действие…"
             className="flex-1 bg-transparent outline-none placeholder:text-muted"
           />
-          <kbd className="text-xs text-muted">{MOD_KEY}+K</kbd>
+          <kbd className="text-[14px] text-muted">{MOD_KEY}+K</kbd>
         </div>
         <ul ref={listRef} className="palette-list max-h-80 overflow-y-auto py-1">
           {results.length === 0 && <li className="px-3 py-2 text-muted text-[14px]">// ничего не найдено</li>}
@@ -154,7 +154,7 @@ function PaletteInner({ close }: { close: () => void }) {
                   }`}
                 >
                   <span className="truncate">{c.label}</span>
-                  {c.hint && <kbd className="text-xs opacity-70">{c.hint}</kbd>}
+                  {c.hint && <kbd className="text-[14px] opacity-70">{c.hint}</kbd>}
                 </div>
               </li>
             );

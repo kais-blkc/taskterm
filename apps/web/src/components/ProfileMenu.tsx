@@ -56,7 +56,7 @@ export function ProfileMenu({ user }: { user: User }) {
             />
           </label>
           {setColor.error && <p className="text-danger">! {setColor.error.message}</p>}
-          <p className="text-xs text-muted">цвет не должен быть похож на цвет другого пользователя</p>
+          <p className="text-[14px] text-muted">цвет не должен быть похож на цвет другого пользователя</p>
         </div>
       )}
     </div>

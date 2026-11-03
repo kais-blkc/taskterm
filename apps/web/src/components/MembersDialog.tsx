@@ -123,11 +123,11 @@ export function MembersDialog({
                 add
               </button>
             </div>
-            <p className="text-xs text-muted">{ROLE_HINT[newRole]}</p>
+            <p className="text-[14px] text-muted">{ROLE_HINT[newRole]}</p>
           </div>
         )}
 
-        <dl className="members-roles-legend space-y-0.5 border-t border-line pt-3 text-xs text-muted">
+        <dl className="members-roles-legend space-y-0.5 border-t border-line pt-3 text-[14px] text-muted">
           {BOARD_ROLES.map((r) => (
             <div key={r} className="flex gap-2">
               <dt className="w-24 shrink-0 text-fg">{ROLE_LABELS[r]}</dt>
