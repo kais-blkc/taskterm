@@ -70,11 +70,16 @@ export function canCheckSubtask(a: TaskActor): boolean {
   return roleCan(a.role, 'editTask');
 }
 
-/** Переименовать/удалить пункт: free — любой, check_and_add — только свои, check_only — никто (кроме обходящих) */
+/** Переименовать пункт: free — любой, check_and_add — только свои, check_only — никто (кроме обходящих) */
 export function canChangeSubtask(policy: TaskPolicy, a: TaskActor, createdBy: number | null, userId: number): boolean {
   if (!roleCan(a.role, 'editTask')) return false;
   if (isPolicyExempt(a) || policy.subtasks === 'free') return true;
   return policy.subtasks === 'check_and_add' && createdBy !== null && createdBy === userId;
+}
+
+/** Удалить пункт: только в режиме free (и обходящим); в check_only и check_and_add удалять нельзя никому */
+export function canDeleteSubtask(policy: TaskPolicy, a: TaskActor): boolean {
+  return roleCan(a.role, 'editTask') && (isPolicyExempt(a) || policy.subtasks === 'free');
 }
 
 export function canCommentOn(policy: TaskPolicy, a: TaskActor): boolean {

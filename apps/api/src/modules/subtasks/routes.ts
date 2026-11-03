@@ -14,7 +14,7 @@ import type { EventHub } from '../../plugins/hub';
 import { requireUser } from '../auth/guard';
 import { LOCKED_MESSAGE, actorOf, requireSubtaskBoard, requireTaskCan } from '../permissions/access';
 import { ForbiddenError } from '../permissions/access';
-import { canAddSubtask, canChangeSubtask, canCheckSubtask } from '@taskterm/shared';
+import { canAddSubtask, canChangeSubtask, canCheckSubtask, canDeleteSubtask } from '@taskterm/shared';
 import * as svc from './service';
 
 export async function subtaskRoutes(app: FastifyInstance, opts: { db: Db; hub: EventHub }) {
@@ -26,11 +26,12 @@ export async function subtaskRoutes(app: FastifyInstance, opts: { db: Db; hub: E
   // подзадачи меняют счётчики на карточках (board) и список в открытой модалке (subtasks)
   type User = import('../auth/service').AuthUser;
   // отметка — всем, кто редактирует задачи; переименование/удаление — по политике задачи
-  const guardSubtask = async (user: User, id: number, change: boolean) => {
+  const guardSubtask = async (user: User, id: number, change: 'rename' | 'delete' | false) => {
     const { subtask, task, role } = await requireSubtaskBoard(db, user, id);
     const actor = actorOf(task, user, role);
     if (!canCheckSubtask(actor)) throw new ForbiddenError('not allowed for your role');
-    if (change && !canChangeSubtask(task.policy, actor, subtask.createdBy, user.id)) throw new ForbiddenError(LOCKED_MESSAGE);
+    if (change === 'rename' && !canChangeSubtask(task.policy, actor, subtask.createdBy, user.id)) throw new ForbiddenError(LOCKED_MESSAGE);
+    if (change === 'delete' && !canDeleteSubtask(task.policy, actor)) throw new ForbiddenError(LOCKED_MESSAGE);
   };
   const guardAdd = async (user: User, taskId: number) => {
     const { task, role } = await requireTaskCan(db, user, taskId, 'editTask');
@@ -78,7 +79,7 @@ export async function subtaskRoutes(app: FastifyInstance, opts: { db: Db; hub: E
     { schema: { params: idParamSchema, body: updateSubtaskSchema, response: { 200: subtaskSchema, ...err } } },
     async (req) => {
       // переименование — «изменение пункта», одна отметка done — нет
-      await guardSubtask(req.user, req.params.id, req.body.title !== undefined);
+      await guardSubtask(req.user, req.params.id, req.body.title !== undefined ? 'rename' : false);
       const { subtask, boardId } = await svc.updateSubtask(db, req.params.id, req.body);
       changed(req.user.id, subtask.taskId, boardId);
       return subtask;
@@ -86,7 +87,7 @@ export async function subtaskRoutes(app: FastifyInstance, opts: { db: Db; hub: E
   );
 
   r.delete('/api/subtasks/:id', { schema: { params: idParamSchema } }, async (req, reply) => {
-    await guardSubtask(req.user, req.params.id, true);
+    await guardSubtask(req.user, req.params.id, 'delete');
     const { taskId, boardId } = await svc.deleteSubtask(db, req.params.id);
     changed(req.user.id, taskId, boardId);
     return reply.code(204).send();

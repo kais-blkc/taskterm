@@ -4,6 +4,7 @@ import {
   SUBTASK_MODE_LABELS,
   canAddSubtask,
   canChangeSubtask,
+  canDeleteSubtask,
   canCheckSubtask,
   isPolicyExempt,
   parseChecklist,
@@ -28,6 +29,7 @@ function SubtaskRow({
   s,
   canToggle,
   canChange,
+  canDelete,
   onToggle,
   onRename,
   onRemove,
@@ -35,6 +37,7 @@ function SubtaskRow({
   s: Subtask;
   canToggle: boolean;
   canChange: boolean;
+  canDelete: boolean;
   onToggle: () => void;
   onRename: (title: string) => void;
   onRemove: () => void;
@@ -80,7 +83,7 @@ function SubtaskRow({
           {s.title}
         </span>
       )}
-      {canChange && <button
+      {canDelete && <button
         type="button"
         title="удалить подзадачу"
         onClick={onRemove}
@@ -137,6 +140,7 @@ export function Subtasks({ task, boardId, actor, userId }: { task: Task; boardId
             s={s}
             canToggle={canCheck}
             canChange={canChangeSubtask(task.policy, actor, s.createdBy, userId)}
+            canDelete={canDeleteSubtask(task.policy, actor)}
             onToggle={() => m.update.mutate({ id: s.id, done: !s.done })}
             onRename={(t) => m.update.mutate({ id: s.id, title: t })}
             onRemove={() => m.remove.mutate(s.id)}
@@ -147,7 +151,7 @@ export function Subtasks({ task, boardId, actor, userId }: { task: Task; boardId
 
       {restricted && (
         <p className="text-muted">
-          🔒 owner задачи ограничил подзадачи: {SUBTASK_MODE_LABELS[task.policy.subtasks]}
+          🔒 owner задачи ограничил подзадачи: {SUBTASK_MODE_LABELS[task.policy.subtasks]}, удалять нельзя
         </p>
       )}
 
