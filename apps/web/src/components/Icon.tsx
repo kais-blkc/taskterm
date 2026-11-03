@@ -46,7 +46,7 @@ export function LockHint({ text, className = '' }: { text: string; className?: s
       <Icon name="lock" />
       <span
         role="tooltip"
-        className="lock-hint-tooltip pointer-events-none absolute left-1/2 top-full z-40 mt-1 hidden w-max max-w-64 -translate-x-1/2 whitespace-normal border border-line bg-elev px-2 py-1 text-[14px] font-normal text-fg shadow-lg group-hover:block group-focus:block"
+        className="lock-hint-tooltip pointer-events-none absolute left-1/2 top-full z-40 mt-1 hidden w-max max-w-64 -translate-x-1/2 whitespace-normal border border-muted bg-bg px-2 py-1 text-[14px] font-normal text-fg shadow-2xl group-hover:block group-focus:block"
       >
         {text}
       </span>
