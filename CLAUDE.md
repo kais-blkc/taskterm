@@ -10,7 +10,7 @@
 - Решено остаться на Fastify + Drizzle (NestJS/Prisma обсуждали, переход не нужен).
 - В работе: роли/инвайты/JWT/админка/права задач — план и прогресс в `docs/PLAN_ROLES_PG.md` (сделаны все этапы 0–7: git, Postgres, JWT, роли на досках, инвайты, права задачи, админ-панель, Docker/HTTPS/бэкап).
 - Прод: compose из двух контейнеров — `app` (API раздаёт собранный фронт) и `db` (Postgres 17, том `taskterm-pg`); профиль `https` добавляет Caddy (`deploy/Caddyfile`, `DOMAIN`); бэкап — `scripts/backup.sh` (cron). Инструкция: `docs/DEPLOY.md`, краткая — `README.md`.
-- Фичи на потом: `docs/FEATURES_LATER.md`.
+- Фичи на потом: `docs/FEATURES_LATER.md`. Разбор бэкенда для человека из NestJS/Prisma: `docs/ONBOARDING_BACKEND.md`.
 - Папка `promo/` — отдельный проект: промо-видео (Motion Canvas). Не входит в workspace и в Docker-образ.
 - Репозиторий под git (ветка `main`, `git init` сделан 2026-11-02).
 

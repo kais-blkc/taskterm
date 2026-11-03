@@ -1,7 +1,16 @@
 import { and, asc, count, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import { RESET_TTL_HOURS, type AdminBoard, type AdminUser, type BoardRole } from '@taskterm/shared';
 import { first, type Db } from '../../db/client';
-import { boardMembers, boards, comments, invites, passwordResets, refreshTokens, tasks, users } from '../../db/schema';
+import {
+  boardMembers,
+  boards,
+  comments,
+  invites,
+  passwordResets,
+  refreshTokens,
+  tasks,
+  users,
+} from '../../db/schema';
 import { hashPassword, randomToken, sha256 } from '../auth/password';
 
 export class AdminError extends Error {
@@ -35,7 +44,10 @@ export async function listUsers(db: Db): Promise<AdminUser[]> {
 
 /** Закрыть все сессии пользователя: старые access перестают приниматься, refresh отозваны */
 async function dropSessions(tx: Db, userId: number) {
-  await tx.update(users).set({ tokenVersion: sql`${users.tokenVersion} + 1` }).where(eq(users.id, userId));
+  await tx
+    .update(users)
+    .set({ tokenVersion: sql`${users.tokenVersion} + 1` })
+    .where(eq(users.id, userId));
   await tx
     .update(refreshTokens)
     .set({ revokedAt: new Date().toISOString() })
@@ -69,7 +81,8 @@ export async function updateUser(
     const blocking = patch.isActive === false && target.isActive;
     const demoting = patch.role === 'member' && target.role === 'admin';
     if (blocking && id === actorId) throw new AdminError('нельзя заблокировать самого себя', 400);
-    if ((blocking || demoting) && target.role === 'admin' && target.isActive) await assertOtherAdmin(tx, id);
+    if ((blocking || demoting) && target.role === 'admin' && target.isActive)
+      await assertOtherAdmin(tx, id);
 
     const set: Partial<typeof users.$inferInsert> = {};
     if (patch.role !== undefined) set.role = patch.role;
@@ -77,7 +90,11 @@ export async function updateUser(
     if (Object.keys(set).length) await tx.update(users).set(set).where(eq(users.id, id));
     const changed = (patch.role !== undefined && patch.role !== target.role) || blocking;
     if (blocking) await dropSessions(tx, id);
-    else if (changed) await tx.update(users).set({ tokenVersion: sql`${users.tokenVersion} + 1` }).where(eq(users.id, id));
+    else if (changed)
+      await tx
+        .update(users)
+        .set({ tokenVersion: sql`${users.tokenVersion} + 1` })
+        .where(eq(users.id, id));
     return { before: target, after: await getUser(tx, id), sessionsClosed: blocking || changed };
   });
 }
@@ -98,22 +115,41 @@ export async function deleteUser(db: Db, actorId: number, id: number, transferTo
     const mine = await tx.select().from(boardMembers).where(eq(boardMembers.userId, id));
     for (const m of mine) {
       const existing = first(
-        await tx.select().from(boardMembers).where(and(eq(boardMembers.boardId, m.boardId), eq(boardMembers.userId, transferTo))),
+        await tx
+          .select()
+          .from(boardMembers)
+          .where(and(eq(boardMembers.boardId, m.boardId), eq(boardMembers.userId, transferTo))),
       );
-      if (!existing) await tx.insert(boardMembers).values({ boardId: m.boardId, userId: transferTo, role: m.role });
+      if (!existing)
+        await tx
+          .insert(boardMembers)
+          .values({ boardId: m.boardId, userId: transferTo, role: m.role });
       else if (RANK[m.role] > RANK[existing.role]) {
-        await tx.update(boardMembers).set({ role: m.role }).where(and(eq(boardMembers.boardId, m.boardId), eq(boardMembers.userId, transferTo)));
+        await tx
+          .update(boardMembers)
+          .set({ role: m.role })
+          .where(and(eq(boardMembers.boardId, m.boardId), eq(boardMembers.userId, transferTo)));
       }
     }
     // автор задачи — всегда участник с правом редактировать; доски, где получатель слабее, повышаем
-    const authored = await tx.selectDistinct({ boardId: tasks.boardId }).from(tasks).where(eq(tasks.authorId, id));
+    const authored = await tx
+      .selectDistinct({ boardId: tasks.boardId })
+      .from(tasks)
+      .where(eq(tasks.authorId, id));
     for (const { boardId } of authored) {
       const row = first(
-        await tx.select().from(boardMembers).where(and(eq(boardMembers.boardId, boardId), eq(boardMembers.userId, transferTo))),
+        await tx
+          .select()
+          .from(boardMembers)
+          .where(and(eq(boardMembers.boardId, boardId), eq(boardMembers.userId, transferTo))),
       );
-      if (!row) await tx.insert(boardMembers).values({ boardId, userId: transferTo, role: 'editor' });
+      if (!row)
+        await tx.insert(boardMembers).values({ boardId, userId: transferTo, role: 'editor' });
       else if (RANK[row.role] < RANK.editor) {
-        await tx.update(boardMembers).set({ role: 'editor' }).where(and(eq(boardMembers.boardId, boardId), eq(boardMembers.userId, transferTo)));
+        await tx
+          .update(boardMembers)
+          .set({ role: 'editor' })
+          .where(and(eq(boardMembers.boardId, boardId), eq(boardMembers.userId, transferTo)));
       }
     }
     await tx.update(tasks).set({ authorId: transferTo }).where(eq(tasks.authorId, id));
@@ -133,8 +169,12 @@ export async function createReset(db: Db, actorId: number, userId: number) {
   const token = randomToken();
   const expiresAt = new Date(Date.now() + RESET_TTL_HOURS * 3600_000).toISOString();
   await db.transaction(async (tx) => {
-    await tx.delete(passwordResets).where(and(eq(passwordResets.userId, userId), isNull(passwordResets.usedAt)));
-    await tx.insert(passwordResets).values({ userId, tokenHash: sha256(token), createdBy: actorId, expiresAt });
+    await tx
+      .delete(passwordResets)
+      .where(and(eq(passwordResets.userId, userId), isNull(passwordResets.usedAt)));
+    await tx
+      .insert(passwordResets)
+      .values({ userId, tokenHash: sha256(token), createdBy: actorId, expiresAt });
   });
   return { token, expiresAt, username: user.username };
 }
@@ -147,7 +187,11 @@ async function findReset(db: Db, token: string) {
       .innerJoin(users, eq(users.id, passwordResets.userId))
       .where(eq(passwordResets.tokenHash, sha256(token))),
   );
-  const ok = row && !row.reset.usedAt && new Date(row.reset.expiresAt).getTime() > Date.now() && row.user.isActive;
+  const ok =
+    row &&
+    !row.reset.usedAt &&
+    new Date(row.reset.expiresAt).getTime() > Date.now() &&
+    row.user.isActive;
   return ok ? row : null;
 }
 
@@ -204,7 +248,9 @@ export async function listBoards(db: Db): Promise<AdminBoard[]> {
 }
 
 export async function setBoardManaged(db: Db, id: number, managedByAdmin: boolean) {
-  const row = first(await db.update(boards).set({ managedByAdmin }).where(eq(boards.id, id)).returning());
+  const row = first(
+    await db.update(boards).set({ managedByAdmin }).where(eq(boards.id, id)).returning(),
+  );
   if (!row) throw new AdminError('board not found', 404);
   return row;
 }
