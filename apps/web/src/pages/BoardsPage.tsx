@@ -14,7 +14,7 @@ export function BoardsPage() {
     <div className="boards-page mx-auto max-w-xl p-6">
       <h1 className="page-title mb-4">$ ls boards/</h1>
       {boards.isLoading && <p className="text-muted">loading...</p>}
-      {boards.data?.length === 0 && <p className="text-muted">// нет доступных досок — создай свою или попроси владельца добавить тебя</p>}
+      {boards.data?.length === 0 && <p className="text-muted text-[14px]">// нет доступных досок — создай свою или попроси владельца добавить тебя</p>}
       <ul className="boards-list mb-4 space-y-1">
         {boards.data?.map((b) => (
           <li key={b.id} className="boards-list-item flex items-center justify-between border border-line bg-elev px-3 py-2 hover:border-accent">

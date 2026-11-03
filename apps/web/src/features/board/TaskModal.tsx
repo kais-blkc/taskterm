@@ -198,7 +198,7 @@ function TaskBody({
         ) : task.description ? (
           <Markdown>{task.description}</Markdown>
         ) : (
-          <p className="text-muted">// описания нет</p>
+          <p className="text-muted text-[14px]">// описания нет</p>
         )}
       </section>
 

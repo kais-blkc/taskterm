@@ -13,7 +13,7 @@ export function BoardsPanel({ meId }: { meId: number }) {
     <section className="admin-boards-panel space-y-2">
       <h2>## доски {boards.data && <span className="text-muted">({boards.data.length})</span>}</h2>
       {boards.isLoading && <p className="text-muted">loading...</p>}
-      {boards.data?.length === 0 && <p className="text-muted">// досок пока нет</p>}
+      {boards.data?.length === 0 && <p className="text-muted text-[14px]">// досок пока нет</p>}
       <ul className="admin-boards-list space-y-1">
         {boards.data?.map((b) => (
           <li key={b.id} className="admin-board flex flex-wrap items-center justify-between gap-2 border border-line bg-bg px-3 py-2">

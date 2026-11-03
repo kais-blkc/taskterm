@@ -32,7 +32,7 @@ export function RegisterPage() {
           <p className="text-danger">
             ! {unavailable ? 'сервер недоступен, попробуй позже' : 'приглашение недействительно или просрочено'}
           </p>
-          <p className="text-muted">// попроси администратора выслать новую ссылку</p>
+          <p className="text-muted text-[14px]">// попроси администратора выслать новую ссылку</p>
           <Link to={ROUTES.HOME} className="register-back-link btn inline-block">
             ← ко входу
           </Link>

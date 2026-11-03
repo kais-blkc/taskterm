@@ -153,7 +153,7 @@ export function Comments({
       {canComment ? (
         <CommentForm submitLabel="send" pending={m.add.isPending} onSubmit={(body) => m.add.mutate(body)} />
       ) : (
-        !commentsLocked && <p className="text-muted">// у тебя роль «наблюдатель» — комментировать нельзя</p>
+        !commentsLocked && <p className="text-muted text-[14px]">// у тебя роль «наблюдатель» — комментировать нельзя</p>
       )}
     </section>
   );

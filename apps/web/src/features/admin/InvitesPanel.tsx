@@ -57,7 +57,7 @@ function LinkBox({ created, onClose }: { created: InviteCreated; onClose: () => 
         <button type="button" className="btn" onClick={onClose}>
           закрыть
         </button>
-        <span className="text-xs text-muted">// отправь ссылку сам (почта, мессенджер); позже её не показать — только создать новую</span>
+        <span className="text-muted text-[14px]">// отправь ссылку сам (почта, мессенджер); позже её не показать — только создать новую</span>
       </div>
     </div>
   );
@@ -147,7 +147,7 @@ export function InvitesPanel() {
       <section className="invites-list-section space-y-2">
         <h2>## приглашения {invites.data && <span className="text-muted">({invites.data.length})</span>}</h2>
         {invites.isLoading && <p className="text-muted">loading...</p>}
-        {invites.data?.length === 0 && <p className="text-muted">// приглашений пока нет</p>}
+        {invites.data?.length === 0 && <p className="text-muted text-[14px]">// приглашений пока нет</p>}
         <ul className="invites-list space-y-1">
           {invites.data?.map((i: Invite) => (
             <li key={i.id} className="invite flex flex-wrap items-center justify-between gap-2 border border-line bg-bg px-3 py-2">

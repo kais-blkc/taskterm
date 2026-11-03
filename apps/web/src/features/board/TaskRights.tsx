@@ -63,7 +63,7 @@ export function TaskRights({ task, boardId }: { task: Task; boardId: number }) {
       {open && (
         <div className="task-rights-panel space-y-3 border border-line bg-bg p-3">
           <div>
-            <p className="mb-1 text-muted">// что могут делать редакторы доски (ты, владелец доски и админ — всегда всё):</p>
+            <p className="mb-1 text-muted text-[14px]">// что могут делать редакторы доски (ты, владелец доски и админ — всегда всё):</p>
             <ul className="task-rights-list grid gap-x-4 gap-y-1 sm:grid-cols-2">
               {LOCKS.map(({ key, label }) => (
                 <li key={key}>

@@ -38,7 +38,7 @@ export function AuthPage() {
           {login.isPending ? '...' : '> login'}
         </button>
       </form>
-      <p className="login-hint mt-6 text-xs text-muted">// доступ только по приглашению — попроси ссылку у администратора</p>
+      <p className="login-hint mt-6 text-muted text-[14px]">// доступ только по приглашению — попроси ссылку у администратора</p>
     </main>
   );
 }

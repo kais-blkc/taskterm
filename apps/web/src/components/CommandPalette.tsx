@@ -138,7 +138,7 @@ function PaletteInner({ close }: { close: () => void }) {
           <kbd className="text-xs text-muted">{MOD_KEY}+K</kbd>
         </div>
         <ul ref={listRef} className="palette-list max-h-80 overflow-y-auto py-1">
-          {results.length === 0 && <li className="px-3 py-2 text-muted">// ничего не найдено</li>}
+          {results.length === 0 && <li className="px-3 py-2 text-muted text-[14px]">// ничего не найдено</li>}
           {results.map((c, i) => {
             const header = c.group !== lastGroup;
             lastGroup = c.group;

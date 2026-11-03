@@ -29,7 +29,7 @@ export function AuditPanel() {
     <section className="audit-panel space-y-2">
       <h2>## журнал действий</h2>
       {audit.isLoading && <p className="text-muted">loading...</p>}
-      {!audit.isLoading && rows.length === 0 && <p className="text-muted">// записей пока нет</p>}
+      {!audit.isLoading && rows.length === 0 && <p className="text-muted text-[14px]">// записей пока нет</p>}
       <ul className="audit-list space-y-1">
         {rows.map((e) => (
           <li key={e.id} className="audit-entry border border-line bg-bg px-3 py-1.5">

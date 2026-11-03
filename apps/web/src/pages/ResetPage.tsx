@@ -25,7 +25,7 @@ export function ResetPage() {
       {(!token || check.isError) && !check.isLoading && (
         <div className="reset-invalid space-y-3">
           <p className="text-danger">! {unavailable ? 'сервер недоступен, попробуй позже' : 'ссылка недействительна или просрочена'}</p>
-          <p className="text-muted">// попроси администратора выдать новую</p>
+          <p className="text-muted text-[14px]">// попроси администратора выдать новую</p>
           <Link to={ROUTES.HOME} className="reset-back-link btn inline-block">
             ← ко входу
           </Link>

@@ -141,7 +141,7 @@ export function Subtasks({ task, boardId, actor, userId }: { task: Task; boardId
       </h3>
       {isLoading && <p className="text-muted">loading...</p>}
       {error && <p className="text-danger">! failed to load subtasks</p>}
-      {data && data.length === 0 && <p className="text-muted">// подзадач нет</p>}
+      {data && data.length === 0 && <p className="text-muted text-[14px]">// подзадач нет</p>}
       <ul className="subtasks-list space-y-0.5">
         {data?.map((s) => (
           <SubtaskRow
@@ -179,7 +179,7 @@ export function Subtasks({ task, boardId, actor, userId }: { task: Task; boardId
             <button type="button" className="btn" onClick={() => setListMode(false)}>
               cancel
             </button>
-            <span className="text-muted">
+            <span className="text-muted text-[14px]">
               {parsed.length
                 ? `распознано: ${parsed.length}${parsedDone ? `, отмечено: ${parsedDone}` : ''}`
                 : '// по пункту на строку: «- », «* », «1. », «- [x] »'}

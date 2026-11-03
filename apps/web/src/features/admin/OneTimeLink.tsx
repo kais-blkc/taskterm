@@ -29,7 +29,7 @@ export function OneTimeLink({ title, hint, link, onClose }: { title: string; hin
         <button type="button" className="btn" onClick={onClose}>
           закрыть
         </button>
-        <span className="text-xs text-muted">// ссылка показывается один раз</span>
+        <span className="text-muted text-[14px]">// ссылка показывается один раз</span>
       </div>
     </div>
   );
