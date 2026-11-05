@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>taskterm: деплой</title>
+<style>
+  :root { --bg:#0b0f0c; --panel:#111812; --line:#24302a; --text:#d6e2d9; --muted:#8a9a8f; --accent:#39d353; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; }
+  main { max-width:820px; margin:0 auto; padding:32px 20px 64px; }
+  h1 { font-size:22px; margin:0 0 4px; } h1::before { content:"$ "; color:var(--accent); }
+  h2 { font-size:16px; margin:32px 0 10px; padding-bottom:6px; border-bottom:1px solid var(--line); }
+  h2::before { content:"## "; color:var(--muted); }
+  p { margin:8px 0; } .muted { color:var(--muted); }
+  pre { margin:10px 0; padding:12px 14px; background:var(--panel); border:1px solid var(--line); border-radius:6px; overflow-x:auto; font:inherit; font-size:14px; }
+  code { background:var(--panel); border:1px solid var(--line); border-radius:4px; padding:1px 5px; font-size:14px; }
+  pre code { background:none; border:0; padding:0; }
+  table { width:100%; border-collapse:collapse; margin:10px 0; font-size:14px; }
+  th, td { text-align:left; vertical-align:top; padding:7px 10px; border:1px solid var(--line); }
+  th { background:var(--panel); color:var(--muted); font-weight:normal; }
+  .note { border-left:3px solid var(--accent); padding:6px 12px; background:var(--panel); margin:12px 0; }
+  @media (max-width:560px) { main { padding:20px 14px 48px; } table { display:block; overflow-x:auto; } }
+</style>
+</head>
+<body>
+<main class="deploy-doc">
+
+<h1>taskterm: деплой</h1>
+<p class="muted">Docker запускает проект и отдаёт порт 3100. Nginx настраивается отдельно на хосте.</p>
+
+<h2>Что запускается</h2>
+<table>
+  <tr><th>Контейнер</th><th>Что это</th><th>Порт</th></tr>
+  <tr><td><code>app</code></td><td>API + собранный фронт</td><td><code>3100</code> (наружу)</td></tr>
+  <tr><td><code>db</code></td><td>PostgreSQL 17, том <code>taskterm-pg</code></td><td>не публикуется</td></tr>
+</table>
+<p>Нужно: Docker и плагин compose (<code>docker compose version</code>).</p>
+
+<h2>Запуск</h2>
+<pre><code>cd /opt/taskterm                 # куда загружен проект
+cp .env.example .env
+nano .env                        # см. ниже
+docker compose up -d --build
+docker compose ps                # app должен стать healthy
+curl http://127.0.0.1:3100/api/health</code></pre>
+<p class="muted">Миграции БД применяются при старте. Контейнеры сами поднимаются после перезагрузки сервера.</p>
+
+<h2>.env</h2>
+<table>
+  <tr><th>Переменная</th><th>Значение</th></tr>
+  <tr><td><code>POSTGRES_PASSWORD</code></td><td><code>openssl rand -base64 24</code>. Обязательна</td></tr>
+  <tr><td><code>JWT_SECRET</code></td><td><code>openssl rand -base64 48</code>, ≥ 32 символов. Обязательна</td></tr>
+  <tr><td><code>ADMIN_USERNAME</code><br><code>ADMIN_PASSWORD</code></td><td>первый админ, создаётся при старте, если админов нет</td></tr>
+  <tr><td><code>APP_BIND</code></td><td><code>127.0.0.1</code>, если снаружи только через nginx (по умолчанию <code>0.0.0.0</code>)</td></tr>
+  <tr><td><code>APP_PORT</code></td><td>порт на хосте, по умолчанию <code>3100</code></td></tr>
+  <tr><td><code>TRUST_PROXY</code></td><td><code>true</code> за nginx</td></tr>
+  <tr><td><code>COOKIE_SECURE</code></td><td><code>true</code>, если снаружи HTTPS; <code>false</code> при голом HTTP, иначе вход не работает</td></tr>
+  <tr><td><code>PUBLIC_URL</code></td><td><code>https://домен</code>, для ссылок в Telegram (необязательно)</td></tr>
+  <tr><td><code>TELEGRAM_BOT_TOKEN</code></td><td>токен бота (необязательно); бота опрашивает один экземпляр</td></tr>
+</table>
+
+<h2>Nginx</h2>
+<p>Проксировать всё на <code>127.0.0.1:3100</code>:</p>
+<pre><code>location / {
+    proxy_pass http://127.0.0.1:3100;
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_buffering off;         # живые обновления (SSE, /api/events)
+    proxy_read_timeout 1h;
+}</code></pre>
+<div class="note"><code>Host</code> передавать как есть: приложение сверяет Origin с Host (защита от CSRF). Если домен отличается, добавь его в <code>ALLOWED_ORIGINS</code>.</div>
+
+<h2>Первый вход</h2>
+<p>Войти как <code>ADMIN_USERNAME</code>. Регистрации на странице входа нет: в разделе <code>admin</code> создаются приглашения, ссылку <code>/register?token=…</code> админ отправляет человеку сам. После первого входа <code>ADMIN_PASSWORD</code> можно убрать из <code>.env</code>.</p>
+
+<h2>Обновление</h2>
+<pre><code># обновить код, затем:
+docker compose up -d --build</code></pre>
+<p class="muted">Данные в томе сохраняются.</p>
+
+<h2>Бэкап</h2>
+<pre><code>scripts/backup.sh     # pg_dump в backups/, старше 14 дней удаляются
+# cron: 15 3 * * * cd /opt/taskterm &amp;&amp; scripts/backup.sh &gt;&gt; backups/backup.log 2&gt;&amp;1</code></pre>
+
+<h2>Если не работает</h2>
+<table>
+  <tr><th>Симптом</th><th>Причина</th></tr>
+  <tr><td>контейнер сразу падает</td><td>не заданы <code>POSTGRES_PASSWORD</code> или <code>JWT_SECRET</code> (<code>docker compose logs app</code>)</td></tr>
+  <tr><td>логин проходит, но выкидывает</td><td><code>COOKIE_SECURE=true</code> при HTTP, либо nginx не передаёт <code>Host</code></td></tr>
+  <tr><td>нет живых обновлений</td><td>в nginx включена буферизация</td></tr>
+  <tr><td>403 на POST/PATCH/DELETE</td><td>Origin не совпадает с Host: см. <code>ALLOWED_ORIGINS</code></td></tr>
+  <tr><td>порт занят</td><td>поменять <code>APP_PORT</code></td></tr>
+</table>
+
+</main>
+</body>
+</html>
