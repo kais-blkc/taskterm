@@ -1,7 +1,6 @@
 import { z } from 'zod';
 
 export const CHECKLIST_MAX_ITEMS = 100;
-export const CHECKLIST_MAX_TITLE = 200;
 
 export interface ChecklistItem {
   title: string;
@@ -10,7 +9,7 @@ export interface ChecklistItem {
 
 export const bulkSubtasksSchema = z.object({
   items: z
-    .array(z.object({ title: z.string().trim().min(1).max(CHECKLIST_MAX_TITLE), done: z.boolean().optional() }))
+    .array(z.object({ title: z.string().trim().min(1), done: z.boolean().optional() }))
     .min(1)
     .max(CHECKLIST_MAX_ITEMS),
 });
@@ -40,7 +39,7 @@ export function parseChecklist(text: string): ChecklistItem[] {
       done = box[1] !== ' ';
       line = line.slice(box[0].length);
     }
-    line = line.trim().slice(0, CHECKLIST_MAX_TITLE).trim();
+    line = line.trim();
     if (!line) continue;
     items.push({ title: line, done });
     if (items.length >= CHECKLIST_MAX_ITEMS) break;

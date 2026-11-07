@@ -11,9 +11,9 @@ export const subtaskSchema = z.object({
 });
 export type Subtask = z.infer<typeof subtaskSchema>;
 
-export const createSubtaskSchema = z.object({ title: z.string().trim().min(1).max(200) });
+export const createSubtaskSchema = z.object({ title: z.string().trim().min(1) });
 export const updateSubtaskSchema = z.object({
-  title: z.string().trim().min(1).max(200).optional(),
+  title: z.string().trim().min(1).optional(),
   done: z.boolean().optional(),
 });
 

@@ -197,7 +197,6 @@ export function Subtasks({ task, boardId, actor, userId }: { task: Task; boardId
         >
           <input
             value={title}
-            maxLength={500}
             placeholder="+ новая подзадача, enter (можно вставить целый список)"
             onChange={(e) => setTitle(e.target.value)}
             onPaste={(e) => {

@@ -47,9 +47,9 @@ describe('parseChecklist', () => {
     ]);
   });
 
-  it('drops empty items and caps title length and item count', () => {
+  it('drops empty items, caps item count, keeps long titles', () => {
     expect(t('-\n- [ ]\n*   \n- ok')).toEqual([['ok', false]]);
-    expect(parseChecklist('- ' + 'я'.repeat(500))[0]!.title).toHaveLength(200);
+    expect(parseChecklist('- ' + 'я'.repeat(5000))[0]!.title).toHaveLength(5000);
     expect(parseChecklist(Array.from({ length: 300 }, (_, i) => `- п${i}`).join('\n'))).toHaveLength(CHECKLIST_MAX_ITEMS);
   });
 
