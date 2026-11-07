@@ -60,24 +60,44 @@ function SubtaskRow({
         {s.done && <Icon name="check" className="h-3 w-3" />}
       </button>
       {editing ? (
-        <input
+        <textarea
           autoFocus
+          rows={1}
           defaultValue={s.title}
-          className="subtask-rename-input flex-1 border border-accent bg-bg px-1 outline-none"
+          ref={(el) => {
+            // высота по тексту: при открытии и при вводе (см. onInput)
+            if (el) {
+              el.style.height = 'auto';
+              el.style.height = `${el.scrollHeight}px`;
+              if (!el.dataset.focused) {
+                el.dataset.focused = '1';
+                el.setSelectionRange(el.value.length, el.value.length);
+              }
+            }
+          }}
+          onInput={(e) => {
+            e.currentTarget.style.height = 'auto';
+            e.currentTarget.style.height = `${e.currentTarget.scrollHeight}px`;
+          }}
+          className="subtask-rename-input flex-1 resize-none border border-accent bg-bg px-1 outline-none"
           onBlur={(e) => {
             const v = e.target.value.trim();
             if (v && v !== s.title) onRename(v);
             setEditing(false);
           }}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') e.currentTarget.blur();
+            // enter — сохранить, shift+enter — новая строка
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              e.currentTarget.blur();
+            }
             if (e.key === 'Escape') setEditing(false);
             e.stopPropagation();
           }}
         />
       ) : (
         <span
-          className={`flex-1 break-words ${canChange ? 'cursor-text' : ''} ${s.done ? 'text-muted line-through' : ''}`}
+          className={`flex-1 whitespace-pre-wrap break-words ${canChange ? 'cursor-text' : ''} ${s.done ? 'text-muted line-through' : ''}`}
           title={canChange ? 'клик — переименовать' : undefined}
           onClick={() => canChange && setEditing(true)}
         >
