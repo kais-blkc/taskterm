@@ -1,6 +1,6 @@
 # taskterm
 
-> Обновлено: 2026-11-02
+> Обновлено: 2026-11-06
 
 ## Проект
 
@@ -9,7 +9,7 @@
 - Стек: pnpm-монорепо. `apps/api` — Fastify 5 + zod (`fastify-type-provider-zod`) + Drizzle ORM + PostgreSQL (`postgres`; в тестах встроенный pglite). `apps/web` — React 19 + Vite + TanStack Query (данные сервера) + Zustand (только UI-состояние) + react-router + dnd-kit + Tailwind v4. `packages/shared` — zod-схемы и общие типы/парсеры (экспортирует TS-исходники, не собирается).
 - Решено остаться на Fastify + Drizzle (NestJS/Prisma обсуждали, переход не нужен).
 - В работе: роли/инвайты/JWT/админка/права задач — план и прогресс в `docs/PLAN_ROLES_PG.md` (сделаны все этапы 0–7: git, Postgres, JWT, роли на досках, инвайты, права задачи, админ-панель, Docker/HTTPS/бэкап).
-- Прод: compose из двух контейнеров — `app` (API раздаёт собранный фронт) и `db` (Postgres 17, том `taskterm-pg`); профиль `https` добавляет Caddy (`deploy/Caddyfile`, `DOMAIN`); бэкап — `scripts/backup.sh` (cron). Инструкция: `docs/DEPLOY.md`, краткая — `README.md`.
+- Прод: compose из двух контейнеров — `app` (API раздаёт собранный фронт) и `db` (Postgres 17, том `taskterm-pg`); профиль `https` добавляет Caddy (`deploy/Caddyfile`, `DOMAIN`); бэкап — `scripts/backup.sh` (cron). Инструкции: полная `docs/DEPLOY.md`; короткая для тимлида `docs/DEPLOY_SHORT.md` и `docs/deploy.html` (запуск через Docker, nginx тимлид настраивает сам на хосте: proxy на `127.0.0.1:APP_PORT`, `proxy_buffering off` для SSE, `Host` как есть); `README.md`. Всё прод-конфигурируется через `.env` (шаблон `.env.example` разбит на блоки: обязательное / админ / сеть / Telegram / Caddy / только dev).
 - Фичи на потом: `docs/FEATURES_LATER.md`. Разбор бэкенда для человека из NestJS/Prisma: `docs/ONBOARDING_BACKEND.md`.
 - Папка `promo/` — отдельный проект: промо-видео (Motion Canvas). Не входит в workspace и в Docker-образ.
 - Репозиторий под git (ветка `main`, `git init` сделан 2026-11-02).
@@ -91,6 +91,7 @@ Promo (`promo/`): Motion Canvas, сцены `src/scenes/*.tsx`, общий на�
 ## Открыто / TODO
 
 - Не проверено глазами в браузере: UI под owner/editor, секция `rights` задачи, блокировка живого пользователя, `/reset`, Caddy с реальным доменом (логика покрыта API-тестами).
+- Деплой делает тимлид на своём сервере (Docker + свой nginx): пока не проверено на реальном сервере. `.env.example` пропускает значения `change-me` для `JWT_SECRET`/`POSTGRES_PASSWORD` — проверки на старте нет (предложено добавить в `config.ts`, ответа не было). Репозиторий: remote не добавлен; `promo/` решить, исключать ли из git.
 - Перед публикацией в интернет: включить профиль `https` (DOMAIN, COOKIE_SECURE, TRUST_PROXY, APP_BIND=127.0.0.1), cron на `scripts/backup.sh` + копия дампов на другую машину, второй админ.
 - Нет: отправки писем (SMTP нет — приглашения и ссылки сброса админ пересылает сам), смены пароля самим пользователем, чистки просроченных приглашений, CI.
 - Напоминания о дедлайнах (нужен планировщик), перетаскивание подзадач, несколько исполнителей — не сделано.

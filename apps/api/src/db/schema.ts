@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { DEFAULT_TASK_POLICY, type TaskPolicy } from '@taskterm/shared';
-import { boolean, customType, date, integer, jsonb, pgTable, primaryKey, serial, text } from 'drizzle-orm/pg-core';
+import { boolean, customType, date, index, integer, jsonb, pgTable, primaryKey, serial, text, uniqueIndex } from 'drizzle-orm/pg-core';
 
 /**
  * timestamptz, наружу всегда ISO-строка (`2026-11-02T12:00:00.000Z`).
@@ -186,4 +186,48 @@ export const telegramLinkCodes = pgTable('telegram_link_codes', {
   codeHash: text('code_hash').notNull().unique(),
   expiresAt: timestamptz('expires_at').notNull(),
   createdAt: createdAt(),
+});
+
+/**
+ * Отрезки работы (таймер). Пауза закрывает отрезок, продолжение открывает новый.
+ * ended_at = null — отрезок идёт сейчас; у пользователя такой не больше одного.
+ */
+export const timeEntries = pgTable(
+  'time_entries',
+  {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    taskId: integer('task_id').references(() => tasks.id, { onDelete: 'set null' }),
+    // что делал: обязательно, если нет задачи; при задаче — необязательное уточнение
+    note: text('note').notNull().default(''),
+    startedAt: timestamptz('started_at').notNull(),
+    endedAt: timestamptz('ended_at'),
+    // время или описание правили вручную (видно в отчёте)
+    edited: boolean('edited').notNull().default(false),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex('time_entries_one_open_per_user').on(t.userId).where(sql`${t.endedAt} is null`),
+    index('time_entries_user_started_idx').on(t.userId, t.startedAt),
+  ],
+);
+
+/** Текущий запуск таймера пользователя (одна строка на пользователя); нет строки — таймер остановлен */
+export const workTimers = pgTable('work_timers', {
+  userId: integer('user_id')
+    .primaryKey()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  taskId: integer('task_id').references(() => tasks.id, { onDelete: 'set null' }),
+  note: text('note').notNull().default(''),
+  status: text('status').$type<'running' | 'paused'>().notNull(),
+  // начало всего запуска; closedMs считается по отрезкам, начавшимся не раньше
+  startedAt: timestamptz('started_at').notNull(),
+});
+
+/** Настройки приложения «ключ → значение» (ставка и валюта таймера) */
+export const appSettings = pgTable('app_settings', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
 });

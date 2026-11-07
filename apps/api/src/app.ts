@@ -27,6 +27,7 @@ import { createTelegramApi, type TelegramApi } from './modules/telegram/api';
 import { createTelegramBot, type TelegramBot } from './modules/telegram/bot';
 import { telegramRoutes } from './modules/telegram/routes';
 import { taskRoutes } from './modules/tasks/routes';
+import { timeRoutes } from './modules/time/routes';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -116,5 +117,6 @@ export async function buildApp(
   app.register(commentRoutes, { db, hub });
   app.register(subtaskRoutes, { db, hub });
   app.register(telegramRoutes, { db, config, bot });
+  app.register(timeRoutes, { db, hub, config });
   return app;
 }

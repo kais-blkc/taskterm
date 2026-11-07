@@ -11,6 +11,7 @@ import { refreshSession } from './client';
 import { subtasksKey } from './subtasks';
 import { commentsKey } from './tasks';
 import { usersKey } from './users';
+import { timeKey } from './time';
 
 function showNotification(e: Extract<ServerEvent, { type: 'notify' }>, open: () => void) {
   if (!notificationsSupported() || Notification.permission !== 'granted') return;
@@ -78,6 +79,9 @@ export function useServerEvents(user: User) {
         if (e.by === user.id) return; // свои изменения уже применены локально
 
         switch (e.type) {
+          case 'time':
+            void qc.invalidateQueries({ queryKey: timeKey });
+            break;
           case 'users':
             void qc.invalidateQueries({ queryKey: usersKey });
             break;

@@ -29,6 +29,8 @@ export interface Config {
   telegramBotToken?: string;
   /** публичный адрес приложения для ссылок в сообщениях (https://taskterm.example.com) */
   publicUrl?: string;
+  /** часовой пояс (IANA) для границ дней и периодов отчёта по времени */
+  timeZone: string;
 }
 
 export const DEV_JWT_SECRET = 'dev-only-secret-change-me-dev-only-secret';
@@ -52,6 +54,7 @@ export function loadConfig(overrides: Partial<Config> = {}): Config {
     allowedOrigins: (env.ALLOWED_ORIGINS ?? '').split(',').map((s) => s.trim()).filter(Boolean),
     telegramBotToken: env.TELEGRAM_BOT_TOKEN || undefined,
     publicUrl: env.PUBLIC_URL?.replace(/\/+$/, '') || undefined,
+    timeZone: env.TIME_ZONE || 'Europe/Moscow',
     ...overrides,
   };
 }

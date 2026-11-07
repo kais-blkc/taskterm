@@ -7,6 +7,8 @@ export const serverEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('boards'), by: z.number().int() }),
   z.object({ type: z.literal('board'), boardId: z.number().int(), by: z.number().int() }),
   z.object({ type: z.literal('comments'), boardId: z.number().int(), taskId: z.number().int(), by: z.number().int() }),
+  // таймер работы: старт/пауза/стоп/правка записей (админ обновляет «кто в работе»)
+  z.object({ type: z.literal('time'), by: z.number().int() }),
   // изменился состав/роли участников доски
   z.object({ type: z.literal('members'), boardId: z.number().int(), by: z.number().int() }),
   z.object({

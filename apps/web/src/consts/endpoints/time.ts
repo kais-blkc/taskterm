@@ -1,0 +1,14 @@
+export const TIME_ENDPOINTS = {
+  TIME_SETTINGS: '/time/settings',
+  TIME_STATE: '/time/state',
+  TIME_START: '/time/start',
+  TIME_PAUSE: '/time/pause',
+  TIME_RESUME: '/time/resume',
+  TIME_STOP: '/time/stop',
+  TIME_ENTRIES: '/time/entries',
+  TIME_ENTRY_ITEM: (id: number): string => `/time/entries/${id}`,
+  ADMIN_TIME_SETTINGS: '/admin/time/settings',
+  ADMIN_TIME_LIVE: '/admin/time/live',
+  ADMIN_TIME_REPORT: '/admin/time/report',
+  ADMIN_TIME_REPORT_CSV: '/admin/time/report.csv',
+};

@@ -4,6 +4,8 @@ export const ROUTES = {
   /** регистрация по приглашению: /register?token=… */
   REGISTER: '/register',
   ADMIN: '/admin',
+  /** мои часы: записи таймера, отчёт за период */
+  TIME: '/time',
   /** сброс пароля по ссылке от админа: /reset?token=… */
   RESET: '/reset',
   BOARD: (boardId: number | string): string => `/b/${boardId}`,
@@ -15,5 +17,6 @@ export const ROUTE_PATTERNS = {
   BOARD: 'b/:boardId',
   TASK: 't/:taskId',
   ADMIN: 'admin',
+  TIME: 'time',
   NOT_FOUND: '*',
 };

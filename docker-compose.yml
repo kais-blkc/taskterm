@@ -35,6 +35,7 @@ services:
       TRUST_PROXY: ${TRUST_PROXY:-false}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       PUBLIC_URL: ${PUBLIC_URL:-}
+      TIME_ZONE: ${TIME_ZONE:-Europe/Moscow}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
       DATABASE_URL: postgres://taskterm:${POSTGRES_PASSWORD}@db:5432/taskterm
       # true — только если перед приложением стоит HTTPS (иначе cookie входа не сохранится)

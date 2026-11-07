@@ -11,6 +11,7 @@ import { useLogout } from '../api/auth';
 import { useServerEvents } from '../api/events';
 import { NotifyToggle } from '../components/NotifyToggle';
 import { ProfileMenu } from '../components/ProfileMenu';
+import { WorkTimer } from '../components/WorkTimer';
 import { ThemeSettings } from '../components/ThemeSettings';
 
 export function Layout({ user }: { user: Me }) {
@@ -47,6 +48,10 @@ export function Layout({ user }: { user: Me }) {
           >
             {MOD_KEY}+K
           </button>
+          <WorkTimer />
+          <Link to={ROUTES.TIME} className="time-link btn" title="мои часы и отчёт">
+            time
+          </Link>
           {user.role === 'admin' && (
             <Link to={ROUTES.ADMIN} className="admin-link btn" title="админ-панель">
               admin

@@ -5,12 +5,14 @@ import { ROUTES } from '../consts/routes';
 import { AuditPanel } from '../features/admin/AuditPanel';
 import { BoardsPanel } from '../features/admin/BoardsPanel';
 import { InvitesPanel } from '../features/admin/InvitesPanel';
+import { TimePanel } from '../features/admin/TimePanel';
 import { UsersPanel } from '../features/admin/UsersPanel';
 
 const TABS = [
   { id: 'users', label: 'пользователи' },
   { id: 'invites', label: 'приглашения' },
   { id: 'boards', label: 'доски' },
+  { id: 'time', label: 'время' },
   { id: 'audit', label: 'журнал' },
 ] as const;
 type Tab = (typeof TABS)[number]['id'];
@@ -32,6 +34,7 @@ export function AdminPage({ user }: { user: Me }) {
       {tab === 'users' && <UsersPanel meId={user.id} />}
       {tab === 'invites' && <InvitesPanel />}
       {tab === 'boards' && <BoardsPanel meId={user.id} />}
+      {tab === 'time' && <TimePanel />}
       {tab === 'audit' && <AuditPanel />}
     </div>
   );

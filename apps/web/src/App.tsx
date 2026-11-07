@@ -9,6 +9,7 @@ import { ResetPage } from './pages/ResetPage';
 import { BoardPage } from './pages/BoardPage';
 import { TaskModal } from './features/board/TaskModal';
 import { BoardsPage } from './pages/BoardsPage';
+import { TimePage } from './pages/TimePage';
 import { Layout } from './pages/HomePage';
 import { applyTheme, useThemeStore } from './stores/theme';
 
@@ -36,6 +37,7 @@ export function App() {
           <Route path={ROUTE_PATTERNS.TASK} element={<TaskModal user={me.data} />} />
         </Route>
         <Route path={ROUTE_PATTERNS.ADMIN} element={<AdminPage user={me.data} />} />
+        <Route path={ROUTE_PATTERNS.TIME} element={<TimePage />} />
         <Route path={ROUTE_PATTERNS.NOT_FOUND} element={<Navigate to={ROUTES.HOME} replace />} />
       </Route>
     </Routes>

@@ -11,8 +11,24 @@ import { addDays, DUE_CLASS, dueInfo, formatDateTime } from '../../lib/dates';
 import { Select } from '../../components/Select';
 import { ColorDot, UserTag } from '../../components/UserTag';
 import { Comments } from './Comments';
+import { useTimerState } from '../../api/time';
+import { useTimerUi } from '../../stores/timer';
 import { Subtasks } from './Subtasks';
 import { TaskRights } from './TaskRights';
+
+/** Запуск таймера по этой задаче; если таймер уже идёт — подсказка вместо кнопки */
+function TaskTimerButton({ taskId, label }: { taskId: number; label: string }) {
+  const { data: timer } = useTimerState();
+  if (!timer) return null;
+  if (timer.status !== 'idle') {
+    return <span className="task-timer-hint text-[14px]">{timer.taskId === taskId ? '● таймер идёт по этой задаче' : 'таймер уже запущен'}</span>;
+  }
+  return (
+    <button type="button" className="task-timer-button btn" onClick={() => useTimerUi.getState().openStart({ taskId, taskLabel: label })}>
+      ▶ таймер по задаче
+    </button>
+  );
+}
 
 function TaskBody({
   task,
@@ -46,8 +62,11 @@ function TaskBody({
   return (
     <div className="task-body space-y-5">
       <div>
-        <div className="text-muted">
-          #{task.number} · <span className="text-fg">{columnName}</span>
+        <div className="flex flex-wrap items-center justify-between gap-2 text-muted">
+          <span>
+            #{task.number} · <span className="text-fg">{columnName}</span>
+          </span>
+          <TaskTimerButton taskId={task.id} label={`#${task.number} ${task.title}`} />
         </div>
         {editingTitle && can('title') ? (
           <input
