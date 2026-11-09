@@ -2,12 +2,15 @@ import { useState } from 'react';
 import { useDndContext, useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import type { Column, SubtaskStat, Task, User } from '@taskterm/shared';
+import { Icon } from '../../components/Icon';
 import { InlineAdd } from '../../components/InlineAdd';
 import { confirmDialog } from '../../stores/confirm';
 import { useUiStore } from '../../stores/ui';
+import { ColumnNotifyDialog } from './ColumnNotifyDialog';
 import { TaskCard } from './TaskCard';
 
 export function KanbanColumn({
+  boardId,
   column,
   tasks,
   userNames,
@@ -17,13 +20,17 @@ export function KanbanColumn({
   canMove,
   canCreate,
   canManage,
+  canNotify,
   canDeleteTask,
   onRename,
+  onSaveNotify,
+  savingNotify,
   onDelete,
   onAddTask,
   onDeleteTask,
   onOpenTask,
 }: {
+  boardId: number;
   column: Column;
   tasks: Task[];
   userNames: Map<number, User>;
@@ -36,8 +43,12 @@ export function KanbanColumn({
   canCreate: boolean;
   /** колонки: переименовать/удалить (owner) */
   canManage: boolean;
+  /** настройка уведомлений колонки — только админ приложения */
+  canNotify: boolean;
   canDeleteTask: (t: Task) => boolean;
   onRename: (name: string) => void;
+  onSaveNotify: (v: { notifyOnEnter: boolean; notifyUserIds: number[] }) => void;
+  savingNotify: boolean;
   onDelete: () => void;
   onAddTask: (title: string) => void;
   onDeleteTask: (id: number) => void;
@@ -50,6 +61,7 @@ export function KanbanColumn({
   const overTask = over?.data.current?.type === 'task' ? (over.data.current.task as Task) : null;
   const highlighted = isOver || overTask?.columnId === column.id;
   const [editing, setEditing] = useState(false);
+  const [notifyOpen, setNotifyOpen] = useState(false);
   const selectedTaskId = useUiStore((s) => s.selectedTaskId);
   const addingHere = useUiStore((s) => s.addTaskColumnId === column.id);
   const setAddTaskColumn = useUiStore((s) => s.setAddTaskColumn);
@@ -83,6 +95,26 @@ export function KanbanColumn({
             ## {column.name} <span className="text-muted">({tasks.length})</span>
           </h2>
         )}
+        {canNotify && (
+          <button
+            type="button"
+            title={column.notifyOnEnter ? `уведомления включены (${column.notifyUserIds.length})` : 'настроить уведомления'}
+            className={`kanban-column-notify btn btn-icon ml-auto mr-1 inline-flex min-h-lh items-center ${column.notifyOnEnter ? 'btn-active' : ''}`}
+            onClick={() => setNotifyOpen(true)}
+          >
+            <Icon name="bell" className="h-[1.1em] w-[1.1em]" />
+          </button>
+        )}
+        {notifyOpen && (
+          <ColumnNotifyDialog
+            boardId={boardId}
+            column={column}
+            meId={meId}
+            saving={savingNotify}
+            onSave={onSaveNotify}
+            onClose={() => setNotifyOpen(false)}
+          />
+        )}
         {canManage && <button
           type="button"
           title="удалить колонку"
@@ -107,8 +139,8 @@ export function KanbanColumn({
             <TaskCard
               key={t.id}
               task={t}
-              assignee={t.assigneeId ? userNames.get(t.assigneeId) : undefined}
-              mine={t.assigneeId === meId}
+              assignees={t.assigneeIds.flatMap((id) => userNames.get(id) ?? [])}
+              mine={t.assigneeIds.includes(meId)}
               stat={stats.get(t.id)}
               finished={finished}
               selected={t.id === selectedTaskId}

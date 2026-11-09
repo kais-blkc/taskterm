@@ -32,6 +32,10 @@ export const columnSchema = z.object({
   boardId: z.number().int(),
   name: z.string(),
   position: z.string(),
+  /** уведомлять, когда задачу переносят в эту колонку (например «На проверке») */
+  notifyOnEnter: z.boolean(),
+  /** кому слать (участники доски) */
+  notifyUserIds: z.array(z.number().int()),
 });
 export type Column = z.infer<typeof columnSchema>;
 
@@ -45,7 +49,8 @@ export const taskSchema = z.object({
   position: z.string(),
   /** owner задачи: создатель, пока владение не передали */
   authorId: z.number().int(),
-  assigneeId: z.number().int().nullable(),
+  /** ответственные (несколько), порядок назначения */
+  assigneeIds: z.array(z.number().int()),
   dueDate: z.string().nullable(),
   policy: taskPolicySchema,
   createdAt: z.string(),
@@ -64,7 +69,12 @@ export type BoardFull = z.infer<typeof boardFullSchema>;
 export const createBoardSchema = z.object({ name });
 export const updateBoardSchema = z.object({ name });
 export const createColumnSchema = z.object({ name });
-export const updateColumnSchema = z.object({ name });
+export const updateColumnSchema = z.object({
+  name: name.optional(),
+  notifyOnEnter: z.boolean().optional(),
+  // полный список получателей; undefined — не менять
+  notifyUserIds: z.array(z.number().int()).max(100).optional(),
+});
 export const createTaskSchema = z.object({
   columnId: z.number().int(),
   title: z.string().trim().min(1).max(200),
@@ -74,8 +84,8 @@ export const createTaskSchema = z.object({
 export const updateTaskSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
   description: z.string().max(20000).optional(),
-  // null — снять исполнителя, undefined — не менять
-  assigneeId: z.number().int().nullable().optional(),
+  // полный список ответственных; [] — снять всех, undefined — не менять
+  assigneeIds: z.array(z.number().int()).max(50).optional(),
   // null — снять дедлайн, undefined — не менять
   dueDate: dueDateSchema.nullable().optional(),
 });

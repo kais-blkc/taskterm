@@ -11,4 +11,7 @@ export const TIME_ENDPOINTS = {
   ADMIN_TIME_LIVE: '/admin/time/live',
   ADMIN_TIME_REPORT: '/admin/time/report',
   ADMIN_TIME_REPORT_CSV: '/admin/time/report.csv',
+  ADMIN_TIME_PAYOUTS: '/admin/time/payouts',
+  ADMIN_TIME_PAYOUTS_DUE: '/admin/time/payouts/due',
+  ADMIN_TIME_PAYOUT_ITEM: (id: number): string => `/admin/time/payouts/${id}`,
 };

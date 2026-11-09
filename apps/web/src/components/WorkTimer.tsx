@@ -58,14 +58,22 @@ function StartDialog() {
 function StartDialogBody({ preset }: { preset: StartPreset }) {
   const close = useTimerUi((s) => s.close);
   const { start } = useTimerActions();
-  const [note, setNote] = useState('');
+  const [note, setNote] = useState(preset.note ?? '');
   const [startedAt, setStartedAt] = useState<string | undefined>();
   const [whenOk, setWhenOk] = useState(true);
   const needNote = preset.taskId == null;
   const valid = whenOk && (!needNote || note.trim().length > 0);
   const submit = () =>
     valid &&
-    start.mutate({ taskId: preset.taskId ?? null, note: note.trim(), startedAt }, { onSuccess: close });
+    start.mutate(
+      { taskId: preset.taskId ?? null, note: note.trim(), startedAt },
+      {
+        onSuccess: () => {
+          useTimerUi.getState().setHidden(false); // запущенный таймер всегда на виду
+          close();
+        },
+      },
+    );
 
   return (
     <Modal title="start timer" onClose={close}>
@@ -193,11 +201,29 @@ export function WorkTimer() {
   }, [state, running, clock]);
 
   const openStart = useTimerUi((s) => s.openStart);
+  const hidden = useTimerUi((s) => s.hidden);
+  const setHidden = useTimerUi((s) => s.setHidden);
+  const idle = !state || state.status === 'idle';
+  const last = state?.last ?? null;
+  const lastLabel = last ? [last.taskNumber != null ? `#${last.taskNumber} ${last.taskTitle ?? ''}` : '', last.note].filter(Boolean).join(' — ') : '';
+  const continueLast = () =>
+    last &&
+    openStart({
+      taskId: last.taskId ?? undefined,
+      taskLabel: last.taskNumber != null ? `#${last.taskNumber} ${last.taskTitle ?? ''}` : undefined,
+      note: last.note,
+    });
   return (
     <>
-      {!state || state.status === 'idle' ? (
-        <button type="button" className="timer-start-button btn" onClick={() => openStart()} title="запустить таймер работы">
-          ▶ timer
+      {hidden ? (
+        // панель скрыта крестиком — в шапке остаётся кнопка, чтобы вернуть её
+        <button
+          type="button"
+          className="timer-show-button btn"
+          onClick={() => setHidden(false)}
+          title="показать панель таймера"
+        >
+          {idle ? '▶ timer' : `${running ? '●' : '⏸'} ${clock}`}
         </button>
       ) : (
         <div
@@ -208,11 +234,23 @@ export function WorkTimer() {
           aria-live="polite"
         >
           <div className="flex items-center gap-3">
-            <span className={`work-timer-dot ${running ? 'animate-pulse text-accent' : 'text-muted'}`}>{running ? '●' : '⏸'}</span>
+            <span className={`work-timer-dot ${running ? 'animate-pulse text-accent' : 'text-muted'}`}>{running ? '●' : idle ? '○' : '⏸'}</span>
             <span className={`work-timer-clock text-lg tabular-nums ${running ? 'text-accent' : 'text-muted'}`}>{clock}</span>
-            {!running && <span className="text-muted text-[14px]">пауза</span>}
+            {state?.status === 'paused' && <span className="text-muted text-[14px]">пауза</span>}
+            {idle && <span className="text-muted text-[14px]">остановлен</span>}
             <div className="ml-auto flex gap-1">
-              {running ? (
+              {idle ? (
+                <>
+                  {last && (
+                    <button type="button" className="timer-continue btn btn-primary" onClick={continueLast} title={`продолжить: ${lastLabel}`}>
+                      ▶ continue
+                    </button>
+                  )}
+                  <button type="button" className={`timer-start-button btn ${last ? '' : 'btn-primary'}`} onClick={() => openStart()} title="запустить таймер на новом деле">
+                    ▶ {last ? 'new' : 'start'}
+                  </button>
+                </>
+              ) : running ? (
                 <button type="button" className="timer-pause btn" disabled={pause.isPending} onClick={() => { setAlertText(null); pause.mutate(); }}>
                   ⏸ pause
                 </button>
@@ -221,20 +259,33 @@ export function WorkTimer() {
                   ▶ resume
                 </button>
               )}
-              <button type="button" className="timer-stop btn btn-danger" onClick={() => { setAlertText(null); openStop(); }}>
-                ■ stop
+              {!idle && (
+                <button type="button" className="timer-stop btn btn-danger" onClick={() => { setAlertText(null); openStop(); }}>
+                  ■ stop
+                </button>
+              )}
+              <button type="button" className="timer-hide btn btn-danger btn-icon" title="скрыть панель таймера" onClick={() => setHidden(true)}>
+                ×
               </button>
             </div>
           </div>
-          <div className="work-timer-label max-w-xs truncate text-[14px] text-muted" title={label}>
-            {state.taskId != null && state.boardId != null ? (
-              <Link to={ROUTES.TASK(state.boardId, state.taskId)} className="hover:text-accent">
-                {label}
-              </Link>
-            ) : (
-              label
-            )}
-          </div>
+          {idle ? (
+            lastLabel && (
+              <div className="work-timer-label max-w-xs truncate text-[14px] text-muted" title={lastLabel}>
+                последнее: {lastLabel}
+              </div>
+            )
+          ) : (
+            <div className="work-timer-label max-w-xs truncate text-[14px] text-muted" title={label}>
+              {state!.taskId != null && state!.boardId != null ? (
+                <Link to={ROUTES.TASK(state!.boardId, state!.taskId)} className="hover:text-accent">
+                  {label}
+                </Link>
+              ) : (
+                label
+              )}
+            </div>
+          )}
           {alertText && <div className="work-timer-alert text-[14px] text-danger">! {alertText}</div>}
           {(pause.error ?? resume.error) && <div className="text-[14px] text-danger">! {(pause.error ?? resume.error)!.message}</div>}
         </div>

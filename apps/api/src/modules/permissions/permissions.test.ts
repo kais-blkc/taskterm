@@ -213,9 +213,9 @@ describe('board roles (API)', () => {
   });
 
   it('removing a member clears them as assignee on that board', async () => {
-    await call(owner, 'PATCH', `/api/tasks/${taskId}`, { assigneeId: editor.id });
+    await call(owner, 'PATCH', `/api/tasks/${taskId}`, { assigneeIds: [editor.id] });
     await call(owner, 'DELETE', `/api/boards/${boardId}/members/${editor.id}`);
-    expect((await call(owner, 'GET', `/api/tasks/${taskId}`)).json().assigneeId).toBeNull();
+    expect((await call(owner, 'GET', `/api/tasks/${taskId}`)).json().assigneeIds).toEqual([]);
   });
 
   it('a new board created by a member is theirs; others do not see it', async () => {

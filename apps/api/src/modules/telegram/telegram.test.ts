@@ -141,7 +141,7 @@ describe('telegram notifications', () => {
   it('assignment notification; self-assignment and unlinked users send nothing', async () => {
     await link(carol, 333);
     api.sent.length = 0;
-    await call(alice, 'PATCH', `/api/tasks/${taskId}`, { assigneeId: carol.id });
+    await call(alice, 'PATCH', `/api/tasks/${taskId}`, { assigneeIds: [carol.id] });
     await settle();
     expect(api.sent).toHaveLength(1);
     expect(api.sent[0]!).toMatchObject({ chatId: '333' });
@@ -150,9 +150,57 @@ describe('telegram notifications', () => {
     expect(api.sent[0]!.text).toContain('<b>Действие:</b> вас назначили ответственным (@alice)');
 
     api.sent.length = 0;
-    await call(alice, 'PATCH', `/api/tasks/${taskId}`, { assigneeId: bob.id }); // bob не привязан
+    await call(alice, 'PATCH', `/api/tasks/${taskId}`, { assigneeIds: [bob.id] }); // bob не привязан
     await settle();
     expect(api.sent).toHaveLength(0);
+  });
+
+  it('column "on enter" notification goes to chosen recipients only, never to the mover', async () => {
+    const cols = (await call(alice, 'GET', `/api/boards/${boardId}`)).json().columns;
+    const review = cols[2];
+    await link(bob, 222);
+    await link(carol, 333);
+    await link(alice, 111);
+
+    // по умолчанию выключено
+    expect(review).toMatchObject({ notifyOnEnter: false, notifyUserIds: [] });
+    const move = () => call(alice, 'POST', `/api/tasks/${taskId}/move`, { columnId: review.id, beforeId: null });
+    api.sent.length = 0;
+    await move();
+    await settle();
+    expect(api.sent).toHaveLength(0);
+    await call(alice, 'POST', `/api/tasks/${taskId}/move`, { columnId: colId, beforeId: null });
+
+    // получатели должны быть участниками доски; редактор не может
+    const outsider = await mk('dave');
+    const res0 = await signupUser(app, 'root', 'secret123', 'admin');
+    const root: U = { cookie: `${res0.cookies[0]!.name}=${res0.cookies[0]!.value}`, id: res0.json().id };
+    expect((await call(root, 'PATCH', `/api/columns/${review.id}`, { notifyUserIds: [outsider.id] })).statusCode).toBe(400);
+    expect((await call(bob, 'PATCH', `/api/columns/${review.id}`, { notifyOnEnter: true })).statusCode).toBe(403);
+
+    // даже владелец доски (не админ) уведомления колонки менять не может — только админ приложения
+    expect((await call(alice, 'PATCH', `/api/columns/${review.id}`, { notifyOnEnter: true })).statusCode).toBe(403);
+    // включаем: bob и сам alice (себе не придёт)
+    const saved = await call(root, 'PATCH', `/api/columns/${review.id}`, { notifyOnEnter: true, notifyUserIds: [bob.id, alice.id] });
+    expect(saved.json()).toMatchObject({ notifyOnEnter: true, notifyUserIds: [alice.id, bob.id].sort((a, b) => a - b) });
+    expect(((await call(alice, 'GET', `/api/boards/${boardId}`)).json().columns[2])).toMatchObject({ notifyOnEnter: true });
+
+    api.sent.length = 0;
+    await move();
+    await settle();
+    expect(api.sent).toHaveLength(1);
+    expect(api.sent[0]).toMatchObject({ chatId: '222' });
+    expect(api.sent[0]!.text).toContain(`перенёс(ла) задачу в «${review.name}»`);
+
+    // перенос внутри той же колонки — не событие
+    api.sent.length = 0;
+    await call(alice, 'POST', `/api/tasks/${taskId}/move`, { columnId: review.id, beforeId: null });
+    await settle();
+    expect(api.sent).toHaveLength(0);
+
+    // участник ушёл с доски — из получателей убран
+    await call(alice, 'DELETE', `/api/boards/${boardId}/members/${bob.id}`);
+    expect((await call(alice, 'GET', `/api/boards/${boardId}`)).json().columns[2].notifyUserIds).toEqual([alice.id]);
   });
 
   it('a user removed from the board stops receiving notifications; blocked users too', async () => {

@@ -77,8 +77,8 @@ describe('SSE events', () => {
 
     const stream = await listen(bob);
     // себя назначить — без уведомления
-    await app.inject({ method: 'PATCH', url: `/api/tasks/${task.id}`, payload: { assigneeId: aliceId }, headers: { cookie: alice } });
-    await app.inject({ method: 'PATCH', url: `/api/tasks/${task.id}`, payload: { assigneeId: bobId }, headers: { cookie: alice } });
+    await app.inject({ method: 'PATCH', url: `/api/tasks/${task.id}`, payload: { assigneeIds: [aliceId] }, headers: { cookie: alice } });
+    await app.inject({ method: 'PATCH', url: `/api/tasks/${task.id}`, payload: { assigneeIds: [bobId] }, headers: { cookie: alice } });
     const n = await stream.waitFor((e) => e.type === 'notify');
     if (n.type !== 'notify') throw new Error('unreachable');
     expect(n.kind).toBe('assigned');

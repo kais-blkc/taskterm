@@ -102,29 +102,46 @@ function TaskBody({
           <UserTag user={users.byId.get(task.authorId)} />
           <span className="text-muted"> · {formatDateTime(task.createdAt)}</span>
         </dd>
-        <dt className="mt-2 text-muted first:mt-0 sm:mt-0">ответственный{lockedBy('assignee') && lock}</dt>
-        <dd className="task-assignee flex flex-wrap items-center gap-3">
-          <Select
-            className="w-full sm:w-auto sm:min-w-48"
-            disabled={update.isPending || !can('assignee')}
-            value={task.assigneeId ? String(task.assigneeId) : ''}
-            placeholder="— не назначен —"
-            options={[
-              { value: '', label: '— не назначен —' },
-              // исполнитель — только участник доски
-              ...(members.data ?? []).map((u) => ({
-                value: String(u.id),
-                label: `@${u.username}${u.id === user.id ? ' (я)' : ''}`,
-                icon: <ColorDot color={u.color} />,
-              })),
-            ]}
-            onChange={(v) => update.mutate({ id: task.id, assigneeId: v ? Number(v) : null })}
-          />
-          {can('assignee') && task.assigneeId !== user.id && members.data?.some((x) => x.id === user.id) && (
+        <dt className="mt-2 text-muted first:mt-0 sm:mt-0">ответственные{lockedBy('assignee') && lock}</dt>
+        <dd className="task-assignee flex flex-wrap items-center gap-2">
+          {task.assigneeIds.length === 0 && <span className="text-muted">— не назначены —</span>}
+          {task.assigneeIds.map((id) => (
+            <span key={id} className="task-assignee-chip inline-flex items-center gap-1 border border-line px-1.5">
+              <UserTag user={users.byId.get(id)} />
+              {can('assignee') && (
+                <button
+                  type="button"
+                  title="снять"
+                  disabled={update.isPending}
+                  onClick={() => update.mutate({ id: task.id, assigneeIds: task.assigneeIds.filter((x) => x !== id) })}
+                  className="cursor-pointer text-muted hover:text-accent"
+                >
+                  ×
+                </button>
+              )}
+            </span>
+          ))}
+          {can('assignee') && (
+            <Select
+              className="w-full sm:w-auto sm:min-w-48"
+              disabled={update.isPending}
+              value=""
+              placeholder="+ добавить"
+              options={(members.data ?? [])
+                .filter((u) => !task.assigneeIds.includes(u.id))
+                .map((u) => ({
+                  value: String(u.id),
+                  label: `@${u.username}${u.id === user.id ? ' (я)' : ''}`,
+                  icon: <ColorDot color={u.color} />,
+                }))}
+              onChange={(v) => v && update.mutate({ id: task.id, assigneeIds: [...task.assigneeIds, Number(v)] })}
+            />
+          )}
+          {can('assignee') && !task.assigneeIds.includes(user.id) && members.data?.some((x) => x.id === user.id) && (
             <button
               type="button"
               disabled={update.isPending}
-              onClick={() => update.mutate({ id: task.id, assigneeId: user.id })}
+              onClick={() => update.mutate({ id: task.id, assigneeIds: [...task.assigneeIds, user.id] })}
               className="btn"
             >
               взять себе
@@ -176,7 +193,7 @@ function TaskBody({
         )}
       </dl>
 
-      <section className="task-description space-y-2">
+      <section className="task-description mt-8 space-y-2">
         <h3 className="flex justify-between">
           <span>## description{lockedBy('description') && lock}</span>
           {can('description') && !editingDesc && (

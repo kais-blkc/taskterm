@@ -27,6 +27,21 @@ html {
   font-size: var(--font-size);
 }
 
+/* заголовки разделов (## ...) крупнее обычного текста, чтобы не сливались с ним */
+@layer base {
+  h2 {
+    font-size: 1.35rem;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+  /* h3 — заголовки разделов внутри окна задачи (## subtasks, comments, rights) и групп в справке */
+  h3 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    line-height: 1.3;
+  }
+}
+
 body {
   margin: 0;
   background: var(--bg);

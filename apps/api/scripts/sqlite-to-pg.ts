@@ -60,12 +60,14 @@ try {
           description: r.description,
           position: r.position,
           authorId: r.author_id,
-          assigneeId: r.assignee_id,
           dueDate: r.due_date,
           createdAt: ts(r.created_at)!,
           updatedAt: ts(r.updated_at)!,
         })),
       );
+    const assigned = tasks.filter((r) => r.assignee_id != null);
+    if (assigned.length)
+      await tx.insert(t.taskAssignees).values(assigned.map((r) => ({ taskId: r.id, userId: r.assignee_id })));
     const comments = rows('comments');
     if (comments.length)
       await tx.insert(t.comments).values(

@@ -43,7 +43,7 @@ export function BoardsPanel({ meId }: { meId: number }) {
         <p className="text-[14px] text-muted">// доска защищена: участники, даже владельцы, не могут её переименовать, удалить, менять колонки и состав. Участников добавьте кнопкой «участники и владелец».</p>
       </div>
 
-      <h2>## доски {boards.data && <span className="text-muted">({boards.data.length})</span>}</h2>
+      <h2 className="mt-8">## доски {boards.data && <span className="text-muted">({boards.data.length})</span>}</h2>
       {error && <p className="text-danger">! {error.message}</p>}
       {boards.isLoading && <p className="text-muted">loading...</p>}
       {boards.data?.length === 0 && <p className="text-muted text-[14px]">// досок пока нет</p>}

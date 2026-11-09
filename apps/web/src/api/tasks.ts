@@ -10,10 +10,10 @@ export const commentsKey = (taskId: number) => ['comments', taskId] as const;
 export function useUpdateTask(boardId: number) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: { id: number; title?: string; description?: string; assigneeId?: number | null; dueDate?: string | null }) =>
+    mutationFn: (v: { id: number; title?: string; description?: string; assigneeIds?: number[]; dueDate?: string | null }) =>
       api<Task>(API_ENDPOINTS.TASK_ITEM(v.id), {
         method: 'PATCH',
-        body: { title: v.title, description: v.description, assigneeId: v.assigneeId, dueDate: v.dueDate },
+        body: { title: v.title, description: v.description, assigneeIds: v.assigneeIds, dueDate: v.dueDate },
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: boardKey(boardId) }),
   });

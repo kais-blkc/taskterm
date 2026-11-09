@@ -13,7 +13,7 @@ export const serverEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('members'), boardId: z.number().int(), by: z.number().int() }),
   z.object({
     type: z.literal('notify'),
-    kind: z.enum(['comment', 'assigned']),
+    kind: z.enum(['comment', 'assigned', 'moved']),
     by: z.number().int(),
     recipients: z.array(z.number().int()),
     boardId: z.number().int(),
@@ -22,6 +22,8 @@ export const serverEventSchema = z.discriminatedUnion('type', [
     taskTitle: z.string(),
     authorName: z.string(),
     snippet: z.string(),
+    // для kind='moved': в какую колонку перенесли
+    columnName: z.string().optional(),
   }),
 ]);
 export type ServerEvent = z.infer<typeof serverEventSchema>;

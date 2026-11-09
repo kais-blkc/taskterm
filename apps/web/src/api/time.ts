@@ -1,11 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  duePayoutSchema,
   liveTimerSchema,
   myEntriesSchema,
+  payoutSchema,
   timeReportSchema,
   timerSettingsSchema,
   timerStateSchema,
   timeEntrySchema,
+  type MarkPaidInput,
   type StartTimerInput,
   type UpdateTimerSettings,
 } from '@taskterm/shared';
@@ -101,7 +104,8 @@ export function useTimeReport(from: string, to: string) {
   });
 }
 
-export const reportCsvUrl = (from: string, to: string) => `${API_BASE}${API_ENDPOINTS.ADMIN_TIME_REPORT_CSV}?from=${from}&to=${to}`;
+export const reportCsvUrl = (from: string, to: string, view: 'users' | 'projects' = 'users') =>
+  `${API_BASE}${API_ENDPOINTS.ADMIN_TIME_REPORT_CSV}?from=${from}&to=${to}${view === 'projects' ? '&view=projects' : ''}`;
 
 export function useSaveTimeSettings() {
   const qc = useQueryClient();
@@ -110,4 +114,35 @@ export function useSaveTimeSettings() {
       timerSettingsSchema.parse(await api(API_ENDPOINTS.ADMIN_TIME_SETTINGS, { method: 'PUT', body: v })),
     onSuccess: () => qc.invalidateQueries({ queryKey: timeKey }),
   });
+}
+
+/** История выплат (новые сверху) */
+export function usePayouts() {
+  return useQuery({
+    queryKey: [...timeKey, 'payouts'],
+    queryFn: async () => z.array(payoutSchema).parse(await api(API_ENDPOINTS.ADMIN_TIME_PAYOUTS)),
+  });
+}
+
+/** Невыплаченное при наступившем сроке */
+export function useDuePayouts() {
+  return useQuery({
+    queryKey: [...timeKey, 'payouts-due'],
+    queryFn: async () => z.array(duePayoutSchema).parse(await api(API_ENDPOINTS.ADMIN_TIME_PAYOUTS_DUE)),
+  });
+}
+
+export function usePayoutMutations() {
+  const qc = useQueryClient();
+  const refresh = () => qc.invalidateQueries({ queryKey: timeKey });
+  return {
+    markPaid: useMutation({
+      mutationFn: async (v: MarkPaidInput) => payoutSchema.parse(await api(API_ENDPOINTS.ADMIN_TIME_PAYOUTS, { method: 'POST', body: v })),
+      onSuccess: refresh,
+    }),
+    undo: useMutation({
+      mutationFn: (id: number) => api<void>(API_ENDPOINTS.ADMIN_TIME_PAYOUT_ITEM(id), { method: 'DELETE' }),
+      onSuccess: refresh,
+    }),
+  };
 }

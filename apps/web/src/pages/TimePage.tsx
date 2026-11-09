@@ -126,7 +126,7 @@ export function TimePage() {
   const tz = settings.data?.timeZone ?? 'Europe/Moscow';
   const today = todayIn(tz);
   const [period, setPeriod] = useState<{ from: string; to: string } | null>(null);
-  const { from, to } = period ?? resolvePeriod('lastPaid', today);
+  const { from, to } = period ?? resolvePeriod('payout', today);
   const data = useMyEntries(from, to);
   const [adding, setAdding] = useState(false);
 

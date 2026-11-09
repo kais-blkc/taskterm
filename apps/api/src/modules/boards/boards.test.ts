@@ -147,21 +147,37 @@ describe('assignees', () => {
     const board = (await call('POST', '/api/boards', { name: 'B' })).json();
     const full = (await call('GET', `/api/boards/${board.id}`)).json();
     const task = (await call('POST', `/api/boards/${board.id}/tasks`, { columnId: full.columns[0].id, title: 't' })).json();
-    expect(task.assigneeId).toBeNull();
+    expect(task.assigneeIds).toEqual([]);
     // не участник доски не может быть исполнителем
-    expect((await call('PATCH', `/api/tasks/${task.id}`, { assigneeId: bob.id })).statusCode).toBe(400);
+    expect((await call('PATCH', `/api/tasks/${task.id}`, { assigneeIds: [bob.id] })).statusCode).toBe(400);
     await call('PUT', `/api/boards/${board.id}/members/${bob.id}`, { role: 'editor' });
 
-    const assigned = await call('PATCH', `/api/tasks/${task.id}`, { assigneeId: bob.id });
-    expect(assigned.json().assigneeId).toBe(bob.id);
+    const assigned = await call('PATCH', `/api/tasks/${task.id}`, { assigneeIds: [bob.id] });
+    expect(assigned.json().assigneeIds).toEqual([bob.id]);
 
     // обновление заголовка не сбрасывает исполнителя
     const renamed = await call('PATCH', `/api/tasks/${task.id}`, { title: 'new' });
-    expect(renamed.json().assigneeId).toBe(bob.id);
+    expect(renamed.json().assigneeIds).toEqual([bob.id]);
 
-    expect((await call('PATCH', `/api/tasks/${task.id}`, { assigneeId: 9999 })).statusCode).toBe(400);
-    const cleared = await call('PATCH', `/api/tasks/${task.id}`, { assigneeId: null });
-    expect(cleared.json().assigneeId).toBeNull();
+    expect((await call('PATCH', `/api/tasks/${task.id}`, { assigneeIds: [9999] })).statusCode).toBe(400);
+    const cleared = await call('PATCH', `/api/tasks/${task.id}`, { assigneeIds: [] });
+    expect(cleared.json().assigneeIds).toEqual([]);
+
+    // несколько ответственных: порядок назначения, дубли схлопываются
+    const both = await call('PATCH', `/api/tasks/${task.id}`, { assigneeIds: [bob.id, alice.id, bob.id] });
+    expect(both.json().assigneeIds).toEqual([bob.id, alice.id]);
+    // снимаем одного — второй остаётся
+    const one = await call('PATCH', `/api/tasks/${task.id}`, { assigneeIds: [alice.id] });
+    expect(one.json().assigneeIds).toEqual([alice.id]);
+    // доска и GET задачи отдают тот же список
+    const onBoard = (await call('GET', `/api/boards/${board.id}`)).json().tasks.find((t: any) => t.id === task.id);
+    expect(onBoard.assigneeIds).toEqual([alice.id]);
+    expect((await call('GET', `/api/tasks/${task.id}`)).json().assigneeIds).toEqual([alice.id]);
+
+    // участник ушёл с доски — снят со всех её задач
+    await call('PATCH', `/api/tasks/${task.id}`, { assigneeIds: [alice.id, bob.id] });
+    await app.inject({ method: 'DELETE', url: `/api/boards/${board.id}/members/${bob.id}`, headers: { cookie: alice.cookie } });
+    expect((await call('GET', `/api/tasks/${task.id}`)).json().assigneeIds).toEqual([alice.id]);
   });
 });
 

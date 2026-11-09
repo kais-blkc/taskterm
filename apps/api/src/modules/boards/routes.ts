@@ -18,7 +18,7 @@ import type { Db } from '../../db/client';
 import type { EventHub } from '../../plugins/hub';
 import { audit } from '../audit/service';
 import { requireUser } from '../auth/guard';
-import { requireBoardCan, requireColumnCan } from '../permissions/access';
+import { ForbiddenError, requireBoardCan, requireColumnCan } from '../permissions/access';
 import * as svc from './service';
 
 const memberParams = z.object({ id: z.coerce.number().int(), userId: z.coerce.number().int() });
@@ -89,7 +89,11 @@ export async function boardRoutes(app: FastifyInstance, opts: { db: Db; hub: Eve
     { schema: { params: idParamSchema, body: updateColumnSchema, response: { 200: columnSchema, ...err } } },
     async (req) => {
       await requireColumnCan(db, req.user, req.params.id, 'manageBoard');
-      const col = await svc.updateColumn(db, req.params.id, req.body.name);
+      // уведомления колонки настраивает только админ приложения
+      if ((req.body.notifyOnEnter !== undefined || req.body.notifyUserIds !== undefined) && req.user.role !== 'admin') {
+        throw new ForbiddenError('only administrators can change column notifications');
+      }
+      const col = await svc.updateColumn(db, req.params.id, req.body);
       hub.emit({ type: 'board', boardId: col.boardId, by: req.user.id });
       return col;
     },

@@ -1,10 +1,12 @@
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { generateKeyBetween } from 'fractional-indexing';
 import { defaultColumnNames, roleCan, type BoardRole } from '@taskterm/shared';
 import { first, type Db } from '../../db/client';
-import { boardMembers, boards, columns, subtasks, tasks, users } from '../../db/schema';
+import { boardMembers, boards, columnNotifyUsers, columns, subtasks, taskAssignees, tasks, users } from '../../db/schema';
 import type { AuthUser } from '../auth/service';
 import { NotFoundError } from '../permissions/access';
+import { withAssignees } from '../tasks/assignees';
+import { withColumnNotify } from './column-notify';
 
 export { NotFoundError };
 
@@ -57,8 +59,8 @@ export async function getBoardFull(db: Db, id: number, myRole: BoardRole, isAdmi
   if (!board) throw new NotFoundError('board not found');
   return {
     board: withAccess(board, myRole, isAdmin),
-    columns: await db.select().from(columns).where(eq(columns.boardId, id)).orderBy(asc(columns.position)),
-    tasks: await db.select().from(tasks).where(eq(tasks.boardId, id)).orderBy(asc(tasks.position)),
+    columns: await withColumnNotify(db, await db.select().from(columns).where(eq(columns.boardId, id)).orderBy(asc(columns.position))),
+    tasks: await withAssignees(db, await db.select().from(tasks).where(eq(tasks.boardId, id)).orderBy(asc(tasks.position))),
     subtaskStats: await db
       .select({
         taskId: subtasks.taskId,
@@ -84,13 +86,42 @@ export async function createColumn(db: Db, boardId: number, name: string) {
   ).at(-1);
   const position = generateKeyBetween(last?.position ?? null, null);
   const [row] = await db.insert(columns).values({ boardId, name, position }).returning();
-  return row!;
+  return { ...row!, notifyUserIds: [] as number[] };
 }
 
-export async function updateColumn(db: Db, id: number, name: string) {
-  const row = first(await db.update(columns).set({ name }).where(eq(columns.id, id)).returning());
-  if (!row) throw new NotFoundError('column not found');
-  return row;
+export class ColumnError extends Error {
+  status = 400;
+}
+
+export async function updateColumn(
+  db: Db,
+  id: number,
+  patch: { name?: string; notifyOnEnter?: boolean; notifyUserIds?: number[] },
+) {
+  const col = first(await db.select().from(columns).where(eq(columns.id, id)));
+  if (!col) throw new NotFoundError('column not found');
+  const ids = patch.notifyUserIds ? [...new Set(patch.notifyUserIds)] : undefined;
+  if (ids?.length) {
+    // получатели — только участники этой доски
+    const members = await db
+      .select({ userId: boardMembers.userId })
+      .from(boardMembers)
+      .where(and(eq(boardMembers.boardId, col.boardId), inArray(boardMembers.userId, ids)));
+    if (members.length !== ids.length) throw new ColumnError('recipient is not a board member');
+  }
+  const fields = {
+    ...(patch.name !== undefined ? { name: patch.name } : {}),
+    ...(patch.notifyOnEnter !== undefined ? { notifyOnEnter: patch.notifyOnEnter } : {}),
+  };
+  await db.transaction(async (tx) => {
+    if (Object.keys(fields).length) await tx.update(columns).set(fields).where(eq(columns.id, id));
+    if (ids) {
+      await tx.delete(columnNotifyUsers).where(eq(columnNotifyUsers.columnId, id));
+      if (ids.length) await tx.insert(columnNotifyUsers).values(ids.map((userId) => ({ columnId: id, userId })));
+    }
+  });
+  const row = first(await db.select().from(columns).where(eq(columns.id, id)))!;
+  return (await withColumnNotify(db, [row]))[0]!;
 }
 
 export async function deleteColumn(db: Db, id: number) {
@@ -151,6 +182,21 @@ export async function removeMember(db: Db, boardId: number, userId: number) {
     throw new MemberError('на доске должен остаться хотя бы один владелец');
   }
   await db.delete(boardMembers).where(and(eq(boardMembers.boardId, boardId), eq(boardMembers.userId, userId)));
+  await db
+    .delete(columnNotifyUsers)
+    .where(
+      and(
+        eq(columnNotifyUsers.userId, userId),
+        inArray(columnNotifyUsers.columnId, db.select({ id: columns.id }).from(columns).where(eq(columns.boardId, boardId))),
+      ),
+    );
   // снимаем исполнителя с его задач на этой доске: у него больше нет доступа
-  await db.update(tasks).set({ assigneeId: null }).where(and(eq(tasks.boardId, boardId), eq(tasks.assigneeId, userId)));
+  await db
+    .delete(taskAssignees)
+    .where(
+      and(
+        eq(taskAssignees.userId, userId),
+        inArray(taskAssignees.taskId, db.select({ id: tasks.id }).from(tasks).where(eq(tasks.boardId, boardId))),
+      ),
+    );
 }

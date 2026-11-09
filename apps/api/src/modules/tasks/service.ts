@@ -1,9 +1,10 @@
-import { and, asc, eq, ne, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, ne, sql } from 'drizzle-orm';
 import { generateKeyBetween } from 'fractional-indexing';
 import { roleCan, type MoveTaskInput, type TaskPolicy } from '@taskterm/shared';
 import { first, type Db } from '../../db/client';
-import { boardMembers, boards, columns, tasks } from '../../db/schema';
+import { boardMembers, boards, columns, taskAssignees, tasks } from '../../db/schema';
 import { NotFoundError } from '../boards/service';
+import { withAssignee } from './assignees';
 
 export class BadRequestError extends Error {
   status = 400;
@@ -12,7 +13,7 @@ export class BadRequestError extends Error {
 export async function getTask(db: Db, id: number) {
   const row = first(await db.select().from(tasks).where(eq(tasks.id, id)));
   if (!row) throw new NotFoundError('task not found');
-  return row;
+  return withAssignee(db, row);
 }
 
 export function createTask(
@@ -55,38 +56,47 @@ export function createTask(
         authorId,
       })
       .returning();
-    return row!;
+    return { ...row!, assigneeIds: [] as number[] };
   });
 }
 
 export async function updateTask(
   db: Db,
   id: number,
-  patch: { title?: string; description?: string; assigneeId?: number | null; dueDate?: string | null },
+  patch: { title?: string; description?: string; assigneeIds?: number[]; dueDate?: string | null },
 ) {
   const task = await getTask(db, id);
-  if (patch.assigneeId) {
-    // исполнитель — только участник доски
-    const member = first(
-      await db
-        .select({ userId: boardMembers.userId })
-        .from(boardMembers)
-        .where(and(eq(boardMembers.boardId, task.boardId), eq(boardMembers.userId, patch.assigneeId))),
-    );
-    if (!member) throw new BadRequestError('assignee is not a board member');
+  const { assigneeIds, ...fields } = patch;
+  const ids = assigneeIds ? [...new Set(assigneeIds)] : undefined;
+  if (ids?.length) {
+    // ответственные — только участники доски
+    const members = await db
+      .select({ userId: boardMembers.userId })
+      .from(boardMembers)
+      .where(and(eq(boardMembers.boardId, task.boardId), inArray(boardMembers.userId, ids)));
+    if (members.length !== ids.length) throw new BadRequestError('assignee is not a board member');
   }
-  const [row] = await db
-    .update(tasks)
-    .set({ ...patch, updatedAt: new Date().toISOString() })
-    .where(eq(tasks.id, id))
-    .returning();
-  return row!;
+  await db.transaction(async (tx) => {
+    await tx.update(tasks).set({ ...fields, updatedAt: new Date().toISOString() }).where(eq(tasks.id, id));
+    if (ids) {
+      // снимаем убранных, добавляем новых в конец; у оставшихся порядок не меняется
+      const removed = task.assigneeIds.filter((u) => !ids.includes(u));
+      if (removed.length) await tx.delete(taskAssignees).where(and(eq(taskAssignees.taskId, id), inArray(taskAssignees.userId, removed)));
+      const base = Date.now();
+      const added = ids.filter((u) => !task.assigneeIds.includes(u));
+      if (added.length)
+        await tx
+          .insert(taskAssignees)
+          .values(added.map((userId, i) => ({ taskId: id, userId, createdAt: new Date(base + i).toISOString() })));
+    }
+  });
+  return getTask(db, id);
 }
 
 export async function setPolicy(db: Db, id: number, policy: TaskPolicy) {
   const row = first(await db.update(tasks).set({ policy, updatedAt: new Date().toISOString() }).where(eq(tasks.id, id)).returning());
   if (!row) throw new NotFoundError('task not found');
-  return row;
+  return withAssignee(db, row);
 }
 
 /** Новый owner — участник доски, который может редактировать задачи (владелец доски/редактор) */
@@ -100,7 +110,7 @@ export async function transferOwner(db: Db, id: number, userId: number) {
   );
   if (!member || !roleCan(member.role, 'editTask')) throw new BadRequestError('new owner must be a board editor or owner');
   const [row] = await db.update(tasks).set({ authorId: userId, updatedAt: new Date().toISOString() }).where(eq(tasks.id, id)).returning();
-  return row!;
+  return withAssignee(db, row!);
 }
 
 export async function deleteTask(db: Db, id: number) {
@@ -128,6 +138,6 @@ export function moveTask(db: Db, id: number, input: MoveTaskInput) {
     }
     const position = generateKeyBetween(siblings[idx - 1]?.position ?? null, siblings[idx]?.position ?? null);
     const [row] = await tx.update(tasks).set({ columnId: col.id, position }).where(eq(tasks.id, id)).returning();
-    return row!;
+    return withAssignee(tx, row!);
   });
 }

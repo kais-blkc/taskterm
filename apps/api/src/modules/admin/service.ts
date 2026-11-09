@@ -153,7 +153,7 @@ export async function deleteUser(db: Db, actorId: number, id: number, transferTo
       }
     }
     await tx.update(tasks).set({ authorId: transferTo }).where(eq(tasks.authorId, id));
-    await tx.update(tasks).set({ assigneeId: null }).where(eq(tasks.assigneeId, id));
+    // ответственные (task_assignees) удаляются каскадом вместе с пользователем
     await tx.update(comments).set({ authorId: transferTo }).where(eq(comments.authorId, id));
     await tx.update(boards).set({ createdBy: transferTo }).where(eq(boards.createdBy, id));
     await tx.update(invites).set({ invitedBy: transferTo }).where(eq(invites.invitedBy, id));

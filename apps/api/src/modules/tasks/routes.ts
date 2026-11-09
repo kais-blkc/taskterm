@@ -21,7 +21,14 @@ import {
 import { audit } from '../audit/service';
 import { requireUser } from '../auth/guard';
 import { ForbiddenError, LOCKED_MESSAGE, actorOf, requireBoardCan, requireTaskCan } from '../permissions/access';
+import { columnMoveNotice } from '../boards/column-notify';
 import * as svc from './service';
+
+const sameSet = (a: number[], b: number[]) => {
+  const A = new Set(a);
+  const B = new Set(b);
+  return A.size === B.size && [...A].every((x) => B.has(x));
+};
 
 export async function taskRoutes(app: FastifyInstance, opts: { db: Db; hub: EventHub }) {
   const { db, hub } = opts;
@@ -58,18 +65,19 @@ export async function taskRoutes(app: FastifyInstance, opts: { db: Db; hub: Even
       const touched: PolicyField[] = [];
       if (b.title !== undefined && b.title !== before.title) touched.push('title');
       if (b.description !== undefined && b.description !== before.description) touched.push('description');
-      if (b.assigneeId !== undefined && b.assigneeId !== before.assigneeId) touched.push('assignee');
+      if (b.assigneeIds !== undefined && !sameSet(b.assigneeIds, before.assigneeIds)) touched.push('assignee');
       if (b.dueDate !== undefined && b.dueDate !== before.dueDate) touched.push('dueDate');
       for (const f of touched) if (!canEditField(before.policy, actor, f)) throw new ForbiddenError(LOCKED_MESSAGE);
       const task = await svc.updateTask(db, req.params.id, req.body);
       hub.emit({ type: 'board', boardId: task.boardId, by: req.user.id });
-      // назначили другого человека (не себя) — ему уведомление
-      if (task.assigneeId && task.assigneeId !== before.assigneeId && task.assigneeId !== req.user.id) {
+      // назначили новых людей (не себя) — им уведомление
+      const added = task.assigneeIds.filter((u) => !before.assigneeIds.includes(u) && u !== req.user.id);
+      if (added.length) {
         hub.emit({
           type: 'notify',
           kind: 'assigned',
           by: req.user.id,
-          recipients: [task.assigneeId],
+          recipients: added,
           boardId: task.boardId,
           taskId: task.id,
           taskNumber: task.number,
@@ -98,6 +106,25 @@ export async function taskRoutes(app: FastifyInstance, opts: { db: Db; hub: Even
       if (!canEditField(before.policy, actorOf(before, req.user, role), 'move')) throw new ForbiddenError(LOCKED_MESSAGE);
       const task = await svc.moveTask(db, req.params.id, req.body);
       hub.emit({ type: 'board', boardId: task.boardId, by: req.user.id });
+      // перенос в другую колонку с включёнными уведомлениями («На проверке») — настроенным получателям
+      if (task.columnId !== before.columnId) {
+        const notice = await columnMoveNotice(db, task.columnId, req.user.id);
+        if (notice) {
+          hub.emit({
+            type: 'notify',
+            kind: 'moved',
+            by: req.user.id,
+            recipients: notice.recipients,
+            boardId: task.boardId,
+            taskId: task.id,
+            taskNumber: task.number,
+            taskTitle: task.title,
+            authorName: req.user.username,
+            snippet: '',
+            columnName: notice.columnName,
+          });
+        }
+      }
       return task;
     },
   );

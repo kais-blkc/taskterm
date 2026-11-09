@@ -1,6 +1,6 @@
 import { sql } from 'drizzle-orm';
 import { DEFAULT_TASK_POLICY, type TaskPolicy } from '@taskterm/shared';
-import { boolean, customType, date, index, integer, jsonb, pgTable, primaryKey, serial, text, uniqueIndex } from 'drizzle-orm/pg-core';
+import { boolean, customType, date, doublePrecision, index, integer, jsonb, pgTable, primaryKey, serial, text, uniqueIndex } from 'drizzle-orm/pg-core';
 
 /**
  * timestamptz, наружу всегда ISO-строка (`2026-11-02T12:00:00.000Z`).
@@ -83,7 +83,22 @@ export const columns = pgTable('columns', {
     .references(() => boards.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   position: text('position').notNull(),
+  notifyOnEnter: boolean('notify_on_enter').notNull().default(false),
 });
+
+/** Кому слать уведомление о переносе задачи в колонку */
+export const columnNotifyUsers = pgTable(
+  'column_notify_users',
+  {
+    columnId: integer('column_id')
+      .notNull()
+      .references(() => columns.id, { onDelete: 'cascade' }),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+  },
+  (t) => [primaryKey({ columns: [t.columnId, t.userId] })],
+);
 
 export const tasks = pgTable('tasks', {
   id: serial('id').primaryKey(),
@@ -100,13 +115,27 @@ export const tasks = pgTable('tasks', {
   authorId: integer('author_id')
     .notNull()
     .references(() => users.id),
-  assigneeId: integer('assignee_id').references(() => users.id),
   dueDate: date('due_date', { mode: 'string' }), // YYYY-MM-DD
   // что остальные могут менять в задаче (решает owner задачи)
   policy: jsonb('policy').$type<TaskPolicy>().notNull().default(DEFAULT_TASK_POLICY),
   createdAt: createdAt(),
   updatedAt: timestamptz('updated_at').notNull().default(sql`now()`),
 });
+
+/** Ответственные за задачу (несколько). Только участники доски; при выходе с доски снимаются. */
+export const taskAssignees = pgTable(
+  'task_assignees',
+  {
+    taskId: integer('task_id')
+      .notNull()
+      .references(() => tasks.id, { onDelete: 'cascade' }),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.taskId, t.userId] }), index('task_assignees_user_idx').on(t.userId)],
+);
 
 export const comments = pgTable('comments', {
   id: serial('id').primaryKey(),
@@ -231,3 +260,23 @@ export const appSettings = pgTable('app_settings', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),
 });
+
+/** Зафиксированные выплаты по половинам месяца (история). Сумма считается из ms и ставки на момент выплаты. */
+export const timePayouts = pgTable(
+  'time_payouts',
+  {
+    id: serial('id').primaryKey(),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    periodFrom: date('period_from', { mode: 'string' }).notNull(),
+    periodTo: date('period_to', { mode: 'string' }).notNull(),
+    ms: integer('ms').notNull(),
+    hourlyRate: doublePrecision('hourly_rate').notNull(),
+    currency: text('currency').notNull(),
+    note: text('note').notNull().default(''),
+    paidBy: integer('paid_by').references(() => users.id, { onDelete: 'set null' }),
+    paidAt: timestamptz('paid_at').notNull().default(sql`now()`),
+  },
+  (t) => [uniqueIndex('time_payouts_user_period').on(t.userId, t.periodFrom, t.periodTo)],
+);

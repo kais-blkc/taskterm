@@ -28,7 +28,7 @@ export function ProfileMenu({ user }: { user: User }) {
         <UserTag user={user} />
       </button>
       {open && (
-        <div className="profile-menu-popup absolute right-0 z-20 mt-2 w-64 space-y-3 border border-line bg-elev p-3 shadow-lg">
+        <div className="profile-menu-popup absolute right-0 z-20 mt-2 w-64 space-y-3 border border-line bg-elev p-3 shadow-lg max-sm:fixed max-sm:left-1/2 max-sm:right-auto max-sm:top-14 max-sm:mt-0 max-sm:max-h-[calc(100dvh-4.5rem)] max-sm:w-[95vw] max-sm:-translate-x-1/2 max-sm:overflow-y-auto">
           <div className="text-muted">твой цвет</div>
           <div className="profile-color-grid grid grid-cols-8 gap-1.5">
             {USER_PALETTE.map((c) => {

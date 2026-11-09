@@ -122,7 +122,7 @@ describe('task policy (API)', () => {
 
   it('locked fields: editor gets 403, owner/board owner/admin pass; unchanged value is not a change', async () => {
     await policy({ lockTitle: true, lockDescription: true, lockAssignee: true, lockDueDate: true, lockMove: true });
-    const patches: object[] = [{ title: 'new' }, { description: 'new' }, { assigneeId: ed2.id }, { dueDate: '2030-01-01' }];
+    const patches: object[] = [{ title: 'new' }, { description: 'new' }, { assigneeIds: [ed2.id] }, { dueDate: '2030-01-01' }];
     for (const p of patches) expect(await status(ed2, 'PATCH', `/api/tasks/${taskId}`, p), JSON.stringify(p)).toBe(403);
     expect(await status(ed2, 'POST', `/api/tasks/${taskId}/move`, { columnId: col2Id, beforeId: null })).toBe(403);
     // клиент прислал то же значение — не изменение

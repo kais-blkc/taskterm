@@ -32,7 +32,7 @@ const isAllLocked = (p: TaskPolicy) => (Object.keys(ALL_LOCKED) as (keyof TaskPo
 const LOCKS: { key: Exclude<keyof TaskPolicy, 'subtasks'>; label: string }[] = [
   { key: 'lockTitle', label: 'менять название' },
   { key: 'lockDescription', label: 'менять описание' },
-  { key: 'lockAssignee', label: 'менять ответственного' },
+  { key: 'lockAssignee', label: 'менять ответственных' },
   { key: 'lockDueDate', label: 'менять дедлайн' },
   { key: 'lockMove', label: 'переносить по колонкам' },
   { key: 'commentsLocked', label: 'писать комментарии' },
@@ -50,7 +50,7 @@ export function TaskRights({ task, boardId }: { task: Task; boardId: number }) {
   const heirs = (members.data ?? []).filter((m) => m.id !== task.authorId && roleCan(m.role, 'editTask'));
 
   return (
-    <section className="task-rights space-y-2">
+    <section className="task-rights mt-8 space-y-2">
       <h3 className="flex flex-wrap items-center justify-between gap-2">
         <span>
           ## rights{' '}

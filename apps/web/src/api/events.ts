@@ -25,7 +25,9 @@ function showNotification(e: Extract<ServerEvent, { type: 'notify' }>, open: () 
     body:
       e.kind === 'assigned'
         ? `@${e.authorName} назначил(а) вас ответственным`
-        : `@${e.authorName}: ${e.snippet}`,
+        : e.kind === 'moved'
+          ? `@${e.authorName} перенёс(ла) задачу в «${e.columnName ?? ''}»`
+          : `@${e.authorName}: ${e.snippet}`,
     tag: `task-${e.taskId}`,
   });
   n.onclick = () => {

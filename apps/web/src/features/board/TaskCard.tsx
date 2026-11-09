@@ -9,14 +9,14 @@ import { confirmDialog } from '../../stores/confirm';
 export function TaskCardView({
   task,
   dragging,
-  assignee,
+  assignees,
   mine,
   stat,
   finished,
 }: {
   task: Task;
   dragging?: boolean;
-  assignee?: User;
+  assignees: User[];
   mine?: boolean;
   stat?: SubtaskStat;
   /** задача в последней колонке — дедлайн больше не горит */
@@ -25,13 +25,26 @@ export function TaskCardView({
   const due = task.dueDate ? dueInfo(task.dueDate, !!finished) : null;
   return (
     <div
-      style={assignee ? { borderLeft: `3px solid ${assignee.color}` } : undefined}
+      style={assignees[0] ? { borderLeft: `3px solid ${assignees[0].color}` } : undefined}
       className={`task-card border bg-elev px-2 py-1.5 ${dragging ? 'cursor-grabbing border-accent shadow-lg' : 'border-line hover:border-accent'}`}
     >
       <span className="text-muted">#{task.number}</span> {task.title}
       <div className="task-card-meta mt-1 flex items-center justify-between gap-2 text-xs text-muted">
         <span>
-          → {assignee ? <UserTag user={assignee} /> : 'не назначена'}
+          →{' '}
+          {assignees.length ? (
+            <>
+              {assignees.slice(0, 3).map((a, i) => (
+                <span key={a.id}>
+                  {i > 0 && ', '}
+                  <UserTag user={a} />
+                </span>
+              ))}
+              {assignees.length > 3 && <span title={assignees.slice(3).map((a) => `@${a.username}`).join(', ')}> +{assignees.length - 3}</span>}
+            </>
+          ) : (
+            'не назначена'
+          )}
           {mine && ' (я)'}
         </span>
         <span className="flex items-center gap-2">
@@ -54,7 +67,7 @@ export function TaskCardView({
 
 export function TaskCard({
   task,
-  assignee,
+  assignees,
   mine,
   stat,
   finished,
@@ -65,7 +78,7 @@ export function TaskCard({
   onOpen,
 }: {
   task: Task;
-  assignee?: User;
+  assignees: User[];
   mine?: boolean;
   stat?: SubtaskStat;
   finished?: boolean;
@@ -90,7 +103,7 @@ export function TaskCard({
       {...attributes}
       {...listeners}
     >
-      <TaskCardView task={task} assignee={assignee} mine={mine} stat={stat} finished={finished} />
+      <TaskCardView task={task} assignees={assignees} mine={mine} stat={stat} finished={finished} />
       {canDelete && <button
         type="button"
         title="delete"

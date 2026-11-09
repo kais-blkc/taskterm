@@ -55,10 +55,10 @@ export function BoardView({ data }: { data: BoardFull }) {
     for (const t of data.tasks) {
       const ok =
         filter === 'all' ||
-        (filter === 'me' && t.assigneeId === meId) ||
-        (filter === 'none' && t.assigneeId === null) ||
+        (filter === 'me' && t.assigneeIds.includes(meId)) ||
+        (filter === 'none' && t.assigneeIds.length === 0) ||
         (filter === 'overdue' && !!t.dueDate && t.columnId !== lastColumnId && daysUntil(t.dueDate) < 0) ||
-        String(t.assigneeId) === filter;
+        t.assigneeIds.some((id) => String(id) === filter);
       if (ok) map.get(t.columnId)?.push(t);
     }
     return map;
@@ -207,6 +207,7 @@ export function BoardView({ data }: { data: BoardFull }) {
         {data.columns.map((c) => (
           <KanbanColumn
             key={c.id}
+            boardId={data.board.id}
             column={c}
             tasks={byColumn.get(c.id) ?? []}
             userNames={users.byId}
@@ -216,8 +217,11 @@ export function BoardView({ data }: { data: BoardFull }) {
             canMove={canMove}
             canCreate={canCreate}
             canManage={canManage}
+            canNotify={me?.role === 'admin'}
             canDeleteTask={(t) => canDeleteTask(role, t.authorId === meId)}
             onRename={(name) => m.renameColumn.mutate({ id: c.id, name })}
+            onSaveNotify={(v) => m.setColumnNotify.mutate({ id: c.id, ...v })}
+            savingNotify={m.setColumnNotify.isPending}
             onDelete={() => m.deleteColumn.mutate(c.id)}
             onAddTask={(title) => m.addTask.mutate({ columnId: c.id, title })}
             onDeleteTask={(id) => m.deleteTask.mutate(id)}
@@ -234,8 +238,8 @@ export function BoardView({ data }: { data: BoardFull }) {
           <TaskCardView
             task={active}
             dragging
-            assignee={active.assigneeId ? users.byId.get(active.assigneeId) : undefined}
-            mine={active.assigneeId === meId}
+            assignees={active.assigneeIds.flatMap((id) => users.byId.get(id) ?? [])}
+            mine={active.assigneeIds.includes(meId)}
             stat={statsByTask.get(active.id)}
             finished={active.columnId === lastColumnId}
           />

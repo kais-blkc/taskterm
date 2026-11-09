@@ -131,7 +131,7 @@ export function Comments({
   const { data, isLoading, error } = useComments(taskId);
   const m = useCommentMutations(taskId);
   return (
-    <section className="comments space-y-3">
+    <section className="comments mt-8 space-y-3">
       <h3>
         ## comments {data && <span className="text-muted">({data.length})</span>}
         {commentsLocked && <LockHint className="ml-2" text="owner задачи закрыл новые комментарии" />}

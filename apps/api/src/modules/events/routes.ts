@@ -12,6 +12,13 @@ const hasBoard = (e: ServerEvent): e is Extract<ServerEvent, { boardId: number }
 export async function eventRoutes(app: FastifyInstance, opts: { db: Db; hub: EventHub }) {
   const { db, hub } = opts;
 
+  // закрывающие функции открытых SSE-соединений. Хук onClose регистрируем один раз здесь:
+  // добавлять его внутри обработчика нельзя — после старта сервера addHook бросает ошибку
+  const open = new Set<() => void>();
+  app.addHook('onClose', async () => {
+    for (const close of [...open]) close();
+  });
+
   app.get('/api/events', { preHandler: requireUser(db) }, async (req, reply) => {
     const user = req.user;
     // доски, события которых можно показывать этому соединению (null — все, для админа)
@@ -51,11 +58,13 @@ export async function eventRoutes(app: FastifyInstance, opts: { db: Db; hub: Eve
       clearInterval(heartbeat);
       unsubscribe();
       unkick();
+      open.delete(close);
     };
-    req.raw.on('close', cleanup);
-    app.addHook('onClose', async () => {
+    const close = () => {
       cleanup();
       res.end();
-    });
+    };
+    open.add(close);
+    req.raw.on('close', cleanup);
   });
 }

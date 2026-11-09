@@ -1,6 +1,6 @@
-import { PERIOD_LABELS, resolvePeriod, type PeriodKind } from '@taskterm/shared';
+import { PERIOD_LABELS, periodTitle, resolvePeriod, type PeriodKind } from '@taskterm/shared';
 
-const KINDS: PeriodKind[] = ['lastPaid', 'half1', 'half2', 'month'];
+const KINDS: PeriodKind[] = ['payout', 'half1', 'half2', 'month'];
 
 /** Быстрый выбор периода (выплаты 1-го и 15-го, 7/14 дней, месяц) + произвольные даты */
 export function PeriodPicker({
@@ -33,6 +33,11 @@ export function PeriodPicker({
           );
         })}
       </div>
+      <p className="period-title">
+        <span className="text-muted">период: </span>
+        <span className="text-accent">{periodTitle(from, to)}</span>
+        <span className="text-muted"> ({from.split('-').reverse().join('.')} – {to.split('-').reverse().join('.')})</span>
+      </p>
       <div className="flex flex-wrap items-center gap-2 text-[14px] text-muted">
         <input type="date" value={from} max={to} onChange={(e) => e.target.value && onChange({ from: e.target.value, to })} className="period-from border border-line bg-bg px-2 py-1 text-fg outline-none focus:border-accent" />
         …

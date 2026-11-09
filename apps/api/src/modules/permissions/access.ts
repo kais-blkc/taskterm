@@ -3,6 +3,7 @@ import { roleCan, type BoardAction, type BoardRole, type TaskActor } from '@task
 import { first, type Db } from '../../db/client';
 import { boardMembers, boards, columns, comments, subtasks, tasks } from '../../db/schema';
 import type { AuthUser } from '../auth/service';
+import { withAssignee } from '../tasks/assignees';
 
 export class NotFoundError extends Error {
   status = 404;
@@ -54,7 +55,7 @@ export async function requireTaskCan(db: Db, user: AuthUser, taskId: number, act
     if (e instanceof NotFoundError) throw new NotFoundError('task not found');
     throw e;
   });
-  return { task, role };
+  return { task: await withAssignee(db, task), role };
 }
 
 export async function requireColumnCan(db: Db, user: AuthUser, columnId: number, action: BoardAction) {

@@ -6,7 +6,11 @@ import {
   createEntrySchema,
   idParamSchema,
   liveTimerSchema,
+  duePayoutSchema,
+  markPaidSchema,
   myEntriesSchema,
+  payoutSchema,
+  payoutsQuerySchema,
   periodQuerySchema,
   reportQuerySchema,
   startTimerSchema,
@@ -172,13 +176,63 @@ export async function timeRoutes(app: FastifyInstance, opts: { db: Db; hub: Even
     },
   );
 
+  // ---- выплаты ----
+
+  r.get(
+    '/api/admin/time/payouts',
+    { preHandler: admin, schema: { querystring: payoutsQuerySchema, response: { 200: z.array(payoutSchema), ...err } } },
+    (req) => svc.listPayouts(db, { userId: req.query.userId, limit: req.query.limit }),
+  );
+
+  r.get(
+    '/api/admin/time/payouts/due',
+    { preHandler: admin, schema: { response: { 200: z.array(duePayoutSchema), ...err } } },
+    async (_req, reply) => {
+      try {
+        return await svc.duePayouts(db, await settings());
+      } catch (e) {
+        return guard(reply, e);
+      }
+    },
+  );
+
+  r.post(
+    '/api/admin/time/payouts',
+    { preHandler: admin, schema: { body: markPaidSchema, response: { 201: payoutSchema, ...err } } },
+    async (req, reply) => {
+      try {
+        const p = await svc.markPaid(db, req.user, req.body, await settings());
+        await audit(db, req.user, 'time.payout', `user:${p.userId}`, { from: p.from, to: p.to, ms: p.ms, amount: p.amount, currency: p.currency });
+        hub.emit({ type: 'time', by: req.user.id });
+        return reply.code(201).send(p);
+      } catch (e) {
+        return guard(reply, e);
+      }
+    },
+  );
+
+  r.delete(
+    '/api/admin/time/payouts/:id',
+    { preHandler: admin, schema: { params: idParamSchema, response: { 204: z.null(), ...err } } },
+    async (req, reply) => {
+      try {
+        const p = await svc.unmarkPaid(db, req.params.id);
+        await audit(db, req.user, 'time.payout.undo', `user:${p.userId}`, { from: p.from, to: p.to, ms: p.ms, amount: p.amount, currency: p.currency });
+        hub.emit({ type: 'time', by: req.user.id });
+        return reply.code(204).send(null);
+      } catch (e) {
+        return guard(reply, e);
+      }
+    },
+  );
+
   r.get('/api/admin/time/report.csv', { preHandler: admin, schema: { querystring: reportQuerySchema } }, async (req, reply) => {
     try {
       const report = await svc.buildReport(db, req.query.from, req.query.to, await settings(), req.query.userId);
       return reply
         .header('content-type', 'text/csv; charset=utf-8')
-        .header('content-disposition', `attachment; filename="time-${req.query.from}_${req.query.to}.csv"`)
-        .send(svc.reportToCsv(report));
+        .header('content-disposition', `attachment; filename="time-${req.query.view === 'projects' ? 'projects-' : ''}${req.query.from}_${req.query.to}.csv"`)
+        .send(svc.reportToCsv(report, req.query.view));
     } catch (e) {
       return guard(reply, e);
     }

@@ -123,7 +123,7 @@ describe('admin panel', () => {
     const task = (await call(member, 'POST', `/api/boards/${board.id}/tasks`, { columnId: col, title: 't' })).json();
     await call(member, 'POST', `/api/tasks/${task.id}/comments`, { body: 'hello' });
     await call(member, 'PUT', `/api/boards/${board.id}/members/${other.id}`, { role: 'viewer' });
-    await call(member, 'PATCH', `/api/tasks/${task.id}`, { assigneeId: member.id });
+    await call(member, 'PATCH', `/api/tasks/${task.id}`, { assigneeIds: [member.id] });
 
     expect((await call(root, 'DELETE', `/api/admin/users/${member.id}`, { transferTo: member.id })).statusCode).toBe(400);
     expect((await call(root, 'DELETE', `/api/admin/users/${member.id}`, { transferTo: 9999 })).statusCode).toBe(404);
@@ -131,7 +131,7 @@ describe('admin panel', () => {
 
     expect((await login('member1')).statusCode).toBe(401);
     const t = (await call(other, 'GET', `/api/tasks/${task.id}`)).json();
-    expect(t).toMatchObject({ authorId: other.id, assigneeId: null });
+    expect(t).toMatchObject({ authorId: other.id, assigneeIds: [] });
     // получатель был наблюдателем — стал владельцем доски, задача снова редактируема им
     expect((await call(other, 'GET', `/api/boards/${board.id}`)).json().board.myRole).toBe('owner');
     expect((await call(other, 'GET', `/api/tasks/${task.id}/comments`)).json()[0]).toMatchObject({ authorName: 'member2', body: 'hello' });

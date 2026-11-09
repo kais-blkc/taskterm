@@ -42,7 +42,7 @@ export async function createComment(db: Db, taskId: number, authorId: number, bo
 
   // участники обсуждения: автор задачи, исполнитель и все, кто уже комментировал
   const participants = new Set<number>([task.authorId]);
-  if (task.assigneeId) participants.add(task.assigneeId);
+  for (const a of task.assigneeIds) participants.add(a);
   for (const c of await db.select({ a: comments.authorId }).from(comments).where(eq(comments.taskId, taskId))) {
     participants.add(c.a);
   }

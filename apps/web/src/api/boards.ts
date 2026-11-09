@@ -63,6 +63,14 @@ export function useBoardMutations(boardId: number) {
       api(API_ENDPOINTS.COLUMN_ITEM(v.id), { method: 'PATCH', body: { name: v.name } }),
     onSuccess: refresh,
   });
+  const setColumnNotify = useMutation({
+    mutationFn: (v: { id: number; notifyOnEnter?: boolean; notifyUserIds?: number[] }) =>
+      api(API_ENDPOINTS.COLUMN_ITEM(v.id), {
+        method: 'PATCH',
+        body: { notifyOnEnter: v.notifyOnEnter, notifyUserIds: v.notifyUserIds },
+      }),
+    onSuccess: refresh,
+  });
   const deleteColumn = useMutation({
     mutationFn: (id: number) => api<void>(API_ENDPOINTS.COLUMN_ITEM(id), { method: 'DELETE' }),
     onSuccess: refresh,
@@ -103,7 +111,7 @@ export function useBoardMutations(boardId: number) {
     onSettled: refresh,
   });
 
-  return { addColumn, renameColumn, deleteColumn, addTask, deleteTask, moveTask };
+  return { addColumn, renameColumn, setColumnNotify, deleteColumn, addTask, deleteTask, moveTask };
 }
 
 export function useMembers(boardId: number, enabled = true) {

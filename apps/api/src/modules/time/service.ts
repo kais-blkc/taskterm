@@ -1,9 +1,14 @@
-import { and, asc, eq, gt, gte, inArray, isNull, lt, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, gte, inArray, isNull, lt, or, sql } from 'drizzle-orm';
 import {
   addDays,
   amountFor,
+  duePayoutPeriods,
+  payoutDueDate,
+  type DuePayout,
   type LiveTimer,
   type MyEntries,
+  type Payout,
+  type ReportProject,
   type ReportUser,
   type TimeEntry,
   type TimeReport,
@@ -12,7 +17,7 @@ import {
   type UpdateTimerSettings,
 } from '@taskterm/shared';
 import { first, type Db } from '../../db/client';
-import { appSettings, tasks, timeEntries, users, workTimers } from '../../db/schema';
+import { appSettings, boards, tasks, timePayouts, timeEntries, users, workTimers } from '../../db/schema';
 import type { AuthUser } from '../auth/service';
 import { requireTaskCan } from '../permissions/access';
 import { dayOf, startOfDay } from './tz';
@@ -119,6 +124,23 @@ async function openEntry(db: Db, userId: number) {
   return first(await db.select().from(timeEntries).where(and(eq(timeEntries.userId, userId), isNull(timeEntries.endedAt))));
 }
 
+/** Последняя закрытая запись пользователя — «над чем работал в прошлый раз» */
+async function lastWork(db: Db, userId: number): Promise<TimerState['last']> {
+  const e = first(
+    await db
+      .select({ taskId: timeEntries.taskId, note: timeEntries.note })
+      .from(timeEntries)
+      .where(and(eq(timeEntries.userId, userId), sql`${timeEntries.endedAt} is not null`))
+      .orderBy(desc(timeEntries.endedAt))
+      .limit(1),
+  );
+  if (!e) return null;
+  const info = await taskInfo(db, e.taskId);
+  // задачу могли удалить, а описания нет — продолжать нечего
+  if (info.taskId == null && !e.note) return null;
+  return { ...info, note: e.note };
+}
+
 export async function getState(db: Db, userId: number): Promise<TimerState> {
   const nowMs = Date.now();
   const timer = first(await db.select().from(workTimers).where(eq(workTimers.userId, userId)));
@@ -127,6 +149,7 @@ export async function getState(db: Db, userId: number): Promise<TimerState> {
       status: 'idle',
       ...(await taskInfo(db, null)),
       note: '',
+      last: await lastWork(db, userId),
       segmentStartedAt: null,
       closedMs: 0,
       startedAt: null,
@@ -138,6 +161,7 @@ export async function getState(db: Db, userId: number): Promise<TimerState> {
     status: timer.status,
     ...(await taskInfo(db, timer.taskId)),
     note: timer.note,
+    last: null,
     segmentStartedAt: open?.startedAt ?? null,
     closedMs: await closedMsOf(db, userId, timer.startedAt),
     startedAt: timer.startedAt,
@@ -282,9 +306,12 @@ async function clippedSegments(db: Db, startMs: number, endMs: number, userId?: 
       endedAt: timeEntries.endedAt,
       taskNumber: tasks.number,
       taskTitle: tasks.title,
+      boardId: tasks.boardId,
+      boardName: boards.name,
     })
     .from(timeEntries)
     .leftJoin(tasks, eq(tasks.id, timeEntries.taskId))
+    .leftJoin(boards, eq(boards.id, tasks.boardId))
     .where(
       and(
         userId ? eq(timeEntries.userId, userId) : undefined,
@@ -454,6 +481,8 @@ export async function buildReport(db: Db, from: string, to: string, settings: Ti
   const { startMs, endMs } = periodBounds(from, to, tz);
   const segs = await clippedSegments(db, startMs, endMs, userId);
 
+  type ProjAcc = { boardId: number | null; name: string; ms: number; people: Map<number, number>; items: Map<string, { taskId: number | null; taskNumber: number | null; label: string; ms: number }> };
+  const projAcc = new Map<string, ProjAcc>();
   const acc = new Map<number, { days: Map<string, number>; items: Map<string, { taskId: number | null; taskNumber: number | null; label: string; ms: number }>; running: boolean }>();
   for (const s of segs) {
     let u = acc.get(s.userId);
@@ -474,6 +503,16 @@ export async function buildReport(db: Db, from: string, to: string, settings: Ti
     const item = u.items.get(key) ?? { taskId: s.taskId, taskNumber: s.taskNumber, label, ms: 0 };
     item.ms += s.e - s.s;
     u.items.set(key, item);
+
+    // по проектам (доскам); работа без задачи — отдельной строкой
+    const pKey = s.boardId != null ? `b${s.boardId}` : 'none';
+    let proj = projAcc.get(pKey);
+    if (!proj) projAcc.set(pKey, (proj = { boardId: s.boardId ?? null, name: s.boardName ?? '(без проекта)', ms: 0, people: new Map(), items: new Map() }));
+    proj.ms += s.e - s.s;
+    proj.people.set(s.userId, (proj.people.get(s.userId) ?? 0) + (s.e - s.s));
+    const pItem = proj.items.get(key) ?? { taskId: s.taskId, taskNumber: s.taskNumber, label, ms: 0 };
+    pItem.ms += s.e - s.s;
+    proj.items.set(key, pItem);
   }
 
   const ids = [...acc.keys()];
@@ -494,9 +533,27 @@ export async function buildReport(db: Db, from: string, to: string, settings: Ti
         running: u.running,
         days: [...u.days.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([date, v]) => ({ date, ms: v })),
         items: [...u.items.values()].sort((a, b) => b.ms - a.ms),
+        payout: null,
       };
     })
     .sort((a, b) => b.totalMs - a.totalMs);
+
+  const projects: ReportProject[] = [...projAcc.values()]
+    .map((p) => ({
+      boardId: p.boardId,
+      name: p.name,
+      totalMs: p.ms,
+      amount: amountFor(p.ms, settings.hourlyRate),
+      people: [...p.people.entries()]
+        .map(([id, ms]) => ({ userId: id, username: byId.get(id)?.username ?? `#${id}`, color: byId.get(id)?.color ?? '', ms }))
+        .sort((a, b) => b.ms - a.ms),
+      items: [...p.items.values()].sort((a, b) => b.ms - a.ms),
+    }))
+    .sort((a, b) => b.totalMs - a.totalMs);
+
+  const payoutDue = payoutDueDate(from, to);
+  const paid = payoutDue ? await listPayouts(db, { from, to }) : [];
+  for (const u of reportUsers) u.payout = paid.find((p) => p.userId === u.userId) ?? null;
 
   const totalMs = reportUsers.reduce((a, u) => a + u.totalMs, 0);
   return {
@@ -508,7 +565,100 @@ export async function buildReport(db: Db, from: string, to: string, settings: Ti
     totalMs,
     totalAmount: amountFor(totalMs, settings.hourlyRate),
     users: reportUsers,
+    projects,
+    payoutDue,
+    today: dayOf(Date.now(), tz),
   };
+}
+
+// ---------- выплаты ----------
+
+const payoutCols = {
+  id: timePayouts.id,
+  userId: timePayouts.userId,
+  username: users.username,
+  color: users.color,
+  from: timePayouts.periodFrom,
+  to: timePayouts.periodTo,
+  ms: timePayouts.ms,
+  hourlyRate: timePayouts.hourlyRate,
+  currency: timePayouts.currency,
+  paidAt: timePayouts.paidAt,
+  note: timePayouts.note,
+  paidById: timePayouts.paidBy,
+};
+
+async function toPayouts(db: Db, rows: (Omit<Payout, 'amount' | 'paidBy'> & { paidById: number | null })[]): Promise<Payout[]> {
+  const ids = [...new Set(rows.map((r) => r.paidById).filter((x): x is number => x != null))];
+  const admins = ids.length ? await db.select({ id: users.id, username: users.username }).from(users).where(inArray(users.id, ids)) : [];
+  const name = new Map(admins.map((a) => [a.id, a.username]));
+  return rows.map(({ paidById, ...r }) => ({ ...r, amount: amountFor(r.ms, r.hourlyRate), paidBy: paidById != null ? (name.get(paidById) ?? null) : null }));
+}
+
+/** История выплат (новые сверху); можно по периоду или по человеку */
+export async function listPayouts(db: Db, q: { id?: number; from?: string; to?: string; userId?: number; limit?: number }): Promise<Payout[]> {
+  const rows = await db
+    .select(payoutCols)
+    .from(timePayouts)
+    .innerJoin(users, eq(users.id, timePayouts.userId))
+    .where(
+      and(
+        q.id ? eq(timePayouts.id, q.id) : undefined,
+        q.from ? eq(timePayouts.periodFrom, q.from) : undefined,
+        q.to ? eq(timePayouts.periodTo, q.to) : undefined,
+        q.userId ? eq(timePayouts.userId, q.userId) : undefined,
+      ),
+    )
+    .orderBy(desc(timePayouts.periodFrom), desc(timePayouts.paidAt), asc(users.username))
+    .limit(q.limit ?? 200);
+  return toPayouts(db, rows);
+}
+
+/** Отметить период выплаченным: фиксируем часы и ставку на момент выплаты (история не пересчитывается) */
+export async function markPaid(
+  db: Db,
+  admin: AuthUser,
+  input: { userId: number; from: string; to: string; note: string },
+  settings: TimerSettings,
+): Promise<Payout> {
+  const due = payoutDueDate(input.from, input.to);
+  if (!due) throw new TimeError('выплаты отмечаются только за половину месяца: 1–15 или 16–конец', 400);
+  if (due > dayOf(Date.now(), settings.timeZone)) throw new TimeError(`срок выплаты ещё не наступил (${due})`, 400);
+  const person = first(await db.select({ id: users.id }).from(users).where(eq(users.id, input.userId)));
+  if (!person) throw new TimeError('пользователь не найден', 404);
+
+  const report = await buildReport(db, input.from, input.to, settings, input.userId);
+  const ms = report.users[0]?.totalMs ?? 0;
+  if (ms <= 0) throw new TimeError('за этот период у сотрудника нет отработанного времени', 400);
+
+  const [row] = await db
+    .insert(timePayouts)
+    .values({ userId: input.userId, periodFrom: input.from, periodTo: input.to, ms, hourlyRate: settings.hourlyRate, currency: settings.currency, note: input.note, paidBy: admin.id })
+    .onConflictDoNothing()
+    .returning({ id: timePayouts.id });
+  if (!row) throw new TimeError('выплата за этот период уже отмечена', 409);
+  return (await listPayouts(db, { from: input.from, to: input.to, userId: input.userId })).find((p) => p.id === row.id)!;
+}
+
+/** Снять отметку (ошибся) — возвращает удалённую запись для журнала */
+export async function unmarkPaid(db: Db, id: number): Promise<Payout> {
+  const [before] = await listPayouts(db, { id });
+  if (!before) throw new TimeError('выплата не найдена', 404);
+  await db.delete(timePayouts).where(eq(timePayouts.id, id));
+  return before;
+}
+
+/** Невыплаченное при наступившем сроке: последние 8 половин месяца */
+export async function duePayouts(db: Db, settings: TimerSettings): Promise<DuePayout[]> {
+  const today = dayOf(Date.now(), settings.timeZone);
+  const out: DuePayout[] = [];
+  for (const p of duePayoutPeriods(today, 8)) {
+    const report = await buildReport(db, p.from, p.to, settings);
+    for (const u of report.users) {
+      if (u.totalMs > 0 && !u.payout) out.push({ from: p.from, to: p.to, due: p.due, userId: u.userId, username: u.username, color: u.color, ms: u.totalMs, amount: u.amount });
+    }
+  }
+  return out;
 }
 
 const csvCell = (v: string | number) => {
@@ -519,7 +669,18 @@ const csvCell = (v: string | number) => {
 };
 
 /** CSV: человек; дата; часы; сумма — по дням, плюс итог по человеку */
-export function reportToCsv(r: TimeReport): string {
+export function reportToCsv(r: TimeReport, view: 'users' | 'projects' = 'users'): string {
+  if (view === 'projects') {
+    const head = [['Проект', 'Сотрудник', 'Часы', `Сумма (${r.currency})`].map(csvCell).join(',')];
+    const h = (m: number) => (m / 3_600_000).toFixed(2);
+    const out = [...head];
+    for (const p of r.projects) {
+      for (const u of p.people) out.push([p.name, u.username, h(u.ms), amountFor(u.ms, r.hourlyRate).toFixed(2)].map(csvCell).join(','));
+      out.push([`${p.name} — итого`, `${r.from}…${r.to}`, h(p.totalMs), p.amount.toFixed(2)].map(csvCell).join(','));
+    }
+    out.push(['ИТОГО', `${r.from}…${r.to}`, h(r.totalMs), r.totalAmount.toFixed(2)].map(csvCell).join(','));
+    return '﻿' + out.join('\r\n') + '\r\n';
+  }
   const lines = [['Сотрудник', 'Дата', 'Часы', `Сумма (${r.currency})`].map(csvCell).join(',')];
   const hours = (m: number) => (m / 3_600_000).toFixed(2);
   for (const u of r.users) {

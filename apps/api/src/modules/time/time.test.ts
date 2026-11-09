@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { addDays, resolvePeriod } from '@taskterm/shared';
+import { addDays, duePayoutPeriods, payoutDueDate, periodTitle, resolvePeriod } from '@taskterm/shared';
 import { buildApp } from '../../app';
 import { loadConfig } from '../../config';
+import { timeEntries } from '../../db/schema';
 import { signupUser } from '../../test-utils';
 import { dayOf, startOfDay } from './tz';
 
@@ -16,11 +17,34 @@ describe('time tz / periods', () => {
   it('pay periods', () => {
     expect(resolvePeriod('half1', '2026-11-07')).toEqual({ from: '2026-11-01', to: '2026-11-15' });
     expect(resolvePeriod('half2', '2026-02-20')).toEqual({ from: '2026-02-16', to: '2026-02-28' });
-    expect(resolvePeriod('lastPaid', '2026-11-07')).toEqual({ from: '2026-10-16', to: '2026-10-31' });
-    expect(resolvePeriod('lastPaid', '2026-01-03')).toEqual({ from: '2025-12-16', to: '2025-12-31' });
-    expect(resolvePeriod('lastPaid', '2026-11-15')).toEqual({ from: '2026-11-01', to: '2026-11-15' });
+    // «к выплате» — текущая половина месяца
+    expect(resolvePeriod('payout', '2026-11-09')).toEqual({ from: '2026-11-01', to: '2026-11-15' });
+    expect(resolvePeriod('payout', '2026-11-15')).toEqual({ from: '2026-11-01', to: '2026-11-15' });
+    expect(resolvePeriod('payout', '2026-11-16')).toEqual({ from: '2026-11-16', to: '2026-11-30' });
+    expect(resolvePeriod('payout', '2026-02-20')).toEqual({ from: '2026-02-16', to: '2026-02-28' });
     expect(resolvePeriod('last14', '2026-03-05')).toEqual({ from: '2026-02-20', to: '2026-03-05' });
     expect(addDays('2026-12-31', 1)).toBe('2027-01-01');
+  });
+  it('payout due dates: 1–15 on the 15th, 16–end on the 1st of next month', () => {
+    expect(payoutDueDate('2026-11-01', '2026-11-15')).toBe('2026-11-15');
+    expect(payoutDueDate('2026-11-16', '2026-11-30')).toBe('2026-12-01');
+    expect(payoutDueDate('2026-12-16', '2026-12-31')).toBe('2027-01-01');
+    expect(payoutDueDate('2026-11-03', '2026-11-07')).toBeNull();
+    expect(payoutDueDate('2026-11-01', '2026-11-30')).toBeNull();
+    // 9 ноября: наступил срок только 16–31 октября (1 ноября), 1–15 ноября ещё копится
+    expect(duePayoutPeriods('2026-11-09', 2)).toEqual([
+      { from: '2026-10-16', to: '2026-10-31', due: '2026-11-01' },
+      { from: '2026-10-01', to: '2026-10-15', due: '2026-10-15' },
+    ]);
+    expect(duePayoutPeriods('2026-11-15', 1)).toEqual([{ from: '2026-11-01', to: '2026-11-15', due: '2026-11-15' }]);
+  });
+  it('period titles name the month and half', () => {
+    expect(periodTitle('2026-11-01', '2026-11-15')).toBe('за ноябрь 2026, 1–15');
+    expect(periodTitle('2026-11-16', '2026-11-30')).toBe('за ноябрь 2026, 16–30');
+    expect(periodTitle('2026-02-16', '2026-02-28')).toBe('за февраль 2026, 16–28');
+    expect(periodTitle('2026-11-01', '2026-11-30')).toBe('за ноябрь 2026');
+    expect(periodTitle('2026-11-03', '2026-11-07')).toBe('03.11.2026 – 07.11.2026');
+    expect(periodTitle('2026-11-07', '2026-11-07')).toBe('07.11.2026');
   });
 });
 
@@ -81,6 +105,27 @@ describe('work timer', () => {
     const again = await call(a, 'POST', '/api/time/stop');
     expect(again.body).toContain('не запущен');
     expect(again.statusCode).toBe(409);
+  });
+
+  it('after stop the state remembers the last task for "continue"', async () => {
+    // у нового пользователя помнить нечего
+    expect((await call(a, 'GET', '/api/time/state')).json().last).toBeNull();
+
+    const board = (await call(a, 'POST', '/api/boards', { name: 'B' })).json();
+    const full = (await call(a, 'GET', `/api/boards/${board.id}`)).json();
+    const task = (await call(a, 'POST', `/api/boards/${board.id}/tasks`, { columnId: full.columns[0].id, title: 'Верстка' })).json();
+
+    await call(a, 'POST', '/api/time/start', { taskId: task.id, note: 'шапка', startedAt: iso(-20 * MIN) });
+    const running = (await call(a, 'GET', '/api/time/state')).json();
+    expect(running.last).toBeNull();
+
+    const stopped = (await call(a, 'POST', '/api/time/stop', {})).json();
+    expect(stopped.status).toBe('idle');
+    expect(stopped.last).toEqual({ taskId: task.id, taskNumber: task.number, taskTitle: 'Верстка', boardId: board.id, note: 'шапка' });
+    // и после перезагрузки страницы
+    expect((await call(a, 'GET', '/api/time/state')).json().last).toMatchObject({ taskId: task.id, note: 'шапка' });
+    // продолжение по этой же задаче
+    expect((await call(a, 'POST', '/api/time/start', { taskId: task.id, note: 'шапка' })).json().status).toBe('running');
   });
 
   it('rejects future start, overlap and bad manual stop', async () => {
@@ -149,6 +194,103 @@ describe('work timer', () => {
     const csv = await call(root, 'GET', `/api/admin/time/report.csv?from=${yesterday}&to=${today}`);
     expect(csv.headers['content-type']).toContain('text/csv');
     expect(csv.body).toContain('worker1');
+  });
+
+  it('admin report by projects: boards, people, tasks; work without a task is separate', async () => {
+    const mkTask = async (boardName: string, title: string) => {
+      const board = (await call(root, 'POST', '/api/boards', { name: boardName })).json();
+      const full = (await call(root, 'GET', `/api/boards/${board.id}`)).json();
+      for (const u of [a, b]) await call(root, 'PUT', `/api/boards/${board.id}/members/${u.id}`, { role: 'editor' });
+      const t = (await call(root, 'POST', `/api/boards/${board.id}/tasks`, { columnId: full.columns[0].id, title })).json();
+      return { board, task: t };
+    };
+    const alpha = await mkTask('Alpha', 'A1');
+    const beta = await mkTask('Beta', 'B1');
+    const add = (u: U, from: number, to: number, body: object) =>
+      call(u, 'POST', '/api/time/entries', { ...body, startedAt: iso(from), endedAt: iso(to) });
+    expect((await add(a, -300 * MIN, -240 * MIN, { taskId: alpha.task.id })).statusCode).toBe(200); // a: Alpha 60 мин
+    expect((await add(b, -230 * MIN, -200 * MIN, { taskId: alpha.task.id })).statusCode).toBe(200); // b: Alpha 30 мин
+    expect((await add(a, -190 * MIN, -130 * MIN, { taskId: beta.task.id })).statusCode).toBe(200); // a: Beta 60 мин
+    expect((await add(a, -120 * MIN, -100 * MIN, { note: 'созвон' })).statusCode).toBe(200); // без задачи 20 мин
+
+    await call(root, 'PUT', '/api/admin/time/settings', { hourlyRate: 10, currency: 'USD' });
+    const today = dayOf(Date.now(), 'Europe/Moscow');
+    const q = `from=${addDays(today, -1)}&to=${today}`;
+    const r = (await call(root, 'GET', `/api/admin/time/report?${q}`)).json();
+
+    expect(r.projects.map((p: { name: string }) => p.name)).toEqual(['Alpha', 'Beta', '(без проекта)']);
+    const [pa, pb, none] = r.projects;
+    expect(pa).toMatchObject({ boardId: alpha.board.id, totalMs: 90 * MIN, amount: 15 });
+    expect(pa.people.map((x: { username: string; ms: number }) => [x.username, x.ms])).toEqual([['worker1', 60 * MIN], ['worker2', 30 * MIN]]);
+    expect(pa.items[0]).toMatchObject({ taskNumber: 1, label: 'A1', ms: 90 * MIN });
+    expect(pb.totalMs).toBe(60 * MIN);
+    expect(none).toMatchObject({ boardId: null, totalMs: 20 * MIN });
+    // итог по проектам = итог по людям
+    expect(r.projects.reduce((s: number, p: { totalMs: number }) => s + p.totalMs, 0)).toBe(r.totalMs);
+
+    const csv = await call(root, 'GET', `/api/admin/time/report.csv?${q}&view=projects`);
+    expect(csv.statusCode).toBe(200);
+    expect(csv.headers['content-disposition']).toContain('time-projects-');
+    expect(csv.body).toContain('Проект');
+    expect(csv.body).toContain('Alpha — итого');
+    expect(csv.body).toContain('ИТОГО');
+  });
+
+  it('payouts: due list, mark paid (snapshot), history, undo', async () => {
+    const today = dayOf(Date.now(), 'Europe/Moscow');
+    const [period, older] = duePayoutPeriods(today, 2) as [{ from: string; to: string; due: string }, { from: string; to: string; due: string }];
+    const at = (day: string, h: number) => new Date(startOfDay(day, 'Europe/Moscow') + h * 60 * MIN).toISOString();
+    // работа внутри наступившего периода, вставляем напрямую (ручные записи старше 14 дней API не принимает)
+    await app.db.insert(timeEntries).values([
+      { userId: a.id, note: 'x', startedAt: at(period.from, 10), endedAt: at(period.from, 12) }, // 2 часа
+      { userId: b.id, note: 'y', startedAt: at(older.from, 10), endedAt: at(older.from, 11) }, // 1 час в прошлом периоде
+    ]);
+    await call(root, 'PUT', '/api/admin/time/settings', { hourlyRate: 10, currency: 'USD' });
+
+    // не выплачено при наступившем сроке: оба
+    const due = (await call(root, 'GET', '/api/admin/time/payouts/due')).json();
+    expect(due.map((d: { username: string; from: string }) => [d.username, d.from]).sort()).toEqual(
+      [['worker1', period.from], ['worker2', older.from]].sort(),
+    );
+
+    // отчёт знает срок и статус
+    const rep0 = (await call(root, 'GET', `/api/admin/time/report?from=${period.from}&to=${period.to}`)).json();
+    expect(rep0.payoutDue).toBe(period.due);
+    expect(rep0.users.find((u: { username: string }) => u.username === 'worker1').payout).toBeNull();
+
+    // только админ; произвольный период и пустой период нельзя
+    const body = { userId: a.id, from: period.from, to: period.to };
+    expect((await call(a, 'POST', '/api/admin/time/payouts', body)).statusCode).toBe(403);
+    expect((await call(root, 'POST', '/api/admin/time/payouts', { ...body, from: addDays(period.from, 1) })).statusCode).toBe(400);
+    expect((await call(root, 'POST', '/api/admin/time/payouts', { ...body, userId: b.id })).statusCode).toBe(400); // у b в этом периоде нет часов
+    // срок ещё не наступил — нельзя
+    const future = resolvePeriod('payout', today);
+    if (payoutDueDate(future.from, future.to)! > today) {
+      expect((await call(root, 'POST', '/api/admin/time/payouts', { userId: a.id, ...future })).statusCode).toBe(400);
+    }
+
+    const ok = await call(root, 'POST', '/api/admin/time/payouts', { ...body, note: 'карта' });
+    expect(ok.statusCode).toBe(201);
+    expect(ok.json()).toMatchObject({ username: 'worker1', ms: 120 * MIN, hourlyRate: 10, currency: 'USD', amount: 20, paidBy: 'rootadm', note: 'карта' });
+    expect((await call(root, 'POST', '/api/admin/time/payouts', body)).statusCode).toBe(409); // повторно нельзя
+
+    // ставку поменяли — выплаченное в истории не пересчитывается
+    await call(root, 'PUT', '/api/admin/time/settings', { hourlyRate: 50, currency: 'USD' });
+    const hist = (await call(root, 'GET', '/api/admin/time/payouts')).json();
+    expect(hist).toHaveLength(1);
+    expect(hist[0]).toMatchObject({ amount: 20, hourlyRate: 10 });
+
+    // в отчёте у человека появился статус, в списке долгов он исчез
+    const rep = (await call(root, 'GET', `/api/admin/time/report?from=${period.from}&to=${period.to}`)).json();
+    expect(rep.users.find((u: { username: string }) => u.username === 'worker1').payout).toMatchObject({ id: hist[0].id, amount: 20 });
+    const due2 = (await call(root, 'GET', '/api/admin/time/payouts/due')).json();
+    expect(due2.map((d: { username: string }) => d.username)).toEqual(['worker2']);
+
+    // отмена отметки
+    expect((await call(root, 'DELETE', `/api/admin/time/payouts/${hist[0].id}`)).statusCode).toBe(204);
+    expect((await call(root, 'GET', '/api/admin/time/payouts')).json()).toEqual([]);
+    expect((await call(root, 'DELETE', `/api/admin/time/payouts/${hist[0].id}`)).statusCode).toBe(404);
+    expect((await call(root, 'GET', '/api/admin/time/payouts/due')).json()).toHaveLength(2);
   });
 
   it('live view shows running and paused timers', async () => {

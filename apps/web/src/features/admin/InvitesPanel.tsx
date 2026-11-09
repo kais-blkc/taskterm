@@ -144,7 +144,7 @@ export function InvitesPanel() {
 
       {created && <LinkBox created={created} onClose={() => setCreated(null)} />}
 
-      <section className="invites-list-section space-y-2">
+      <section className="invites-list-section mt-8 space-y-2">
         <h2>## приглашения {invites.data && <span className="text-muted">({invites.data.length})</span>}</h2>
         {invites.isLoading && <p className="text-muted">loading...</p>}
         {invites.data?.length === 0 && <p className="text-muted text-[14px]">// приглашений пока нет</p>}

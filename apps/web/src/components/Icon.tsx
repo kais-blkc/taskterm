@@ -1,4 +1,4 @@
-type IconName = 'lock' | 'check' | 'checklist';
+type IconName = 'lock' | 'check' | 'checklist' | 'bell';
 
 const PATHS: Record<IconName, React.ReactNode> = {
   lock: (
@@ -8,6 +8,12 @@ const PATHS: Record<IconName, React.ReactNode> = {
     </>
   ),
   check: <path d="M4 12.5 9.5 18 20 6.5" />,
+  bell: (
+    <>
+      <path d="M6 16V10a6 6 0 0 1 12 0v6l2 2H4z" />
+      <path d="M10 21h4" />
+    </>
+  ),
   checklist: (
     <>
       <path d="m3 6 1.8 1.8L8 4.5" />

@@ -28,6 +28,7 @@ function Progress({ done, total }: { done: number; total: number }) {
 
 function SubtaskRow({
   s,
+  index,
   canToggle,
   canChange,
   canDelete,
@@ -36,6 +37,8 @@ function SubtaskRow({
   onRemove,
 }: {
   s: Subtask;
+  /** порядковый номер, с 1 */
+  index: number;
   canToggle: boolean;
   canChange: boolean;
   canDelete: boolean;
@@ -45,7 +48,8 @@ function SubtaskRow({
 }) {
   const [editing, setEditing] = useState(false);
   return (
-    <li className="subtask group flex items-center gap-2 border border-transparent px-1 py-0.5 hover:border-line">
+    <li className="subtask group flex items-start gap-2 border border-transparent px-1 py-1.5 hover:border-line">
+      <span className="subtask-number w-6 shrink-0 select-none text-right tabular-nums text-muted">{index}.</span>
       <button
         type="button"
         role="checkbox"
@@ -53,7 +57,7 @@ function SubtaskRow({
         aria-label={s.done ? 'снять отметку' : 'отметить выполненной'}
         disabled={!canToggle}
         onClick={onToggle}
-        className={`inline-flex h-4 w-4 shrink-0 items-center justify-center border text-xs leading-none ${
+        className={`mt-[3px] inline-flex h-4 w-4 shrink-0 items-center justify-center border text-xs leading-none ${
           s.done ? 'border-accent bg-accent text-bg' : 'border-fg-muted hover:border-accent'} ${canToggle ? '' : 'cursor-default'}
         }`}
       >
@@ -146,7 +150,7 @@ export function Subtasks({ task, boardId, actor, userId }: { task: Task; boardId
   };
 
   return (
-    <section className="subtasks space-y-2">
+    <section className="subtasks mt-8 space-y-2">
       <h3 className="flex flex-wrap items-center justify-between gap-2">
         <span>
           ## subtasks
@@ -162,11 +166,12 @@ export function Subtasks({ task, boardId, actor, userId }: { task: Task; boardId
       {isLoading && <p className="text-muted">loading...</p>}
       {error && <p className="text-danger">! failed to load subtasks</p>}
       {data && data.length === 0 && <p className="text-muted text-[14px]">// подзадач нет</p>}
-      <ul className="subtasks-list space-y-0.5">
-        {data?.map((s) => (
+      <ul className="subtasks-list space-y-1.5">
+        {data?.map((s, i) => (
           <SubtaskRow
             key={s.id}
             s={s}
+            index={i + 1}
             canToggle={canCheck}
             canChange={canChangeSubtask(task.policy, actor, s.createdBy, userId)}
             canDelete={canDeleteSubtask(task.policy, actor, s.createdBy, userId)}

@@ -21,7 +21,9 @@ export function formatNotification(e: NotifyEvent, boardName: string, publicUrl?
     `<b>Задача:</b> #${e.taskNumber} ${escapeHtml(e.taskTitle)}`,
     e.kind === 'assigned'
       ? `<b>Действие:</b> вас назначили ответственным (@${escapeHtml(e.authorName)})`
-      : `<b>Действие:</b> новый комментарий от @${escapeHtml(e.authorName)}`,
+      : e.kind === 'moved'
+        ? `<b>Действие:</b> @${escapeHtml(e.authorName)} перенёс(ла) задачу в «${escapeHtml(e.columnName ?? '')}»`
+        : `<b>Действие:</b> новый комментарий от @${escapeHtml(e.authorName)}`,
   ];
   if (e.kind === 'comment' && e.snippet) lines.push(`<b>Комментарий:</b> ${escapeHtml(e.snippet)}`);
   if (publicUrl) lines.push(`${publicUrl}/b/${e.boardId}/t/${e.taskId}`);
