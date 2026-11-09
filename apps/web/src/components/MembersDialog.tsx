@@ -47,10 +47,10 @@ export function MembersDialog({
 
   return (
     <div
-      className="members-overlay fixed inset-0 z-30 flex items-start justify-center overflow-y-auto bg-black/60 p-2 pt-4 sm:p-4 sm:pt-16"
+      className="modal-overlay members-overlay fixed inset-0 z-30 flex items-start justify-center overflow-y-auto bg-black/60 p-2 pt-4 sm:p-4 sm:pt-16"
       onMouseDown={(e) => !box.current?.contains(e.target as Node) && onClose()}
     >
-      <div ref={box} className="members-dialog w-full max-w-xl space-y-4 border border-accent bg-elev p-3 sm:p-5 shadow-2xl">
+      <div ref={box} className="modal-dialog members-dialog w-full max-w-xl space-y-4 border border-accent bg-elev p-3 sm:p-5 shadow-2xl">
         <div className="flex items-center justify-between">
           <h2>## members</h2>
           <button type="button" className="btn btn-danger" onClick={onClose}>

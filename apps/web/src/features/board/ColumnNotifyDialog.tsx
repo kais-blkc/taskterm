@@ -41,10 +41,10 @@ export function ColumnNotifyDialog({
 
   return (
     <div
-      className="column-notify-overlay fixed inset-0 z-30 flex items-start justify-center overflow-y-auto bg-black/60 p-2 pt-4 sm:p-4 sm:pt-16"
+      className="modal-overlay column-notify-overlay fixed inset-0 z-30 flex items-start justify-center overflow-y-auto bg-black/60 p-2 pt-4 sm:p-4 sm:pt-16"
       onMouseDown={(e) => !box.current?.contains(e.target as Node) && onClose()}
     >
-      <div ref={box} className="column-notify-dialog w-full max-w-md space-y-4 border border-accent bg-elev p-3 shadow-2xl sm:p-5">
+      <div ref={box} className="modal-dialog column-notify-dialog w-full max-w-md space-y-4 border border-accent bg-elev p-3 shadow-2xl sm:p-5">
         <div className="flex items-center justify-between gap-2">
           <h2 className="min-w-0 break-words">## уведомления: {column.name}</h2>
           <button type="button" className="btn btn-danger" onClick={onClose}>

@@ -35,10 +35,10 @@ function Modal({ title, children, onClose }: { title: string; children: ReactNod
   }, [onClose]);
   return (
     <div
-      className="timer-dialog-overlay fixed inset-0 z-[55] flex items-start justify-center bg-black/70 p-2 pt-16 sm:p-4 sm:pt-28"
+      className="modal-overlay timer-dialog-overlay fixed inset-0 z-[55] flex items-start justify-center bg-black/70 p-2 pt-16 sm:p-4 sm:pt-28"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div role="dialog" aria-modal="true" aria-label={title} className="timer-dialog w-full max-w-md space-y-4 border border-accent bg-elev p-3 shadow-2xl sm:p-5">
+      <div role="dialog" aria-modal="true" aria-label={title} className="modal-dialog timer-dialog w-full max-w-md space-y-4 border border-accent bg-elev p-3 shadow-2xl sm:p-5">
         <h2>
           <span className="text-muted">$ </span>
           {title}

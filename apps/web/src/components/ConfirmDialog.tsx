@@ -39,10 +39,10 @@ export function ConfirmDialog() {
   const accent = opts.danger ? 'border-danger' : 'border-accent';
   return (
     <div
-      className="confirm-overlay fixed inset-0 z-[60] flex items-start justify-center bg-black/70 p-2 pt-16 sm:p-4 sm:pt-32"
+      className="modal-overlay confirm-overlay fixed inset-0 z-[60] flex items-start justify-center bg-black/70 p-2 pt-16 sm:p-4 sm:pt-32"
       onMouseDown={(e) => e.target === e.currentTarget && answer(false)}
     >
-      <div role="alertdialog" aria-modal="true" aria-label={opts.title} className={`confirm-dialog w-full max-w-md space-y-4 border bg-elev p-3 shadow-2xl sm:p-5 ${accent}`}>
+      <div role="alertdialog" aria-modal="true" aria-label={opts.title} className={`modal-dialog confirm-dialog w-full max-w-md space-y-4 border bg-elev p-3 shadow-2xl sm:p-5 ${accent}`}>
         <h2 className={opts.danger ? 'text-danger' : ''}>
           <span className="text-muted">{opts.danger ? '! ' : '? '}</span>
           {opts.title}

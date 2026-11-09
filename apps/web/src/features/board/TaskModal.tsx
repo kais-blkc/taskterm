@@ -275,8 +275,8 @@ export function TaskModal({ user }: { user: User }) {
   const column = data?.columns.find((c) => c.id === task?.columnId);
 
   return (
-    <div className="task-modal-overlay fixed inset-0 z-20 flex items-start justify-center overflow-y-auto bg-black/60 p-2 pt-4 sm:p-4 sm:pt-12" onMouseDown={(e) => e.target === e.currentTarget && close()}>
-      <div className="task-modal w-full max-w-3xl border border-accent bg-elev p-3 shadow-2xl sm:p-5">
+    <div className="modal-overlay task-modal-overlay fixed inset-0 z-20 flex items-start justify-center overflow-y-auto bg-black/60 p-2 pt-4 sm:p-4 sm:pt-12" onMouseDown={(e) => e.target === e.currentTarget && close()}>
+      <div className="modal-dialog task-modal w-full max-w-3xl border border-accent bg-elev p-3 shadow-2xl sm:p-5">
         <div className="mb-3 flex justify-end">
           <button type="button" onClick={close} className="task-modal-close btn btn-danger">
             close <span className="text-muted">esc</span>

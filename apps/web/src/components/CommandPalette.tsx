@@ -122,10 +122,10 @@ function PaletteInner({ close }: { close: () => void }) {
   let lastGroup = '';
   return (
     <div
-      className="palette-overlay fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-2 pt-4 sm:p-4 sm:pt-24"
+      className="modal-overlay palette-overlay fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-2 pt-4 sm:p-4 sm:pt-24"
       onMouseDown={(e) => e.target === e.currentTarget && close()}
     >
-      <div className="palette-dialog w-full max-w-xl border border-accent bg-elev shadow-2xl" onKeyDown={onKeyDown}>
+      <div className="modal-dialog palette-dialog w-full max-w-xl border border-accent bg-elev shadow-2xl" onKeyDown={onKeyDown}>
         <div className="palette-input-row flex items-center gap-2 border-b border-line px-3 py-2">
           <span className="text-muted">&gt;</span>
           <input
