@@ -1,5 +1,5 @@
 import { SignJWT, jwtVerify } from 'jose';
-import type { GlobalRole } from '@taskterm/shared';
+import { globalRoleSchema, type GlobalRole } from '@taskterm/shared';
 
 export const ACCESS_TTL_SEC = 15 * 60;
 export const REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -32,7 +32,7 @@ export async function verifyAccess(secret: string, token: string): Promise<Acces
     const { payload } = await jwtVerify(token, key(secret), { issuer: ISSUER, algorithms: ['HS256'] });
     const userId = Number(payload.sub);
     if (!Number.isInteger(userId) || typeof payload.ver !== 'number') return null;
-    return { userId, role: payload.role === 'admin' ? 'admin' : 'member', ver: payload.ver };
+    return { userId, role: globalRoleSchema.safeParse(payload.role).data ?? 'member', ver: payload.ver };
   } catch {
     return null; // просрочен, подделан или битый
   }

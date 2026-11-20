@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { MAX_ATTACHMENT_BYTES } from '@taskterm/shared';
 
 const envFile = resolve(import.meta.dirname, '../../../.env');
 if (existsSync(envFile)) process.loadEnvFile(envFile);
@@ -31,6 +32,12 @@ export interface Config {
   publicUrl?: string;
   /** часовой пояс (IANA) для границ дней и периодов отчёта по времени */
   timeZone: string;
+  /** папка для файлов задач (в проде — том Docker) */
+  uploadsDir: string;
+  /** максимальный размер одного файла, байт */
+  maxUploadBytes: number;
+  /** через сколько после нового сообщения чата уходит сводка в Telegram, мс */
+  chatDigestMs: number;
 }
 
 export const DEV_JWT_SECRET = 'dev-only-secret-change-me-dev-only-secret';
@@ -55,6 +62,9 @@ export function loadConfig(overrides: Partial<Config> = {}): Config {
     telegramBotToken: env.TELEGRAM_BOT_TOKEN || undefined,
     publicUrl: env.PUBLIC_URL?.replace(/\/+$/, '') || undefined,
     timeZone: env.TIME_ZONE || 'Europe/Moscow',
+    uploadsDir: resolve(env.UPLOADS_DIR ?? resolve(import.meta.dirname, '../data/uploads')),
+    maxUploadBytes: MAX_ATTACHMENT_BYTES,
+    chatDigestMs: Number(env.CHAT_DIGEST_SECONDS ?? 60) * 1000,
     ...overrides,
   };
 }

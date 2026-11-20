@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { DEFAULT_TASK_POLICY, type TaskPolicy } from '@taskterm/shared';
+import { DEFAULT_TASK_POLICY, type GlobalRole, type TaskPolicy } from '@taskterm/shared';
 import { boolean, customType, date, doublePrecision, index, integer, jsonb, pgTable, primaryKey, serial, text, uniqueIndex } from 'drizzle-orm/pg-core';
 
 /**
@@ -21,15 +21,63 @@ export const users = pgTable('users', {
   passwordHash: text('password_hash').notNull(),
   color: text('color').notNull().default(''),
   // глобальная роль; права на досках — отдельно (board_members, этап 3)
-  role: text('role').$type<'admin' | 'member'>().notNull().default('member'),
+  role: text('role').$type<GlobalRole>().notNull().default('member'),
+  // ставка в час (для отчётов и выплат): у каждого своя; видимость — canSeeRateOf в shared
+  hourlyRate: doublePrecision('hourly_rate').notNull().default(0),
   isActive: boolean('is_active').notNull().default(true),
   // растёт при смене пароля/роли, блокировке, «выйти везде» — старые access-токены перестают приниматься
   tokenVersion: integer('token_version').notNull().default(0),
   lastLoginAt: timestamptz('last_login_at'),
   // чат в Telegram, куда приходят уведомления (привязка через одноразовый код, см. modules/telegram)
   telegramChatId: text('telegram_chat_id').unique(),
+  // сводка по новым сообщениям общего чата в Telegram (пользователь может выключить)
+  notifyChatTelegram: boolean('notify_chat_telegram').notNull().default(true),
   createdAt: createdAt(),
 });
+
+/** Комнаты чата. Сейчас одна — общая (`general`); таблица оставляет место для чатов досок и личных */
+export const chatRooms = pgTable('chat_rooms', {
+  id: serial('id').primaryKey(),
+  slug: text('slug').notNull().unique(),
+  name: text('name').notNull(),
+  // порядок вкладок (дробный индекс, как у колонок доски)
+  position: text('position').notNull().default('a0'),
+  // основная тема (General): закреплена, не удаляется
+  isGeneral: boolean('is_general').notNull().default(false),
+});
+
+export const chatMessages = pgTable(
+  'chat_messages',
+  {
+    id: serial('id').primaryKey(),
+    roomId: integer('room_id')
+      .notNull()
+      .references(() => chatRooms.id, { onDelete: 'cascade' }),
+    // автора удалили — сообщение остаётся (история не рвётся)
+    authorId: integer('author_id').references(() => users.id, { onDelete: 'set null' }),
+    text: text('text').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index('chat_messages_room_idx').on(t.roomId, t.id)],
+);
+
+/** До какого сообщения пользователь прочитал чат и о каком уже отправили сводку в Telegram */
+export const chatReads = pgTable(
+  'chat_reads',
+  {
+    roomId: integer('room_id')
+      .notNull()
+      .references(() => chatRooms.id, { onDelete: 'cascade' }),
+    userId: integer('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    lastReadId: integer('last_read_id').notNull().default(0),
+    notifiedId: integer('notified_id').notNull().default(0),
+    // тема «без звука» у этого пользователя: ни звука, ни браузерных уведомлений, ни Telegram
+    muted: boolean('muted').notNull().default(false),
+  },
+  (t) => [primaryKey({ columns: [t.roomId, t.userId] })],
+);
 
 export const refreshTokens = pgTable('refresh_tokens', {
   id: serial('id').primaryKey(),
@@ -84,6 +132,8 @@ export const columns = pgTable('columns', {
   name: text('name').notNull(),
   position: text('position').notNull(),
   notifyOnEnter: boolean('notify_on_enter').notNull().default(false),
+  // «выполнено»: задачи тут не просрочены (дедлайн не горит); на доске отмечена одна колонка, выбирает админ
+  isDone: boolean('is_done').notNull().default(false),
 });
 
 /** Кому слать уведомление о переносе задачи в колонку */
@@ -119,10 +169,32 @@ export const tasks = pgTable('tasks', {
   // что остальные могут менять в задаче (решает owner задачи)
   policy: jsonb('policy').$type<TaskPolicy>().notNull().default(DEFAULT_TASK_POLICY),
   createdAt: createdAt(),
-  updatedAt: timestamptz('updated_at').notNull().default(sql`now()`),
+  updatedAt: timestamptz('updated_at')
+    .notNull()
+    .default(sql`now()`)
+    .$onUpdate(() => new Date().toISOString()), // обновляется само при любом update задачи
 });
 
 /** Ответственные за задачу (несколько). Только участники доски; при выходе с доски снимаются. */
+/** Файлы задачи. Сам файл лежит на диске в UPLOADS_DIR под `storage_key`; в БД — метаданные */
+export const taskAttachments = pgTable(
+  'task_attachments',
+  {
+    id: serial('id').primaryKey(),
+    taskId: integer('task_id')
+      .notNull()
+      .references(() => tasks.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    mime: text('mime').notNull(),
+    size: integer('size').notNull(),
+    // относительный путь внутри UPLOADS_DIR: `<taskId>/<uuid>`
+    storageKey: text('storage_key').notNull().unique(),
+    uploadedBy: integer('uploaded_by').references(() => users.id, { onDelete: 'set null' }),
+    createdAt: createdAt(),
+  },
+  (t) => [index('task_attachments_task_idx').on(t.taskId)],
+);
+
 export const taskAssignees = pgTable(
   'task_assignees',
   {
@@ -158,6 +230,8 @@ export const subtasks = pgTable('subtasks', {
   title: text('title').notNull(),
   done: boolean('done').notNull().default(false),
   createdBy: integer('created_by').references(() => users.id, { onDelete: 'set null' }),
+  // исполнитель пункта: один, из ответственных задачи (при назначении добавляется к ним сам); сняли с задачи — снимается и тут
+  assigneeId: integer('assignee_id').references(() => users.id, { onDelete: 'set null' }),
   createdAt: createdAt(),
 });
 
@@ -166,7 +240,7 @@ export const invites = pgTable('invites', {
   email: text('email').notNull(),
   // sha256 токена из ссылки — сам токен в БД не хранится
   tokenHash: text('token_hash').notNull().unique(),
-  role: text('role').$type<'admin' | 'member'>().notNull().default('member'),
+  role: text('role').$type<GlobalRole>().notNull().default('member'),
   // доступ к доскам, который получит пользователь при регистрации
   boardGrants: jsonb('board_grants')
     .$type<{ boardId: number; role: 'owner' | 'editor' | 'commenter' | 'viewer' }[]>()

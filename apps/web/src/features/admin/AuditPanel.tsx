@@ -3,6 +3,7 @@ import { formatDateTime } from '../../lib/dates';
 
 const ACTIONS: Record<string, string> = {
   'user.role': 'сменил роль',
+  'user.rate': 'изменил ставку',
   'user.block': 'заблокировал',
   'user.unblock': 'разблокировал',
   'user.delete': 'удалил пользователя',
@@ -27,22 +28,22 @@ export function AuditPanel() {
   const rows = audit.data?.pages.flat() ?? [];
   return (
     <section className="audit-panel space-y-2">
-      <h2>## журнал действий</h2>
-      {audit.isLoading && <p className="text-muted">loading...</p>}
-      {!audit.isLoading && rows.length === 0 && <p className="text-muted text-[14px]">// записей пока нет</p>}
+      <h2 className="audit-title">## журнал действий</h2>
+      {audit.isLoading && <p className="audit-loading text-muted">Загрузка…</p>}
+      {!audit.isLoading && rows.length === 0 && <p className="audit-empty text-muted text-[14px]">// записей пока нет</p>}
       <ul className="audit-list space-y-1">
         {rows.map((e) => (
           <li key={e.id} className="audit-entry border border-line bg-bg px-3 py-1.5">
-            <div>
-              <span className="text-muted">{formatDateTime(e.createdAt)}</span> @{e.actorName}{' '}
-              <span>{ACTIONS[e.action] ?? e.action}</span> {e.target && <span className="text-muted">{e.target}</span>}
+            <div className="audit-entry-head">
+              <span className="audit-entry-time text-muted">{formatDateTime(e.createdAt)}</span> @{e.actorName}{' '}
+              <span className="audit-entry-action">{ACTIONS[e.action] ?? e.action}</span> {e.target && <span className="audit-entry-target text-muted">{e.target}</span>}
             </div>
-            {Object.keys(e.details).length > 0 && <div className="break-all text-xs text-muted">{compact(e.details)}</div>}
+            {Object.keys(e.details).length > 0 && <div className="audit-entry-details break-all text-xs text-muted">{compact(e.details)}</div>}
           </li>
         ))}
       </ul>
       {audit.hasNextPage && (
-        <button type="button" className="btn" disabled={audit.isFetchingNextPage} onClick={() => audit.fetchNextPage()}>
+        <button type="button" className="audit-more btn" disabled={audit.isFetchingNextPage} onClick={() => audit.fetchNextPage()}>
           ещё
         </button>
       )}

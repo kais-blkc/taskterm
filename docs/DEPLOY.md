@@ -91,7 +91,14 @@ docker compose up -d --build
 docker compose exec -T db pg_dump -U taskterm -Fc taskterm > taskterm-$(date +%F).dump
 ```
 
-Контейнеры останавливать не нужно. Для регулярного бэкапа есть `scripts/backup.sh` (дамп в `backups/`, старше 14 дней удаляются):
+Файлы, прикреплённые к задачам, лежат в томе `taskterm-uploads` (`/app/uploads` в контейнере `app`) и в дамп БД **не входят**:
+
+```bash
+docker compose exec -T app tar -C /app/uploads -czf - . > taskterm-uploads-$(date +%F).tar.gz
+# восстановление: docker compose exec -T app tar -C /app/uploads -xzf - < taskterm-uploads-ДАТА.tar.gz
+```
+
+Контейнеры останавливать не нужно. Для регулярного бэкапа есть `scripts/backup.sh` (дамп БД и архив файлов в `backups/`, старше 14 дней удаляются):
 
 ```bash
 scripts/backup.sh                       # разовый запуск
@@ -99,7 +106,7 @@ crontab -e
 15 3 * * * cd /opt/taskterm && scripts/backup.sh >> backups/backup.log 2>&1   # каждую ночь
 ```
 
-Дампы лежат на том же сервере: периодически копируй их на другую машину (`rsync`/`scp`). Восстановление — в `README.md`.
+Копии лежат на том же сервере: периодически копируй их на другую машину (`rsync`/`scp`). Восстановление — в `README.md`.
 
 ### Перенос данных со старой SQLite-версии
 

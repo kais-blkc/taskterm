@@ -1,190 +1,122 @@
-import type { FastifyInstance, FastifyReply } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import {
   adminBoardSchema,
   adminUserSchema,
-  apiErrorSchema,
   auditEntrySchema,
   auditQuerySchema,
-  deleteAdminUserSchema,
-  idParamSchema,
-  resetCreatedSchema,
   createBoardSchema,
+  deleteAdminUserSchema,
+  chatSettingsSchema,
+  idParamSchema,
+  notifySettingsSchema,
+  resetCreatedSchema,
+  setRateSchema,
   updateAdminBoardSchema,
   updateAdminUserSchema,
 } from '@taskterm/shared';
 import type { Db } from '../../db/client';
+import { errors } from '../../http';
 import type { EventHub } from '../../plugins/hub';
-import { audit, listAudit } from '../audit/service';
-import { requireAdmin } from '../auth/guard';
-import { createBoard } from '../boards/service';
-import * as svc from './service';
+import { listAudit } from '../audit/service';
+import { requireAdmin, requireStaff } from '../auth/guard';
+import { createAdminService } from './service';
 
-/** Админ-панель: все роуты только для админа приложения */
+/** Админ-панель: роуты для owner/admin/moderator; журнал, настройки и удаление — только owner/admin. Ошибки AdminError (со status) отдаёт общий обработчик. */
 export async function adminRoutes(app: FastifyInstance, opts: { db: Db; hub: EventHub }) {
   const { db, hub } = opts;
   const r = app.withTypeProvider<ZodTypeProvider>();
-  r.addHook('preHandler', requireAdmin(db));
-  const err = {
-    400: apiErrorSchema,
-    401: apiErrorSchema,
-    403: apiErrorSchema,
-    404: apiErrorSchema,
-    409: apiErrorSchema,
-  };
+  r.addHook('preHandler', requireStaff(db));
+  const admin = { preHandler: requireAdmin(db) };
+  const svc = createAdminService(db);
+  const err = errors(400, 401, 403, 404, 409);
 
-  const guard = (reply: FastifyReply, e: unknown) => {
-    if (e instanceof svc.AdminError) return reply.code(e.status as 400).send({ error: e.message });
-    throw e;
-  };
+  r.get('/api/admin/users', { schema: { response: { 200: z.array(adminUserSchema), ...err } } }, async (req) =>
+    svc.listUsers(req.user),
+  );
 
-  r.get(
-    '/api/admin/users',
-    { schema: { response: { 200: z.array(adminUserSchema), ...err } } },
-    async () => svc.listUsers(db),
+  r.put(
+    '/api/admin/users/:id/rate',
+    { schema: { params: idParamSchema, body: setRateSchema, response: { 200: adminUserSchema, ...err } } },
+    async (req) => {
+      const { user, events } = await svc.setRate(req.user, req.params.id, req.body.hourlyRate);
+      hub.emitAll(events);
+      return user;
+    },
   );
 
   r.patch(
     '/api/admin/users/:id',
-    {
-      schema: {
-        params: idParamSchema,
-        body: updateAdminUserSchema,
-        response: { 200: adminUserSchema, ...err },
-      },
-    },
-    async (req, reply) => {
-      try {
-        const { before, after, sessionsClosed } = await svc.updateUser(
-          db,
-          req.user.id,
-          req.params.id,
-          req.body,
-        );
-        if (sessionsClosed) hub.kick(after.id);
-        hub.emit({ type: 'users', by: req.user.id });
-        if (before.role !== after.role)
-          await audit(db, req.user, 'user.role', `user:${after.username}`, {
-            from: before.role,
-            to: after.role,
-          });
-        if (before.isActive !== after.isActive)
-          await audit(
-            db,
-            req.user,
-            after.isActive ? 'user.unblock' : 'user.block',
-            `user:${after.username}`,
-          );
-        const row = (await svc.listUsers(db)).find((u) => u.id === after.id)!;
-        return row;
-      } catch (e) {
-        return guard(reply, e);
-      }
+    { schema: { params: idParamSchema, body: updateAdminUserSchema, response: { 200: adminUserSchema, ...err } } },
+    async (req) => {
+      const { user, events, kick } = await svc.updateUser(req.user, req.params.id, req.body);
+      kick.forEach((id) => hub.kick(id));
+      hub.emitAll(events);
+      return user;
     },
   );
 
   r.delete(
     '/api/admin/users/:id',
-    {
-      schema: {
-        params: idParamSchema,
-        body: deleteAdminUserSchema,
-        response: { 204: z.null(), ...err },
-      },
-    },
+    { ...admin, schema: { params: idParamSchema, body: deleteAdminUserSchema, response: { 204: z.null(), ...err } } },
     async (req, reply) => {
-      try {
-        const res = await svc.deleteUser(db, req.user.id, req.params.id, req.body.transferTo);
-        hub.kick(req.params.id);
-        hub.emit({ type: 'users', by: req.user.id });
-        hub.emit({ type: 'boards', by: req.user.id });
-        for (const boardId of res.boardIds) {
-          hub.emit({ type: 'members', boardId, by: req.user.id });
-          hub.emit({ type: 'board', boardId, by: req.user.id });
-        }
-        await audit(db, req.user, 'user.delete', `user:${res.username}`, {
-          transferredTo: res.heir,
-        });
-        return reply.code(204).send(null);
-      } catch (e) {
-        return guard(reply, e);
-      }
+      const { events, kick } = await svc.deleteUser(req.user, req.params.id, req.body.transferTo);
+      kick.forEach((id) => hub.kick(id));
+      hub.emitAll(events);
+      return reply.code(204).send(null);
     },
   );
 
   r.post(
     '/api/admin/users/:id/reset-password',
     { schema: { params: idParamSchema, response: { 201: resetCreatedSchema, ...err } } },
-    async (req, reply) => {
-      try {
-        const { token, expiresAt, username } = await svc.createReset(
-          db,
-          req.user.id,
-          req.params.id,
-        );
-        await audit(db, req.user, 'user.reset_link', `user:${username}`);
-        return reply.code(201).send({ token, expiresAt });
-      } catch (e) {
-        return guard(reply, e);
-      }
-    },
+    async (req, reply) => reply.code(201).send(await svc.createReset(req.user, req.params.id)),
   );
 
-  r.get(
-    '/api/admin/boards',
-    { schema: { response: { 200: z.array(adminBoardSchema), ...err } } },
-    async () => svc.listBoards(db),
+  r.get('/api/admin/boards', { schema: { response: { 200: z.array(adminBoardSchema), ...err } } }, async () =>
+    svc.listBoards(),
   );
 
-  // создать доску из админки: она сразу защищена (управлять ею могут только админы)
   r.post(
     '/api/admin/boards',
     { schema: { body: createBoardSchema, response: { 201: adminBoardSchema, ...err } } },
     async (req, reply) => {
-      const board = await createBoard(db, req.body.name, req.user.id, true);
-      hub.emit({ type: 'boards', by: req.user.id });
-      await audit(db, req.user, 'board.create', `board:${board.id}`, { name: board.name });
-      return reply.code(201).send((await svc.listBoards(db)).find((b) => b.id === board.id)!);
+      const { board, events } = await svc.createBoard(req.user, req.body.name);
+      hub.emitAll(events);
+      return reply.code(201).send(board);
     },
   );
 
-  // включить/снять защиту доски
   r.patch(
     '/api/admin/boards/:id',
-    {
-      schema: {
-        params: idParamSchema,
-        body: updateAdminBoardSchema,
-        response: { 200: adminBoardSchema, ...err },
-      },
+    { schema: { params: idParamSchema, body: updateAdminBoardSchema, response: { 200: adminBoardSchema, ...err } } },
+    async (req) => {
+      const { board, events } = await svc.setBoardManaged(req.user, req.params.id, req.body.managedByAdmin);
+      hub.emitAll(events);
+      return board;
     },
-    async (req, reply) => {
-      try {
-        const row = await svc.setBoardManaged(db, req.params.id, req.body.managedByAdmin);
-        hub.emit({ type: 'boards', by: req.user.id });
-        hub.emit({ type: 'board', boardId: row.id, by: req.user.id });
-        await audit(
-          db,
-          req.user,
-          req.body.managedByAdmin ? 'board.protect' : 'board.unprotect',
-          `board:${row.id}`,
-        );
-        return (await svc.listBoards(db)).find((b) => b.id === row.id)!;
-      } catch (e) {
-        return guard(reply, e);
-      }
-    },
+  );
+
+  r.get('/api/admin/notify-settings', { ...admin, schema: { response: { 200: notifySettingsSchema, ...err } } }, () => svc.getNotifySettings());
+
+  r.put(
+    '/api/admin/notify-settings',
+    { ...admin, schema: { body: notifySettingsSchema, response: { 200: notifySettingsSchema, ...err } } },
+    (req) => svc.setNotifySettings(req.user, req.body),
+  );
+
+  r.get('/api/admin/chat-settings', { ...admin, schema: { response: { 200: chatSettingsSchema, ...err } } }, () => svc.getChatSettings());
+
+  r.put(
+    '/api/admin/chat-settings',
+    { ...admin, schema: { body: chatSettingsSchema, response: { 200: chatSettingsSchema, ...err } } },
+    (req) => svc.setChatSettings(req.user, req.body),
   );
 
   r.get(
     '/api/admin/audit',
-    {
-      schema: {
-        querystring: auditQuerySchema,
-        response: { 200: z.array(auditEntrySchema), ...err },
-      },
-    },
+    { ...admin, schema: { querystring: auditQuerySchema, response: { 200: z.array(auditEntrySchema), ...err } } },
     async (req) => listAudit(db, req.query.limit, req.query.before),
   );
 }

@@ -104,7 +104,7 @@ export async function authRoutes(app: FastifyInstance, opts: { db: Db; config: C
       const wait = throttle.retryAfter(key);
       if (wait) {
         reply.header('retry-after', wait);
-        return reply.code(429).send({ error: 'too many attempts, try again later' });
+        return reply.code(429).send({ error: 'слишком много попыток, попробуйте позже' });
       }
       try {
         const row = await verifyLogin(db, username, password);
@@ -124,7 +124,7 @@ export async function authRoutes(app: FastifyInstance, opts: { db: Db; config: C
     { ...limit, schema: { response: { 200: meSchema, 401: apiErrorSchema, 429: apiErrorSchema } } },
     async (req, reply) => {
       const token = req.cookies[REFRESH_COOKIE];
-      if (!token) return reply.code(401).send({ error: 'not authenticated' });
+      if (!token) return reply.code(401).send({ error: 'не выполнен вход' });
       try {
         const s = await refreshSession(db, secret, token, req.headers['user-agent']);
         setCookies(reply, s);

@@ -42,10 +42,10 @@ export function useSubtaskMutations(taskId: number, boardId: number) {
   });
 
   const update = useMutation({
-    mutationFn: (v: { id: number; title?: string; done?: boolean }) =>
-      api<Subtask>(API_ENDPOINTS.SUBTASK_ITEM(v.id), { method: 'PATCH', body: { title: v.title, done: v.done } }),
+    mutationFn: (v: { id: number; title?: string; done?: boolean; assigneeId?: number | null }) =>
+      api<Subtask>(API_ENDPOINTS.SUBTASK_ITEM(v.id), { method: 'PATCH', body: { title: v.title, done: v.done, assigneeId: v.assigneeId } }),
     onMutate: (v) =>
-      optimistic((list) => list.map((s) => (s.id === v.id ? { ...s, ...(v.title !== undefined && { title: v.title }), ...(v.done !== undefined && { done: v.done }) } : s)))(),
+      optimistic((list) => list.map((s) => (s.id === v.id ? { ...s, ...(v.title !== undefined && { title: v.title }), ...(v.done !== undefined && { done: v.done }), ...(v.assigneeId !== undefined && { assigneeId: v.assigneeId }) } : s)))(),
     onError: rollback,
     onSettled: refresh,
   });

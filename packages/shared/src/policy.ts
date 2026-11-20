@@ -32,13 +32,28 @@ export const DEFAULT_TASK_POLICY: TaskPolicy = {
   lockDueDate: false,
   lockMove: false,
   commentsLocked: false,
-  subtasks: 'free',
+  // редактор трогает только свои пункты (созданные или назначенные ему); «free» — всё в задаче, его владелец включает сам
+  subtasks: 'check_and_add',
 };
 
 export const transferOwnerSchema = z.object({ userId: z.number().int() });
 
-/** Кто действует: роль на доске и является ли owner задачи */
-export type TaskActor = { role: BoardRole | null | undefined; isOwner: boolean };
+/** Кто действует: роль на доске, owner ли он задачи и «свой» ли он в ней (автор или ответственный) */
+export type TaskActor = { role: BoardRole | null | undefined; isOwner: boolean; involved?: boolean };
+
+/** Действующее лицо по задаче: автор — owner задачи; автор и ответственные — «свои» в ней */
+export function taskActor(task: { authorId: number; assigneeIds: number[] }, userId: number, role: BoardRole | null | undefined): TaskActor {
+  const isOwner = task.authorId === userId;
+  return { role, isOwner, involved: isOwner || task.assigneeIds.includes(userId) };
+}
+
+/**
+ * Править задачу и работать с её подзадачами/файлами. Редактор — только в «своих» задачах (автор или ответственный),
+ * в чужих он видит и комментирует; владелец доски и админ — везде.
+ */
+export function canEditTask(a: TaskActor): boolean {
+  return roleCan(a.role, 'editTask') && (a.role === 'owner' || a.isOwner || !!a.involved);
+}
 
 export type PolicyField = 'title' | 'description' | 'assignee' | 'dueDate' | 'move';
 const FIELD_LOCK: Record<PolicyField, keyof TaskPolicy> = {
@@ -58,29 +73,27 @@ export function isPolicyExempt(a: TaskActor): boolean {
 export const canManageTask = isPolicyExempt;
 
 export function canEditField(policy: TaskPolicy, a: TaskActor, field: PolicyField): boolean {
-  return roleCan(a.role, 'editTask') && (isPolicyExempt(a) || !policy[FIELD_LOCK[field]]);
+  return canEditTask(a) && (isPolicyExempt(a) || !policy[FIELD_LOCK[field]]);
 }
 
 export function canAddSubtask(policy: TaskPolicy, a: TaskActor): boolean {
-  return roleCan(a.role, 'editTask') && (isPolicyExempt(a) || policy.subtasks !== 'check_only');
+  return canEditTask(a) && (isPolicyExempt(a) || policy.subtasks !== 'check_only');
 }
 
-/** Отметка «сделано» доступна всем, кто может редактировать задачи */
-export function canCheckSubtask(a: TaskActor): boolean {
-  return roleCan(a.role, 'editTask');
-}
+type SubtaskOwnership = { createdBy: number | null; assigneeId: number | null };
 
 /**
- * Переименовать или удалить пункт. Вне режима free редактор трогает только пункты, которые добавил сам;
- * пункты owner задачи (и пункты без известного автора) защищены. Обходящие политику — без ограничений.
+ * Менять пункт (отметить, переименовать, назначить, удалить). Владелец доски, админ и owner задачи — любой;
+ * в режиме `free` — любой «свой» в задаче; иначе редактор — только пункты, которые создал или которые назначены ему.
  */
-export function canChangeSubtask(policy: TaskPolicy, a: TaskActor, createdBy: number | null, userId: number): boolean {
-  if (!roleCan(a.role, 'editTask')) return false;
+export function canChangeSubtask(policy: TaskPolicy, a: TaskActor, s: SubtaskOwnership, userId: number): boolean {
+  if (!canEditTask(a)) return false;
   if (isPolicyExempt(a) || policy.subtasks === 'free') return true;
-  return createdBy !== null && createdBy === userId;
+  return s.createdBy === userId || s.assigneeId === userId;
 }
 
-/** Удаление подчиняется тем же правилам, что и переименование */
+/** Отметка «сделано» и удаление подчиняются тому же правилу, что и переименование */
+export const canCheckSubtask = canChangeSubtask;
 export const canDeleteSubtask = canChangeSubtask;
 
 export function canCommentOn(policy: TaskPolicy, a: TaskActor): boolean {

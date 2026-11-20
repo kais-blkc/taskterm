@@ -184,14 +184,14 @@ describe('auth (JWT + refresh)', () => {
     await app.close();
     await start({ adminUsername: 'root', adminPassword: 'rootpass1', adminEmail: 'root@example.com' });
     const login = await post('/api/auth/login', { username: 'root', password: 'rootpass1' });
-    expect(login.json()).toMatchObject({ role: 'admin', email: 'root@example.com' });
+    expect(login.json()).toMatchObject({ role: 'owner', email: 'root@example.com' });
 
     await signup();
     await app.db.update(users).set({ role: 'member' }).where(eq(users.username, 'root'));
     const log = { info: () => {}, warn: () => {} };
     await ensureAdmin(app.db, loadConfig({ adminUsername: 'alice' }), log);
     const [alice] = await app.db.select().from(users).where(eq(users.username, 'alice'));
-    expect(alice!.role).toBe('admin');
+    expect(alice!.role).toBe('owner');
   });
 
   it('ensureAdmin does nothing when an admin already exists', async () => {

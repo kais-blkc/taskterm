@@ -1,8 +1,10 @@
-import type { PgDatabase } from 'drizzle-orm/pg-core';
+import { eq, type InferSelectModel } from 'drizzle-orm';
+import type { PgColumn, PgDatabase, PgTable } from 'drizzle-orm/pg-core';
 import type { PgQueryResultHKT } from 'drizzle-orm/pg-core';
 import { drizzle as drizzlePg } from 'drizzle-orm/postgres-js';
 import { migrate as migratePg } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
+import { NotFoundError } from '../errors';
 import * as schema from './schema';
 
 /** Общий тип для обоих драйверов (postgres-js в проде, pglite в тестах) и для транзакций */
@@ -46,4 +48,47 @@ export async function createDb(url: string, migrationsFolder: string): Promise<D
 /** Первая строка результата (аналог .get() из better-sqlite3) */
 export function first<T>(rows: T[]): T | undefined {
   return rows[0];
+}
+
+/** Привязывает `db` к набору функций `(db, ...args)`: сервис создаётся один раз, вызовы без `db` */
+export type BoundDb<F> = {
+  [K in keyof F]: F[K] extends (db: Db, ...args: infer A) => infer R ? (...args: A) => R : never;
+};
+export function bindDb<F extends Record<string, (db: Db, ...args: never[]) => unknown>>(
+  db: Db,
+  fns: F,
+): BoundDb<F> {
+  return Object.fromEntries(
+    Object.entries(fns).map(([k, fn]) => [
+      k,
+      (...args: unknown[]) => (fn as (...a: unknown[]) => unknown)(db, ...args),
+    ]),
+  ) as BoundDb<F>;
+}
+
+/** Сообщения «не найдено» по имени сущности (род в русском разный, поэтому готовые фразы) */
+const NOT_FOUND: Record<string, string> = {
+  task: 'задача не найдена',
+  board: 'доска не найдена',
+  column: 'колонка не найдена',
+  subtask: 'подзадача не найдена',
+  comment: 'комментарий не найден',
+  user: 'пользователь не найден',
+};
+
+/** Строка по id или 404 с русским сообщением («задача не найдена») */
+export async function byId<T extends PgTable & { id: PgColumn }>(
+  db: Db,
+  table: T,
+  id: number,
+  what: string,
+): Promise<InferSelectModel<T>> {
+  const row = first(
+    await db
+      .select()
+      .from(table as PgTable)
+      .where(eq(table.id, id)),
+  );
+  if (!row) throw new NotFoundError(NOT_FOUND[what] ?? `${what}: не найдено`);
+  return row as InferSelectModel<T>;
 }

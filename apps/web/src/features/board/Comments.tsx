@@ -4,63 +4,21 @@ import { LockHint } from '../../components/Icon';
 import { useCommentMutations, useComments } from '../../api/tasks';
 import { useUsers } from '../../api/users';
 import { Markdown } from '../../components/Markdown';
+import { MessageForm } from '../../components/MessageForm';
 import { UserTag } from '../../components/UserTag';
 import { formatDateTime } from '../../lib/dates';
 import { confirmDialog } from '../../stores/confirm';
 
-function CommentForm({
-  initial = '',
-  submitLabel,
-  onSubmit,
-  onCancel,
-  pending,
-}: {
-  initial?: string;
-  submitLabel: string;
-  onSubmit: (body: string) => void;
-  onCancel?: () => void;
-  pending?: boolean;
-}) {
-  const [value, setValue] = useState(initial);
-  const send = () => {
-    if (value.trim() && !pending) {
-      onSubmit(value.trim());
-      if (!onCancel) setValue('');
-    }
-  };
-  return (
-    <div className="comment-form space-y-2">
-      <textarea
-        value={value}
-        rows={3}
-        placeholder="comment (markdown), ctrl+enter — отправить"
-        onChange={(e) => setValue(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) send();
-          if (e.key === 'Escape') onCancel?.();
-        }}
-        className="block w-full resize-y border border-line bg-bg px-2 py-1 outline-none focus:border-accent"
-      />
-      <div className="flex gap-2">
-        <button type="button" onClick={send} disabled={pending} className="btn btn-primary">
-          {submitLabel}
-        </button>
-        {onCancel && (
-          <button type="button" onClick={onCancel} className="btn">
-            cancel
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
+const COMMENT_PLACEHOLDER = 'комментарий (markdown), ctrl+enter — отправить';
 
 function CommentItem({
   c,
   canEdit,
   canDelete,
   taskId,
+  onSent,
 }: {
+  onSent?: () => void;
   c: Comment;
   canEdit: boolean;
   canDelete: boolean;
@@ -80,7 +38,7 @@ function CommentItem({
           <span className="flex gap-2">
             {canEdit && (
               <button type="button" onClick={() => setEditing(true)} className="btn">
-                edit
+                изменить
               </button>
             )}
             {canDelete && <button
@@ -92,18 +50,20 @@ function CommentItem({
               }}
               className="btn btn-danger"
             >
-              delete
+              удалить
             </button>}
           </span>
         )}
       </div>
       {editing ? (
-        <CommentForm
+        <MessageForm
+          className="comment-form"
+          placeholder={COMMENT_PLACEHOLDER}
           initial={c.body}
-          submitLabel="save"
+          submitLabel="сохранить"
           pending={m.edit.isPending}
           onCancel={() => setEditing(false)}
-          onSubmit={(body) => m.edit.mutate({ id: c.id, body }, { onSuccess: () => setEditing(false) })}
+          onSubmit={(body) => m.edit.mutate({ id: c.id, body }, { onSuccess: () => { setEditing(false); onSent?.(); } })}
         />
       ) : (
         <Markdown>{c.body}</Markdown>
@@ -118,15 +78,18 @@ export function Comments({
   canComment,
   commentsLocked = false,
   canModerate,
+  onSent,
 }: {
   taskId: number;
   userId: number;
   /** писать комментарии, править и удалять свои */
   canComment: boolean;
-  /** owner задачи закрыл комментарии для остальных */
+  /** владелец задачи закрыл комментарии для остальных */
   commentsLocked?: boolean;
   /** удалять чужие (владелец доски) */
   canModerate: boolean;
+  /** после успешной отправки комментария (модалка задачи сворачивается) */
+  onSent?: () => void;
 }) {
   const { data, isLoading, error } = useComments(taskId);
   const m = useCommentMutations(taskId);
@@ -134,16 +97,17 @@ export function Comments({
     <section className="comments mt-8 space-y-3">
       <h3>
         ## comments {data && <span className="text-muted">({data.length})</span>}
-        {commentsLocked && <LockHint className="ml-2" text="owner задачи закрыл новые комментарии" />}
+        {commentsLocked && <LockHint className="ml-2" text="владелец задачи закрыл новые комментарии" />}
       </h3>
-      {isLoading && <p className="text-muted">loading...</p>}
-      {error && <p className="text-danger">! failed to load comments</p>}
+      {isLoading && <p className="text-muted">Загрузка…</p>}
+      {error && <p className="text-danger">! не удалось загрузить комментарии</p>}
       <ul className="comments-list space-y-2">
         {data?.map((c) => (
           <CommentItem
             key={c.id}
             c={c}
             taskId={taskId}
+            onSent={onSent}
             canEdit={canComment && c.authorId === userId}
             canDelete={(canComment && c.authorId === userId) || canModerate}
           />
@@ -151,7 +115,7 @@ export function Comments({
       </ul>
       {m.add.error && <p className="text-danger">! {m.add.error.message}</p>}
       {canComment ? (
-        <CommentForm submitLabel="send" pending={m.add.isPending} onSubmit={(body) => m.add.mutate(body)} />
+        <MessageForm className="comment-form" placeholder={COMMENT_PLACEHOLDER} submitLabel="отправить" pending={m.add.isPending} onSubmit={(body) => m.add.mutate(body, { onSuccess: onSent })} />
       ) : (
         !commentsLocked && <p className="text-muted text-[14px]">// у тебя роль «наблюдатель» — комментировать нельзя</p>
       )}

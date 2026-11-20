@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { notificationsSupported, useNotifyStore } from '../stores/notifications';
+import { NavButton } from './nav/NavButton';
 
 export function NotifyToggle() {
   const { enabled, setEnabled } = useNotifyStore();
@@ -17,14 +18,16 @@ export function NotifyToggle() {
   };
 
   return (
-    <button
-      type="button"
-      onClick={toggle}
+    <NavButton
+      icon="bell"
+      label="уведомления"
+      aria-pressed={on}
+      badge={<span className="notify-state ml-1 text-muted">{on ? 'вкл' : 'выкл'}</span>}
+      title={denied ? 'уведомления заблокированы в настройках браузера' : 'уведомления о комментариях и чате'}
+      active={on}
       disabled={denied}
-      title={denied ? 'уведомления заблокированы в настройках браузера' : 'уведомления о комментариях'}
-      className={`notify-toggle btn ${on ? 'btn-active' : ''} disabled:cursor-not-allowed disabled:line-through`}
-    >
-      notify: {on ? 'on' : 'off'}
-    </button>
+      className={`notify-toggle ${denied ? 'line-through' : ''}`}
+      onClick={toggle}
+    />
   );
 }

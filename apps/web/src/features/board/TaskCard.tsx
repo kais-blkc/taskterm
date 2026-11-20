@@ -12,6 +12,7 @@ export function TaskCardView({
   assignees,
   mine,
   stat,
+  attachments,
   finished,
 }: {
   task: Task;
@@ -19,6 +20,8 @@ export function TaskCardView({
   assignees: User[];
   mine?: boolean;
   stat?: SubtaskStat;
+  /** сколько файлов прикреплено */
+  attachments?: number;
   /** задача в последней колонке — дедлайн больше не горит */
   finished?: boolean;
 }) {
@@ -53,6 +56,12 @@ export function TaskCardView({
               ⏱ {due.label}
             </span>
           )}
+        {!!attachments && (
+          <span title="файлы" className="task-card-files">
+            <Icon name="clip" className="mr-1 align-[-0.125em]" />
+            {attachments}
+          </span>
+        )}
         {stat && (
           <span title="подзадачи" className={stat.done === stat.total ? 'text-accent' : ''}>
             <Icon name="checklist" className="mr-1 align-[-0.125em]" />
@@ -61,6 +70,17 @@ export function TaskCardView({
         )}
         </span>
       </div>
+      {!!stat?.assignees.length && (
+        // кому какие подзадачи: «бэк 2/5, фронт 1/3» (исполнители подзадач всегда среди ответственных задачи)
+        <div className="task-card-subtask-owners mt-1 flex flex-wrap gap-x-2 text-xs text-muted" title="подзадачи по исполнителям: сделано/всего">
+          {stat.assignees.slice(0, 3).map((a) => (
+            <span key={a.userId} className="task-card-subtask-owner">
+              <UserTag user={assignees.find((u) => u.id === a.userId)} fallback="?" /> <span className={a.done === a.total ? 'text-accent' : ''}>{a.done}/{a.total}</span>
+            </span>
+          ))}
+          {stat.assignees.length > 3 && <span>+{stat.assignees.length - 3}</span>}
+        </div>
+      )}
     </div>
   );
 }
@@ -70,6 +90,7 @@ export function TaskCard({
   assignees,
   mine,
   stat,
+  attachments,
   finished,
   selected,
   canDrag,
@@ -81,6 +102,7 @@ export function TaskCard({
   assignees: User[];
   mine?: boolean;
   stat?: SubtaskStat;
+  attachments?: number;
   finished?: boolean;
   selected?: boolean;
   canDrag: boolean;
@@ -103,10 +125,10 @@ export function TaskCard({
       {...attributes}
       {...listeners}
     >
-      <TaskCardView task={task} assignees={assignees} mine={mine} stat={stat} finished={finished} />
+      <TaskCardView task={task} assignees={assignees} mine={mine} stat={stat} attachments={attachments} finished={finished} />
       {canDelete && <button
         type="button"
-        title="delete"
+        title="удалить"
         onPointerDown={(e) => e.stopPropagation()}
         onClick={async (e) => {
           e.stopPropagation();

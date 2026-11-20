@@ -19,9 +19,9 @@ export function ResetPage() {
   return (
     <main className="reset-page mx-auto mt-10 max-w-sm sm:mt-24 px-4">
       <h1 className="page-title mb-6">
-        <span className="text-muted">$</span> taskterm reset <span className="cursor" />
+        <span className="text-muted">$</span> taskterm · сброс пароля <span className="cursor" />
       </h1>
-      {check.isLoading && <p className="reset-loading text-muted">loading...</p>}
+      {check.isLoading && <p className="reset-loading text-muted">Загрузка…</p>}
       {(!token || check.isError) && !check.isLoading && (
         <div className="reset-invalid space-y-3">
           <p className="text-danger">! {unavailable ? 'сервер недоступен, попробуй позже' : 'ссылка недействительна или просрочена'}</p>
@@ -43,7 +43,7 @@ export function ResetPage() {
             Новый пароль для <span className="text-fg">@{check.data.username}</span>
           </p>
           <label className="form-field block">
-            <span className="text-muted">password:</span>
+            <span className="text-muted">новый пароль:</span>
             <input
               type="password"
               autoComplete="new-password"
@@ -54,7 +54,7 @@ export function ResetPage() {
             {password !== '' && !parsed.success && <span className="text-danger">! от 6 до 128 символов</span>}
           </label>
           <label className="form-field block">
-            <span className="text-muted">repeat:</span>
+            <span className="text-muted">повтор:</span>
             <input
               type="password"
               autoComplete="new-password"

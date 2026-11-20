@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { COLOR_MIN_DISTANCE, USER_PALETTE, colorDistance, type User } from '@taskterm/shared';
 import { useSetColor, useUsers } from '../api/users';
+import { usePopupStyle } from '../lib/usePopupStyle';
+import { NavButton } from './nav/NavButton';
+import { useNav } from './nav/NavContext';
 import { TelegramSection } from './TelegramSection';
 import { UserTag } from './UserTag';
 
@@ -10,6 +13,8 @@ export function ProfileMenu({ user }: { user: User }) {
   const users = useUsers();
   const setColor = useSetColor();
   const others = (users.data ?? []).filter((u) => u.id !== user.id);
+  const { position } = useNav();
+  const { popup, style, floating } = usePopupStyle(open, root, position);
 
   useEffect(() => {
     if (!open) return;
@@ -24,12 +29,23 @@ export function ProfileMenu({ user }: { user: User }) {
 
   return (
     <div ref={root} className="profile-menu relative">
-      <button type="button" onClick={() => setOpen(!open)} title="сменить цвет">
-        <UserTag user={user} />
-      </button>
+      <NavButton
+        icon="user"
+        label={`@${user.username}`}
+        title="профиль: цвет, Telegram"
+        content={<UserTag user={user} />}
+        active={open}
+        aria-expanded={open}
+        className="profile-button !border-transparent"
+        onClick={() => setOpen(!open)}
+      />
       {open && <div className="modal-backdrop" onMouseDown={() => setOpen(false)} />}
       {open && (
-        <div className="modal-popup profile-menu-popup absolute right-0 z-20 mt-2 w-64 space-y-3 border border-line bg-elev p-3 shadow-lg">
+        <div
+          ref={popup}
+          style={style}
+          className={`modal-popup profile-menu-popup z-30 w-64 space-y-3 border border-line bg-elev p-3 shadow-lg ${floating ? '' : 'absolute right-0 z-20 mt-2'}`}
+        >
           <div className="text-muted">твой цвет</div>
           <div className="profile-color-grid grid grid-cols-8 gap-1.5">
             {USER_PALETTE.map((c) => {

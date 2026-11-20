@@ -48,7 +48,7 @@ export function ColumnNotifyDialog({
         <div className="flex items-center justify-between gap-2">
           <h2 className="min-w-0 break-words">## уведомления: {column.name}</h2>
           <button type="button" className="btn btn-danger" onClick={onClose}>
-            close <span className="text-muted">esc</span>
+            закрыть <span className="text-muted">esc</span>
           </button>
         </div>
 
@@ -59,7 +59,7 @@ export function ColumnNotifyDialog({
 
         <div className={on ? '' : 'pointer-events-none opacity-40'}>
           <p className="mb-1 text-muted">кому отправлять:</p>
-          {members.isLoading && <p className="text-muted">loading...</p>}
+          {members.isLoading && <p className="text-muted">Загрузка…</p>}
           <ul className="column-notify-users max-h-64 space-y-1 overflow-y-auto">
             {(members.data ?? []).map((u) => (
               <li key={u.id}>
@@ -85,10 +85,10 @@ export function ColumnNotifyDialog({
               onClose();
             }}
           >
-            save
+            сохранить
           </button>
           <button type="button" className="btn" onClick={onClose}>
-            cancel
+            отмена
           </button>
         </div>
       </div>

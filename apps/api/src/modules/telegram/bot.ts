@@ -21,10 +21,19 @@ export function formatNotification(e: NotifyEvent, boardName: string, publicUrl?
     `<b>Задача:</b> #${e.taskNumber} ${escapeHtml(e.taskTitle)}`,
     e.kind === 'assigned'
       ? `<b>Действие:</b> вас назначили ответственным (@${escapeHtml(e.authorName)})`
-      : e.kind === 'moved'
-        ? `<b>Действие:</b> @${escapeHtml(e.authorName)} перенёс(ла) задачу в «${escapeHtml(e.columnName ?? '')}»`
-        : `<b>Действие:</b> новый комментарий от @${escapeHtml(e.authorName)}`,
+      : e.kind === 'unassigned'
+        ? `<b>Действие:</b> вас сняли с задачи (@${escapeHtml(e.authorName)})`
+        : e.kind === 'subtask_assigned'
+          ? `<b>Действие:</b> вас назначили исполнителем подзадачи (@${escapeHtml(e.authorName)})`
+          : e.kind === 'subtask_unassigned'
+            ? `<b>Действие:</b> вас сняли с подзадачи (@${escapeHtml(e.authorName)})`
+            : e.kind === 'subtask_done'
+          ? `<b>Действие:</b> @${escapeHtml(e.authorName)} отметил(а) подзадачу выполненной`
+          : e.kind === 'moved'
+            ? `<b>Действие:</b> @${escapeHtml(e.authorName)} перенёс(ла) задачу в «${escapeHtml(e.columnName ?? '')}»`
+            : `<b>Действие:</b> новый комментарий от @${escapeHtml(e.authorName)}`,
   ];
+  if ((e.kind === 'subtask_done' || e.kind === 'subtask_assigned' || e.kind === 'subtask_unassigned') && e.snippet) lines.push(`<b>Подзадача:</b> ${escapeHtml(e.snippet)}`);
   if (e.kind === 'comment' && e.snippet) lines.push(`<b>Комментарий:</b> ${escapeHtml(e.snippet)}`);
   if (publicUrl) lines.push(`${publicUrl}/b/${e.boardId}/t/${e.taskId}`);
   return lines.join('\n');
@@ -71,19 +80,20 @@ export function createTelegramBot(opts: { db: Db; api: TelegramApi; hub: EventHu
     const targets = await deliverableChats(db, e.recipients, e.boardId);
     const board = first(await db.select({ name: boards.name }).from(boards).where(eq(boards.id, e.boardId)));
     const text = formatNotification(e, board?.name ?? `#${e.boardId}`, publicUrl);
-    await Promise.all(
-      targets.map(async (t) => {
-        try {
-          await api.sendMessage(t.chatId, text);
-        } catch (err) {
-          if (err instanceof TelegramError && err.chatGone) {
-            await unlinkChat(db, t.chatId); // бот заблокирован — больше не пишем
-          } else {
-            log.warn(`telegram: send failed: ${(err as Error).message}`);
-          }
-        }
-      }),
-    );
+    await Promise.all(targets.map((t) => deliver(t.chatId, text)));
+  }
+
+  /** Одно сообщение в чат пользователя; заблокировали бота — отвязываем, прочие ошибки — в лог. Общая для уведомлений и сводок. */
+  async function deliver(chatId: string, text: string) {
+    try {
+      await api.sendMessage(chatId, text);
+    } catch (err) {
+      if (err instanceof TelegramError && err.chatGone) {
+        await unlinkChat(db, chatId); // бот заблокирован — больше не пишем
+      } else {
+        log.warn(`telegram: send failed: ${(err as Error).message}`);
+      }
+    }
   }
 
   async function pollLoop() {
@@ -110,6 +120,8 @@ export function createTelegramBot(opts: { db: Db; api: TelegramApi; hub: EventHu
   return {
     handleUpdate,
     notify,
+    /** произвольное сообщение в привязанный чат (сводки чата и т. п.) */
+    deliver,
     /** username бота (кэшируется) */
     async getUsername() {
       username ??= (await api.getMe()).username;

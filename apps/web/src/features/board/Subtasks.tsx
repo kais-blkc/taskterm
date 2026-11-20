@@ -5,7 +5,7 @@ import {
   canAddSubtask,
   canChangeSubtask,
   canDeleteSubtask,
-  canCheckSubtask,
+  canEditTask,
   isPolicyExempt,
   parseChecklist,
   type Subtask,
@@ -13,7 +13,13 @@ import {
   type TaskActor,
 } from '@taskterm/shared';
 import { Icon, LockHint } from '../../components/Icon';
+import { useMembers } from '../../api/boards';
 import { useSubtaskMutations, useSubtasks } from '../../api/subtasks';
+import { useUsers } from '../../api/users';
+import { Select, type SelectOption } from '../../components/Select';
+import { ColorDot, UserTag } from '../../components/UserTag';
+
+const NONE = '__none';
 
 function Progress({ done, total }: { done: number; total: number }) {
   const cells = 10;
@@ -32,8 +38,10 @@ function SubtaskRow({
   canToggle,
   canChange,
   canDelete,
+  assigneeOptions,
   onToggle,
   onRename,
+  onAssign,
   onRemove,
 }: {
   s: Subtask;
@@ -42,11 +50,15 @@ function SubtaskRow({
   canToggle: boolean;
   canChange: boolean;
   canDelete: boolean;
+  /** кого можно назначить; undefined — назначать нельзя (покажем только текущего исполнителя) */
+  assigneeOptions?: SelectOption[];
   onToggle: () => void;
   onRename: (title: string) => void;
+  onAssign: (userId: number | null) => void;
   onRemove: () => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const users = useUsers();
   return (
     <li className="subtask group flex items-start gap-2 border border-transparent px-1 py-1.5 hover:border-line">
       <span className="subtask-number w-6 shrink-0 select-none text-right tabular-nums text-muted">{index}.</span>
@@ -108,6 +120,21 @@ function SubtaskRow({
           {s.title}
         </span>
       )}
+      {assigneeOptions ? (
+        <Select
+          className="subtask-assignee-select w-40 shrink-0"
+          value={s.assigneeId != null ? String(s.assigneeId) : ''}
+          placeholder="+ исполнитель"
+          options={s.assigneeId != null ? [{ value: NONE, label: '— снять —' }, ...assigneeOptions] : assigneeOptions}
+          onChange={(v) => onAssign(v === NONE ? null : Number(v))}
+        />
+      ) : (
+        s.assigneeId != null && (
+          <span className="subtask-assignee shrink-0 border border-line px-1.5 text-[14px]">
+            <UserTag user={users.byId.get(s.assigneeId)} />
+          </span>
+        )
+      )}
       {canDelete && <button
         type="button"
         title="удалить подзадачу"
@@ -122,15 +149,24 @@ function SubtaskRow({
 
 export function Subtasks({ task, boardId, actor, userId }: { task: Task; boardId: number; actor: TaskActor; userId: number }) {
   const taskId = task.id;
-  const canCheck = canCheckSubtask(actor);
+  const canEditHere = canEditTask(actor);
   const canAdd = canAddSubtask(task.policy, actor);
-  const restricted = canCheck && !isPolicyExempt(actor) && task.policy.subtasks !== 'free';
+  const restricted = canEditHere && !isPolicyExempt(actor) && task.policy.subtasks !== 'free';
   const { data, isLoading, error } = useSubtasks(taskId);
   const m = useSubtaskMutations(taskId, boardId);
+  const members = useMembers(boardId);
   const [title, setTitle] = useState('');
   const [listMode, setListMode] = useState(false);
   const [text, setText] = useState('');
 
+  // назначить можно любого участника доски; ответственные задачи — первыми, остальные станут ответственными после назначения
+  const assigneeOptions: SelectOption[] = [...(members.data ?? [])]
+    .sort((a, b) => Number(task.assigneeIds.includes(b.id)) - Number(task.assigneeIds.includes(a.id)))
+    .map((u) => ({
+      value: String(u.id),
+      label: `@${u.username}${u.id === userId ? ' (я)' : ''}${task.assigneeIds.includes(u.id) ? '' : ' (+ в задачу)'}`,
+      icon: <ColorDot color={u.color} />,
+    }));
   const done = data?.filter((s) => s.done).length ?? 0;
   const total = data?.length ?? 0;
   const parsed = useMemo(() => parseChecklist(text), [text]);
@@ -153,18 +189,18 @@ export function Subtasks({ task, boardId, actor, userId }: { task: Task; boardId
     <section className="subtasks mt-8 space-y-2">
       <h3 className="flex flex-wrap items-center justify-between gap-2">
         <span>
-          ## subtasks
+          ## подзадачи
           {restricted && (
             <LockHint
               className="ml-2"
-              text={`owner задачи ограничил подзадачи: ${SUBTASK_MODE_LABELS[task.policy.subtasks]}. Пункты owner задачи менять и удалять нельзя`}
+              text={`режим подзадач: ${SUBTASK_MODE_LABELS[task.policy.subtasks]}. Менять можно только свои пункты (созданные тобой или назначенные тебе)`}
             />
           )}
         </span>
         {total > 0 && <Progress done={done} total={total} />}
       </h3>
-      {isLoading && <p className="text-muted">loading...</p>}
-      {error && <p className="text-danger">! failed to load subtasks</p>}
+      {isLoading && <p className="text-muted">Загрузка…</p>}
+      {error && <p className="text-danger">! не удалось загрузить подзадачи</p>}
       {data && data.length === 0 && <p className="text-muted text-[14px]">// подзадач нет</p>}
       <ul className="subtasks-list space-y-1.5">
         {data?.map((s, i) => (
@@ -172,9 +208,11 @@ export function Subtasks({ task, boardId, actor, userId }: { task: Task; boardId
             key={s.id}
             s={s}
             index={i + 1}
-            canToggle={canCheck}
-            canChange={canChangeSubtask(task.policy, actor, s.createdBy, userId)}
-            canDelete={canDeleteSubtask(task.policy, actor, s.createdBy, userId)}
+            canToggle={canChangeSubtask(task.policy, actor, s, userId)}
+            canChange={canChangeSubtask(task.policy, actor, s, userId)}
+            canDelete={canDeleteSubtask(task.policy, actor, s, userId)}
+            assigneeOptions={canChangeSubtask(task.policy, actor, s, userId) ? assigneeOptions : undefined}
+            onAssign={(assigneeId) => m.update.mutate({ id: s.id, assigneeId })}
             onToggle={() => m.update.mutate({ id: s.id, done: !s.done })}
             onRename={(t) => m.update.mutate({ id: s.id, title: t })}
             onRemove={() => m.remove.mutate(s.id)}
@@ -199,10 +237,10 @@ export function Subtasks({ task, boardId, actor, userId }: { task: Task; boardId
           />
           <div className="flex flex-wrap items-center gap-2">
             <button type="button" className="btn btn-primary" disabled={!parsed.length || m.addMany.isPending} onClick={submitList}>
-              add {parsed.length || ''}
+              добавить {parsed.length || ''}
             </button>
             <button type="button" className="btn" onClick={() => setListMode(false)}>
-              cancel
+              отмена
             </button>
             <span className="text-muted text-[14px]">
               {parsed.length
@@ -238,7 +276,7 @@ export function Subtasks({ task, boardId, actor, userId }: { task: Task; boardId
             className="subtask-add-input min-w-0 flex-1 basis-full border border-line bg-bg px-2 py-1 outline-none focus:border-accent sm:basis-0"
           />
           <button type="submit" disabled={!title.trim()} className="btn">
-            add
+            добавить
           </button>
           <button type="button" className="btn" title="вставить список текстом" onClick={() => setListMode(true)}>
             списком

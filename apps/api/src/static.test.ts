@@ -30,7 +30,7 @@ describe('static SPA serving', () => {
   it('keeps JSON 404 for unknown api paths and still serves api', async () => {
     const res = await app.inject('/api/nope');
     expect(res.statusCode).toBe(404);
-    expect(res.json()).toEqual({ error: 'not found' });
+    expect(res.json()).toEqual({ error: 'не найдено' });
     expect((await app.inject('/api/health')).statusCode).toBe(200);
   });
 });

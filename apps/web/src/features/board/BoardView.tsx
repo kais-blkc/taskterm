@@ -11,12 +11,13 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core';
-import { canDeleteTask, canEditField, roleCan, type BoardFull, type Task } from '@taskterm/shared';
+import { canDeleteTask, canEditField, isAdminRole, roleCan, taskActor, type BoardFull, type Task } from '@taskterm/shared';
 import { useMe } from '../../api/auth';
 import { ROUTES } from '../../consts/routes';
 import { daysUntil } from '../../lib/dates';
 import { isTyping } from '../../lib/keys';
 import { useUiStore } from '../../stores/ui';
+import { useUploadFiles } from '../../api/attachments';
 import { useBoardMutations } from '../../api/boards';
 import { useUsers } from '../../api/users';
 import { InlineAdd } from '../../components/InlineAdd';
@@ -27,6 +28,7 @@ import { TaskCardView } from './TaskCard';
 
 export function BoardView({ data }: { data: BoardFull }) {
   const m = useBoardMutations(data.board.id);
+  const upload = useUploadFiles();
   const navigate = useNavigate();
   const [active, setActive] = useState<Task | null>(null);
   const me = useMe().data;
@@ -34,19 +36,23 @@ export function BoardView({ data }: { data: BoardFull }) {
   const users = useUsers();
   // 'all' | 'me' | 'none' | id исполнителя
   const [filter, setFilter] = useState<string>('all');
+  // режим настройки: стрелки порядка в шапках колонок (временный, не запоминается)
+  const [reordering, setReordering] = useState(false);
   const role = data.board.myRole;
   const canEdit = roleCan(role, 'editTask');
   const canCreate = roleCan(role, 'createTask');
   // доска защищена админом — управлять ею (колонки, участники) могут только админы
   const canManage = data.board.canManage;
-  const canMove = (t: Task) => canEditField(t.policy, { role, isOwner: t.authorId === meId }, 'move');
+  const canMove = (t: Task) => canEditField(t.policy, taskActor(t, meId, role), 'move');
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
     // на телефоне перетаскивание — после долгого нажатия, чтобы не мешать прокрутке
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
   );
 
-  const lastColumnId = data.columns.at(-1)?.id;
+  // колонка «выполнено» (отмечает админ): задачи в ней не считаются просроченными
+  const doneColumnId = data.columns.find((c) => c.isDone)?.id;
+  const attachmentCounts = useMemo(() => new Map(data.attachmentStats.map((s) => [s.taskId, s.count])), [data.attachmentStats]);
   const statsByTask = useMemo(() => new Map(data.subtaskStats.map((s) => [s.taskId, s])), [data.subtaskStats]);
 
   // порядок задач берём из массива (сервер отдаёт по position, optimistic-update сохраняет порядок)
@@ -57,12 +63,12 @@ export function BoardView({ data }: { data: BoardFull }) {
         filter === 'all' ||
         (filter === 'me' && t.assigneeIds.includes(meId)) ||
         (filter === 'none' && t.assigneeIds.length === 0) ||
-        (filter === 'overdue' && !!t.dueDate && t.columnId !== lastColumnId && daysUntil(t.dueDate) < 0) ||
+        (filter === 'overdue' && !!t.dueDate && t.columnId !== doneColumnId && daysUntil(t.dueDate) < 0) ||
         t.assigneeIds.some((id) => String(id) === filter);
       if (ok) map.get(t.columnId)?.push(t);
     }
     return map;
-  }, [data, filter, meId, lastColumnId]);
+  }, [data, filter, meId, doneColumnId]);
 
   // во время перетаскивания курсор «grabbing» по всей странице, а не только над карточкой
   const setDragCursor = (on: boolean) => {
@@ -179,7 +185,7 @@ export function BoardView({ data }: { data: BoardFull }) {
       }}
     >
       <div className="board-filters flex flex-wrap items-center gap-2 px-4 pt-3 text-muted">
-        <span>filter:</span>
+        <span>фильтр:</span>
         {[
           ['all', 'все'],
           ['me', 'мои'],
@@ -198,13 +204,25 @@ export function BoardView({ data }: { data: BoardFull }) {
         <Select
           className="w-40"
           value={/^\d+$/.test(filter) ? filter : ''}
-          placeholder="@user…"
+          placeholder="@пользователь…"
           options={(users.data ?? []).map((u) => ({ value: String(u.id), label: `@${u.username}`, icon: <ColorDot color={u.color} /> }))}
           onChange={setFilter}
         />
+        {canManage && (
+          // режим настройки: в колонках появляются стрелки для смены порядка
+          <button
+            type="button"
+            aria-pressed={reordering}
+            className={`board-settings-button btn ml-auto ${reordering ? 'btn-active' : ''}`}
+            title="поменять колонки местами"
+            onClick={() => setReordering(!reordering)}
+          >
+            настройка
+          </button>
+        )}
       </div>
       <div className="board-columns flex snap-x scroll-px-4 items-start gap-3 overflow-x-auto p-4">
-        {data.columns.map((c) => (
+        {data.columns.map((c, i) => (
           <KanbanColumn
             key={c.id}
             boardId={data.board.id}
@@ -212,25 +230,40 @@ export function BoardView({ data }: { data: BoardFull }) {
             tasks={byColumn.get(c.id) ?? []}
             userNames={users.byId}
             stats={statsByTask}
-            finished={c.id === lastColumnId}
+            attachmentCounts={attachmentCounts}
+            finished={c.id === doneColumnId}
             meId={meId}
             canMove={canMove}
             canCreate={canCreate}
             canManage={canManage}
-            canNotify={me?.role === 'admin'}
+            canNotify={!!me && isAdminRole(me.role)}
+            reordering={reordering && canManage}
+            canMoveLeft={i > 0}
+            canMoveRight={i < data.columns.length - 1}
+            onSetDone={(isDone) => m.setColumnDone.mutate({ id: c.id, isDone })}
+            onMoveColumn={(dir) =>
+              // влево — перед предыдущей; вправо — перед колонкой через одну (после следующей), у последней нет — в конец
+              m.moveColumn.mutate({ id: c.id, beforeId: dir === 'left' ? data.columns[i - 1]!.id : (data.columns[i + 2]?.id ?? null) })
+            }
             canDeleteTask={(t) => canDeleteTask(role, t.authorId === meId)}
             onRename={(name) => m.renameColumn.mutate({ id: c.id, name })}
             onSaveNotify={(v) => m.setColumnNotify.mutate({ id: c.id, ...v })}
             savingNotify={m.setColumnNotify.isPending}
             onDelete={() => m.deleteColumn.mutate(c.id)}
-            onAddTask={(title) => m.addTask.mutate({ columnId: c.id, title })}
+            onAddTask={(title, files) =>
+              m.addTask.mutate(
+                { columnId: c.id, title },
+                // файлы грузятся в фоне после создания; прогресс — плашка слева внизу
+                { onSuccess: (task) => files.length > 0 && void upload(task.id, data.board.id, files, { taskLabel: `#${task.number} ${task.title}` }) },
+              )
+            }
             onDeleteTask={(id) => m.deleteTask.mutate(id)}
             onOpenTask={(id) => navigate(ROUTES.TASK(data.board.id, id))}
           />
         ))}
         {canManage && (
           <div className="board-add-column w-60 shrink-0 pt-1">
-            <InlineAdd label="column" placeholder="column name, enter" onSubmit={(name) => m.addColumn.mutate(name)} />
+            <InlineAdd label="колонка" placeholder="название колонки, enter" onSubmit={(name) => m.addColumn.mutate(name)} />
           </div>
         )}
       </div>
@@ -241,7 +274,7 @@ export function BoardView({ data }: { data: BoardFull }) {
             assignees={active.assigneeIds.flatMap((id) => users.byId.get(id) ?? [])}
             mine={active.assigneeIds.includes(meId)}
             stat={statsByTask.get(active.id)}
-            finished={active.columnId === lastColumnId}
+            finished={active.columnId === doneColumnId}
           />
         )}</DragOverlay>
     </DndContext>

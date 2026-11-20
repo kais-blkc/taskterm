@@ -24,9 +24,9 @@ export function RegisterPage() {
   return (
     <main className="register-page mx-auto mt-10 max-w-sm sm:mt-24 px-4">
       <h1 className="page-title mb-6">
-        <span className="text-muted">$</span> taskterm register <span className="cursor" />
+        <span className="text-muted">$</span> taskterm · регистрация <span className="cursor" />
       </h1>
-      {check.isLoading && <p className="register-loading text-muted">loading...</p>}
+      {check.isLoading && <p className="register-loading text-muted">Загрузка…</p>}
       {invalid && !check.isLoading && (
         <div className="register-invalid space-y-3">
           <p className="text-danger">
@@ -44,7 +44,7 @@ export function RegisterPage() {
             @{check.data.invitedBy} приглашает тебя. Email: <span className="text-fg">{check.data.email}</span>
           </p>
           <label className="form-field block">
-            <span className="text-muted">username:</span>
+            <span className="text-muted">логин:</span>
             <input
               autoComplete="username"
               className="mt-1 block w-full border border-line bg-elev px-2 py-1 text-fg outline-none focus:border-accent"
@@ -53,7 +53,7 @@ export function RegisterPage() {
             {errors.username && <span className="text-danger">! {errors.username.message}</span>}
           </label>
           <label className="form-field block">
-            <span className="text-muted">password:</span>
+            <span className="text-muted">пароль:</span>
             <input
               type="password"
               autoComplete="new-password"
@@ -64,7 +64,7 @@ export function RegisterPage() {
           </label>
           {reg.error && <p className="form-error text-danger">! {reg.error.message}</p>}
           <button type="submit" disabled={reg.isPending} className="register-submit btn btn-primary px-3">
-            {reg.isPending ? '...' : '> create account'}
+            {reg.isPending ? '...' : '> создать аккаунт'}
           </button>
         </form>
       )}

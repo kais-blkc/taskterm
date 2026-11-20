@@ -38,7 +38,7 @@ const LOCKS: { key: Exclude<keyof TaskPolicy, 'subtasks'>; label: string }[] = [
   { key: 'commentsLocked', label: 'писать комментарии' },
 ];
 
-/** Секция «права» задачи: видна owner задачи, владельцу доски и админу */
+/** Секция «права» задачи: видна владельцу задачи, владельцу доски и админу */
 export function TaskRights({ task, boardId }: { task: Task; boardId: number }) {
   const [open, setOpen] = useState(false);
   const setPolicy = useSetPolicy(boardId);
@@ -53,7 +53,7 @@ export function TaskRights({ task, boardId }: { task: Task; boardId: number }) {
     <section className="task-rights mt-8 space-y-2">
       <h3 className="flex flex-wrap items-center justify-between gap-2">
         <span>
-          ## rights{' '}
+          ## права{' '}
           {!isPolicyDefault(p) && <LockHint text="Для редакторов есть ограничения" />}
         </span>
         <button type="button" className="btn" onClick={() => setOpen((v) => !v)}>
@@ -111,7 +111,7 @@ export function TaskRights({ task, boardId }: { task: Task; boardId: number }) {
                   if (!to) return;
                   const ok = await confirmDialog({
                     title: 'Передать владение задачей?',
-                    message: `@${to.username} станет owner задачи #${task.number}. Ты потеряешь право менять её права, если ты не владелец доски.`,
+                    message: `@${to.username} станет владельцем задачи #${task.number}. Ты потеряешь право менять её права, если ты не владелец доски.`,
                     confirmLabel: 'передать',
                   });
                   if (ok) transfer.mutate({ id: task.id, userId: to.id });

@@ -47,7 +47,7 @@ export function HelpOverlay() {
       onMouseDown={(e) => e.target === e.currentTarget && setOpen(false)}
     >
       <div className="modal-dialog help-dialog w-full max-w-lg space-y-4 border border-accent bg-elev p-3 sm:p-5 shadow-2xl">
-        <h2>$ taskterm --help</h2>
+        <h2>$ справка</h2>
         {GROUPS.map((g) => (
           <section key={g.title}>
             <h3 className="mb-1 text-muted">## {g.title}</h3>

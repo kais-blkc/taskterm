@@ -12,8 +12,8 @@ export function BoardsPage() {
 
   return (
     <div className="boards-page mx-auto max-w-xl p-3 sm:p-6">
-      <h1 className="page-title mb-4">$ ls boards/</h1>
-      {boards.isLoading && <p className="text-muted">loading...</p>}
+      <h1 className="page-title mb-4">$ доски</h1>
+      {boards.isLoading && <p className="text-muted">Загрузка…</p>}
       {boards.data?.length === 0 && <p className="text-muted text-[14px]">// нет доступных досок — создай свою или попроси владельца добавить тебя</p>}
       <ul className="boards-list mb-4 space-y-1">
         {boards.data?.map((b) => (
@@ -41,7 +41,7 @@ export function BoardsPage() {
           </li>
         ))}
       </ul>
-      <InlineAdd label="board" placeholder="board name, enter" onSubmit={(name) => create.mutate(name)} />
+      <InlineAdd label="доска" placeholder="название доски, enter" onSubmit={(name) => create.mutate(name)} />
     </div>
   );
 }

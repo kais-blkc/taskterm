@@ -2,39 +2,41 @@ import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { serverEventSchema, type ServerEvent, type User } from '@taskterm/shared';
-import { notificationsSupported, useNotifyStore } from '../stores/notifications';
+import { showBrowserNotification } from '../lib/browserNotify';
 import { API_BASE, API_ENDPOINTS } from '../consts/endpoints';
 import { ROUTES } from '../consts/routes';
 import { meKey } from './auth';
 import { boardKey, boardsKey, membersKey } from './boards';
 import { refreshSession } from './client';
+import { attachmentsKey } from './attachments';
 import { subtasksKey } from './subtasks';
 import { commentsKey } from './tasks';
 import { usersKey } from './users';
 import { timeKey } from './time';
 
 function showNotification(e: Extract<ServerEvent, { type: 'notify' }>, open: () => void) {
-  if (!notificationsSupported() || Notification.permission !== 'granted') return;
-  if (!useNotifyStore.getState().enabled) return;
   // не беспокоим, если пользователь прямо сейчас смотрит на эту задачу
-  const viewing =
-    document.hasFocus() && window.location.pathname === ROUTES.TASK(e.boardId, e.taskId);
+  const viewing = document.hasFocus() && window.location.pathname === ROUTES.TASK(e.boardId, e.taskId);
   if (viewing) return;
-
-  const n = new Notification(`#${e.taskNumber} ${e.taskTitle}`, {
+  showBrowserNotification({
+    title: `#${e.taskNumber} ${e.taskTitle}`,
     body:
       e.kind === 'assigned'
         ? `@${e.authorName} назначил(а) вас ответственным`
-        : e.kind === 'moved'
-          ? `@${e.authorName} перенёс(ла) задачу в «${e.columnName ?? ''}»`
-          : `@${e.authorName}: ${e.snippet}`,
+        : e.kind === 'unassigned'
+          ? `@${e.authorName} снял(а) вас с задачи`
+          : e.kind === 'subtask_assigned'
+            ? `@${e.authorName} назначил(а) вас на подзадачу: ${e.snippet}`
+            : e.kind === 'subtask_unassigned'
+              ? `@${e.authorName} снял(а) вас с подзадачи: ${e.snippet}`
+              : e.kind === 'subtask_done'
+                ? `@${e.authorName} выполнил(а) подзадачу: ${e.snippet}`
+                : e.kind === 'moved'
+                  ? `@${e.authorName} перенёс(ла) задачу в «${e.columnName ?? ''}»`
+                  : `@${e.authorName}: ${e.snippet}`,
     tag: `task-${e.taskId}`,
+    open,
   });
-  n.onclick = () => {
-    window.focus();
-    open();
-    n.close();
-  };
 }
 
 /** Подписка на SSE: живое обновление кеша и браузерные уведомления */
@@ -100,6 +102,10 @@ export function useServerEvents(user: User) {
             break;
           case 'subtasks':
             void qc.invalidateQueries({ queryKey: subtasksKey(e.taskId) });
+            break;
+          case 'attachments':
+            void qc.invalidateQueries({ queryKey: attachmentsKey(e.taskId) });
+            void qc.invalidateQueries({ queryKey: boardKey(e.boardId) });
             break;
           case 'comments':
             void qc.invalidateQueries({ queryKey: commentsKey(e.taskId) });

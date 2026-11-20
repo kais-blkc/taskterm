@@ -6,19 +6,22 @@ export function OneTimeLink({ title, hint, link, onClose }: { title: string; hin
   const [copied, setCopied] = useState(false);
   return (
     <div className="one-time-link space-y-2 border border-accent bg-bg p-3">
-      <div>
-        {title} <span className="text-muted">({hint})</span>
+      <div className="one-time-link-title">
+        {title} <span className="one-time-link-hint text-muted">({hint})</span>
       </div>
       <input
         readOnly
         value={link}
+        aria-label="одноразовая ссылка"
+        spellCheck={false}
         onFocus={(e) => e.currentTarget.select()}
-        className="block w-full border border-line bg-elev px-2 py-1 outline-none focus:border-accent"
+        className="one-time-link-input block w-full border border-line bg-elev px-2 py-1 outline-none focus:border-accent"
       />
-      <div className="flex items-center gap-2">
+      <div className="one-time-link-actions flex items-center gap-2">
         <button
           type="button"
-          className="btn btn-primary"
+          className="one-time-link-copy btn btn-primary"
+          aria-live="polite"
           onClick={async () => {
             await navigator.clipboard.writeText(link);
             setCopied(true);
@@ -26,10 +29,10 @@ export function OneTimeLink({ title, hint, link, onClose }: { title: string; hin
         >
           {copied ? <>скопировано <Icon name="check" /></> : 'копировать'}
         </button>
-        <button type="button" className="btn" onClick={onClose}>
+        <button type="button" className="one-time-link-close btn" onClick={onClose}>
           закрыть
         </button>
-        <span className="text-muted text-[14px]">// ссылка показывается один раз</span>
+        <span className="one-time-link-note text-muted text-[14px]">// ссылка показывается один раз</span>
       </div>
     </div>
   );

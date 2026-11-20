@@ -50,7 +50,7 @@ export function ConfirmDialog() {
         {opts.message && <div className="text-muted">{opts.message}</div>}
         <div className="confirm-actions flex justify-end gap-2">
           <button ref={cancelRef} type="button" className="confirm-cancel btn" onClick={() => answer(false)}>
-            {opts.cancelLabel ?? 'cancel'}
+            {opts.cancelLabel ?? 'отмена'}
           </button>
           <button
             ref={okRef}
@@ -58,7 +58,7 @@ export function ConfirmDialog() {
             className={`confirm-accept btn ${opts.danger ? 'btn-danger-solid' : 'btn-primary'}`}
             onClick={() => answer(true)}
           >
-            {opts.confirmLabel ?? (opts.danger ? 'delete' : 'ok')}
+            {opts.confirmLabel ?? (opts.danger ? 'удалить' : 'ок')}
           </button>
         </div>
       </div>

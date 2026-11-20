@@ -36,14 +36,20 @@ curl http://127.0.0.1:3100/api/health
 Проксировать всё на `http://127.0.0.1:3100`. Для живых обновлений (SSE, `/api/events`) нужно отключить буферизацию:
 
 ```nginx
+# в блоке http { } (один раз): нужно для WebSocket общего чата
+map $http_upgrade $connection_upgrade { default upgrade; '' close; }
+
 location / {
     proxy_pass http://127.0.0.1:3100;
     proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;          # WebSocket (чат, /api/chat/ws)
+    proxy_set_header Connection $connection_upgrade;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
     proxy_buffering off;
     proxy_read_timeout 1h;
+    client_max_body_size 60m;   # файлы к задачам до 50 МБ (по умолчанию nginx режет на 1 МБ)
 }
 ```
 
@@ -75,6 +81,7 @@ scripts/backup.sh     # pg_dump в backups/, старше 14 дней удаля
 |---|---|
 | контейнер сразу падает | не заданы `POSTGRES_PASSWORD` или `JWT_SECRET` (`docker compose logs app`) |
 | логин проходит, но выкидывает | `COOKIE_SECURE=true` при HTTP, либо nginx не передаёт `Host` |
+| чат «нет связи» | в nginx не переданы `Upgrade`/`Connection` для WebSocket (см. конфиг выше) |
 | нет живых обновлений | в nginx включена буферизация (`proxy_buffering off`) |
 | 403 на POST/PATCH/DELETE | Origin не совпадает с Host: см. `ALLOWED_ORIGINS` |
 | порт занят | поменяй `APP_PORT` |

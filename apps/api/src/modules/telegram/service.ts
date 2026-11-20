@@ -1,6 +1,6 @@
 import { and, eq, gt, inArray, isNotNull } from 'drizzle-orm';
-import { TELEGRAM_LINK_TTL_MIN } from '@taskterm/shared';
-import { first, type Db } from '../../db/client';
+import { TELEGRAM_LINK_TTL_MIN, isAdminRole } from '@taskterm/shared';
+import { bindDb, first, type Db } from '../../db/client';
 import { boardMembers, telegramLinkCodes, users } from '../../db/schema';
 import { randomToken, sha256 } from '../auth/password';
 
@@ -65,5 +65,19 @@ export async function deliverableChats(db: Db, userIds: number[], boardId: numbe
   const members = new Set(
     (await db.select({ id: boardMembers.userId }).from(boardMembers).where(and(eq(boardMembers.boardId, boardId), inArray(boardMembers.userId, userIds)))).map((m) => m.id),
   );
-  return rows.filter((r) => r.role === 'admin' || members.has(r.id)).map((r) => ({ userId: r.id, chatId: r.chatId! }));
+  return rows.filter((r) => isAdminRole(r.role) || members.has(r.id)).map((r) => ({ userId: r.id, chatId: r.chatId! }));
 }
+
+/** Сервис для роутов, привязанный к БД: `const svc = createTelegramService(db)` */
+/** Сводки общего чата в Telegram: включено ли у пользователя */
+export async function chatNotifyOf(db: Db, userId: number): Promise<boolean> {
+  const row = first(await db.select({ on: users.notifyChatTelegram }).from(users).where(eq(users.id, userId)));
+  return row?.on ?? true;
+}
+
+export async function setChatNotify(db: Db, userId: number, enabled: boolean): Promise<boolean> {
+  await db.update(users).set({ notifyChatTelegram: enabled }).where(eq(users.id, userId));
+  return enabled;
+}
+
+export const createTelegramService = (db: Db) => bindDb(db, { createLinkCode, isLinked, unlinkUser, chatNotifyOf, setChatNotify });

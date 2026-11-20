@@ -54,7 +54,7 @@ describe('work timer', () => {
   let root: U, a: U, b: U;
   const call = (u: U | undefined, method: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE', url: string, payload?: object) =>
     app.inject({ method, url, payload, headers: u ? { cookie: u.cookie } : {} });
-  const mk = async (name: string, role: 'admin' | 'member' = 'member'): Promise<U> => {
+  const mk = async (name: string, role: 'owner' | 'admin' | 'member' = 'member'): Promise<U> => {
     const res = await signupUser(app, name, 'secret123', role);
     return { cookie: `${res.cookies[0]!.name}=${res.cookies[0]!.value}`, id: res.json().id };
   };
@@ -62,7 +62,7 @@ describe('work timer', () => {
   beforeEach(async () => {
     app = await buildApp(loadConfig({ databaseUrl: ':memory:', timeZone: 'Europe/Moscow' }), { logger: false });
     await app.ready();
-    root = await mk('rootadm', 'admin');
+    root = await mk('rootadm', 'owner');
     a = await mk('worker1');
     b = await mk('worker2');
   });
@@ -74,7 +74,7 @@ describe('work timer', () => {
     for (const url of [`/api/admin/time/report${q}`, `/api/admin/time/report.csv${q}`, '/api/admin/time/live']) {
       expect((await call(a, 'GET', url)).statusCode, url).toBe(403);
     }
-    expect((await call(a, 'PUT', '/api/admin/time/settings', { hourlyRate: 5, currency: '$' })).statusCode).toBe(403);
+    expect((await call(a, 'PUT', '/api/admin/time/settings', { currency: '$' })).statusCode).toBe(403);
   });
 
   it('start needs a task or a description', async () => {
@@ -174,7 +174,8 @@ describe('work timer', () => {
     const c = await call(a, 'POST', '/api/time/entries', { note: 'ночь', startedAt: new Date(s).toISOString(), endedAt: new Date(e).toISOString() });
     expect(c.statusCode).toBe(200);
 
-    expect((await call(root, 'PUT', '/api/admin/time/settings', { hourlyRate: 20, currency: 'USD' })).statusCode).toBe(200);
+    expect((await call(root, 'PUT', '/api/admin/time/settings', { currency: 'USD' })).statusCode).toBe(200);
+    expect((await call(root, 'PUT', `/api/admin/users/${a.id}/rate`, { hourlyRate: 20 })).statusCode).toBe(200);
 
     const r = (await call(root, 'GET', `/api/admin/time/report?from=${yesterday}&to=${today}`)).json();
     expect(r.currency).toBe('USD');
@@ -213,7 +214,8 @@ describe('work timer', () => {
     expect((await add(a, -190 * MIN, -130 * MIN, { taskId: beta.task.id })).statusCode).toBe(200); // a: Beta 60 мин
     expect((await add(a, -120 * MIN, -100 * MIN, { note: 'созвон' })).statusCode).toBe(200); // без задачи 20 мин
 
-    await call(root, 'PUT', '/api/admin/time/settings', { hourlyRate: 10, currency: 'USD' });
+    await call(root, 'PUT', '/api/admin/time/settings', { currency: 'USD' });
+    for (const u of [a, b]) await call(root, 'PUT', `/api/admin/users/${u.id}/rate`, { hourlyRate: 10 });
     const today = dayOf(Date.now(), 'Europe/Moscow');
     const q = `from=${addDays(today, -1)}&to=${today}`;
     const r = (await call(root, 'GET', `/api/admin/time/report?${q}`)).json();
@@ -245,7 +247,8 @@ describe('work timer', () => {
       { userId: a.id, note: 'x', startedAt: at(period.from, 10), endedAt: at(period.from, 12) }, // 2 часа
       { userId: b.id, note: 'y', startedAt: at(older.from, 10), endedAt: at(older.from, 11) }, // 1 час в прошлом периоде
     ]);
-    await call(root, 'PUT', '/api/admin/time/settings', { hourlyRate: 10, currency: 'USD' });
+    await call(root, 'PUT', '/api/admin/time/settings', { currency: 'USD' });
+    for (const u of [a, b]) await call(root, 'PUT', `/api/admin/users/${u.id}/rate`, { hourlyRate: 10 });
 
     // не выплачено при наступившем сроке: оба
     const due = (await call(root, 'GET', '/api/admin/time/payouts/due')).json();
@@ -275,7 +278,7 @@ describe('work timer', () => {
     expect((await call(root, 'POST', '/api/admin/time/payouts', body)).statusCode).toBe(409); // повторно нельзя
 
     // ставку поменяли — выплаченное в истории не пересчитывается
-    await call(root, 'PUT', '/api/admin/time/settings', { hourlyRate: 50, currency: 'USD' });
+    await call(root, 'PUT', `/api/admin/users/${a.id}/rate`, { hourlyRate: 50 });
     const hist = (await call(root, 'GET', '/api/admin/time/payouts')).json();
     expect(hist).toHaveLength(1);
     expect(hist[0]).toMatchObject({ amount: 20, hourlyRate: 10 });
@@ -301,10 +304,12 @@ describe('work timer', () => {
     expect(live.map((x: { username: string; status: string }) => `${x.username}:${x.status}`)).toEqual(['worker1:running', 'worker2:paused']);
   });
 
-  it('settings default 10 $ and validation', async () => {
-    expect((await call(a, 'GET', '/api/time/settings')).json()).toMatchObject({ hourlyRate: 10, currency: '$', timeZone: 'Europe/Moscow' });
-    expect((await call(root, 'PUT', '/api/admin/time/settings', { hourlyRate: -1, currency: '$' })).statusCode).toBe(400);
-    expect((await call(root, 'PUT', '/api/admin/time/settings', { hourlyRate: 12.5, currency: '€' })).statusCode).toBe(200);
-    expect((await call(a, 'GET', '/api/time/settings')).json()).toMatchObject({ hourlyRate: 12.5, currency: '€' });
+  it('settings: default currency $ and validation; rate is per user', async () => {
+    expect((await call(a, 'GET', '/api/time/settings')).json()).toMatchObject({ currency: '$', timeZone: 'Europe/Moscow' });
+    expect((await call(root, 'PUT', '/api/admin/time/settings', { currency: '' })).statusCode).toBe(400);
+    expect((await call(root, 'PUT', '/api/admin/time/settings', { currency: '€' })).statusCode).toBe(200);
+    expect((await call(a, 'GET', '/api/time/settings')).json()).toMatchObject({ currency: '€' });
+    expect((await call(root, 'PUT', `/api/admin/users/${a.id}/rate`, { hourlyRate: -1 })).statusCode).toBe(400);
+    expect((await call(root, 'PUT', `/api/admin/users/${a.id}/rate`, { hourlyRate: 12.5 })).statusCode).toBe(200);
   });
 });

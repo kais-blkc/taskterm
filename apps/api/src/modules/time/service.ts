@@ -2,6 +2,7 @@ import { and, asc, desc, eq, gt, gte, inArray, isNull, lt, or, sql } from 'drizz
 import {
   addDays,
   amountFor,
+  canSeeRateOf,
   duePayoutPeriods,
   payoutDueDate,
   type DuePayout,
@@ -13,13 +14,16 @@ import {
   type TimeEntry,
   type TimeReport,
   type TimerSettings,
+  type ServerEvent,
   type TimerState,
   type UpdateTimerSettings,
 } from '@taskterm/shared';
 import { first, type Db } from '../../db/client';
-import { appSettings, boards, tasks, timePayouts, timeEntries, users, workTimers } from '../../db/schema';
+import { boards, tasks, timePayouts, timeEntries, users, workTimers } from '../../db/schema';
+import { audit } from '../audit/service';
 import type { AuthUser } from '../auth/service';
 import { requireTaskCan } from '../permissions/access';
+import { getSetting, setSetting } from '../settings/store';
 import { dayOf, startOfDay } from './tz';
 
 export class TimeError extends Error {
@@ -36,27 +40,16 @@ const MAX_BACKDATE_MS = 14 * 24 * 3600_000;
 /** Допуск на расхождение часов клиента и сервера */
 const FUTURE_SLACK_MS = 60_000;
 
-const DEFAULT_RATE = 10;
 const DEFAULT_CURRENCY = '$';
 
 // ---------- настройки ----------
 
 export async function getSettings(db: Db, timeZone: string): Promise<TimerSettings> {
-  const rows = await db.select().from(appSettings).where(inArray(appSettings.key, ['time.rate', 'time.currency']));
-  const map = new Map(rows.map((r) => [r.key, r.value]));
-  const rate = Number(map.get('time.rate'));
-  return {
-    hourlyRate: Number.isFinite(rate) && map.has('time.rate') ? rate : DEFAULT_RATE,
-    currency: map.get('time.currency') ?? DEFAULT_CURRENCY,
-    timeZone,
-  };
+  return { currency: (await getSetting(db, 'time.currency')) ?? DEFAULT_CURRENCY, timeZone };
 }
 
 export async function saveSettings(db: Db, input: UpdateTimerSettings, timeZone: string): Promise<TimerSettings> {
-  const upsert = (key: string, value: string) =>
-    db.insert(appSettings).values({ key, value }).onConflictDoUpdate({ target: appSettings.key, set: { value } });
-  await upsert('time.rate', String(input.hourlyRate));
-  await upsert('time.currency', input.currency.trim());
+  await setSetting(db, 'time.currency', input.currency.trim());
   return getSettings(db, timeZone);
 }
 
@@ -330,7 +323,18 @@ async function clippedSegments(db: Db, startMs: number, endMs: number, userId?: 
     .filter((r) => r.e > r.s);
 }
 
+/**
+ * Чьи часы и ставки видит админ: null — все (owner), иначе список id (admin: себя, участников и модераторов).
+ * Модератору админские отчёты закрыты на уровне роутов.
+ */
+export async function visibleUserIds(db: Db, viewer: AuthUser): Promise<number[] | null> {
+  if (viewer.role === 'owner') return null;
+  const rows = await db.select({ id: users.id, role: users.role }).from(users);
+  return rows.filter((u) => canSeeRateOf(viewer, u)).map((u) => u.id);
+}
+
 export async function myEntries(db: Db, userId: number, from: string, to: string, settings: TimerSettings): Promise<MyEntries> {
+  const hourlyRate = first(await db.select({ r: users.hourlyRate }).from(users).where(eq(users.id, userId)))?.r ?? 0;
   const { startMs, endMs } = periodBounds(from, to, settings.timeZone);
   const rows = await db
     .select(entryCols)
@@ -351,7 +355,7 @@ export async function myEntries(db: Db, userId: number, from: string, to: string
     (acc, e) => acc + Math.max(0, Math.min(e.endedAt ? ms(e.endedAt) : nowMs, endMs) - Math.max(ms(e.startedAt), startMs)),
     0,
   );
-  return { from, to, entries, totalMs, amount: amountFor(totalMs, settings.hourlyRate), hourlyRate: settings.hourlyRate, currency: settings.currency };
+  return { from, to, entries, totalMs, amount: amountFor(totalMs, hourlyRate), hourlyRate, currency: settings.currency };
 }
 
 async function getOwnEntry(db: Db, userId: number, id: number) {
@@ -402,7 +406,7 @@ export async function updateEntry(
   const before = await entryById(db, id);
   const nowMs = Date.now();
   const open = cur.endedAt == null;
-  if (open && input.endedAt) throw new TimeError('идущую запись остановите кнопкой stop');
+  if (open && input.endedAt) throw new TimeError('идущую запись остановите кнопкой «стоп»');
 
   const startMs = input.startedAt ? ms(input.startedAt) : ms(cur.startedAt);
   const endMs = open ? nowMs : input.endedAt ? ms(input.endedAt) : ms(cur.endedAt!);
@@ -441,7 +445,7 @@ export async function deleteEntry(db: Db, userId: number, id: number): Promise<T
 
 // ---------- админ ----------
 
-export async function liveTimers(db: Db): Promise<LiveTimer[]> {
+export async function liveTimers(db: Db, visible: number[] | null = null): Promise<LiveTimer[]> {
   const nowMs = Date.now();
   const rows = await db
     .select({
@@ -459,7 +463,7 @@ export async function liveTimers(db: Db): Promise<LiveTimer[]> {
     .leftJoin(tasks, eq(tasks.id, workTimers.taskId))
     .orderBy(asc(users.username));
   const out: LiveTimer[] = [];
-  for (const r of rows) {
+  for (const r of rows.filter((x) => !visible || visible.includes(x.userId))) {
     const open = r.status === 'running' ? await openEntry(db, r.userId) : undefined;
     out.push({
       userId: r.userId,
@@ -476,10 +480,10 @@ export async function liveTimers(db: Db): Promise<LiveTimer[]> {
 }
 
 /** Отчёт по всем (или одному) пользователям за период [from, to] включительно, в часовом поясе приложения */
-export async function buildReport(db: Db, from: string, to: string, settings: TimerSettings, userId?: number): Promise<TimeReport> {
+export async function buildReport(db: Db, from: string, to: string, settings: TimerSettings, userId?: number, visible: number[] | null = null): Promise<TimeReport> {
   const tz = settings.timeZone;
   const { startMs, endMs } = periodBounds(from, to, tz);
-  const segs = await clippedSegments(db, startMs, endMs, userId);
+  const segs = (await clippedSegments(db, startMs, endMs, userId)).filter((s) => !visible || visible.includes(s.userId));
 
   type ProjAcc = { boardId: number | null; name: string; ms: number; people: Map<number, number>; items: Map<string, { taskId: number | null; taskNumber: number | null; label: string; ms: number }> };
   const projAcc = new Map<string, ProjAcc>();
@@ -516,7 +520,7 @@ export async function buildReport(db: Db, from: string, to: string, settings: Ti
   }
 
   const ids = [...acc.keys()];
-  const people = ids.length ? await db.select({ id: users.id, username: users.username, color: users.color }).from(users).where(inArray(users.id, ids)) : [];
+  const people = ids.length ? await db.select({ id: users.id, username: users.username, color: users.color, rate: users.hourlyRate }).from(users).where(inArray(users.id, ids)) : [];
   const byId = new Map(people.map((p) => [p.id, p]));
 
   const reportUsers: ReportUser[] = ids
@@ -529,7 +533,8 @@ export async function buildReport(db: Db, from: string, to: string, settings: Ti
         username: p?.username ?? `#${id}`,
         color: p?.color ?? '',
         totalMs,
-        amount: amountFor(totalMs, settings.hourlyRate),
+        hourlyRate: p?.rate ?? 0,
+        amount: amountFor(totalMs, p?.rate ?? 0),
         running: u.running,
         days: [...u.days.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([date, v]) => ({ date, ms: v })),
         items: [...u.items.values()].sort((a, b) => b.ms - a.ms),
@@ -543,9 +548,9 @@ export async function buildReport(db: Db, from: string, to: string, settings: Ti
       boardId: p.boardId,
       name: p.name,
       totalMs: p.ms,
-      amount: amountFor(p.ms, settings.hourlyRate),
+      amount: round2([...p.people.entries()].reduce((a, [id, ms]) => a + amountFor(ms, byId.get(id)?.rate ?? 0), 0)),
       people: [...p.people.entries()]
-        .map(([id, ms]) => ({ userId: id, username: byId.get(id)?.username ?? `#${id}`, color: byId.get(id)?.color ?? '', ms }))
+        .map(([id, ms]) => ({ userId: id, username: byId.get(id)?.username ?? `#${id}`, color: byId.get(id)?.color ?? '', ms, amount: amountFor(ms, byId.get(id)?.rate ?? 0) }))
         .sort((a, b) => b.ms - a.ms),
       items: [...p.items.values()].sort((a, b) => b.ms - a.ms),
     }))
@@ -560,10 +565,9 @@ export async function buildReport(db: Db, from: string, to: string, settings: Ti
     from,
     to,
     timeZone: tz,
-    hourlyRate: settings.hourlyRate,
     currency: settings.currency,
     totalMs,
-    totalAmount: amountFor(totalMs, settings.hourlyRate),
+    totalAmount: round2(reportUsers.reduce((a, u) => a + u.amount, 0)),
     users: reportUsers,
     projects,
     payoutDue,
@@ -572,6 +576,8 @@ export async function buildReport(db: Db, from: string, to: string, settings: Ti
 }
 
 // ---------- выплаты ----------
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
 
 const payoutCols = {
   id: timePayouts.id,
@@ -596,7 +602,7 @@ async function toPayouts(db: Db, rows: (Omit<Payout, 'amount' | 'paidBy'> & { pa
 }
 
 /** История выплат (новые сверху); можно по периоду или по человеку */
-export async function listPayouts(db: Db, q: { id?: number; from?: string; to?: string; userId?: number; limit?: number }): Promise<Payout[]> {
+export async function listPayouts(db: Db, q: { id?: number; from?: string; to?: string; userId?: number; limit?: number; visible?: number[] | null }): Promise<Payout[]> {
   const rows = await db
     .select(payoutCols)
     .from(timePayouts)
@@ -607,6 +613,7 @@ export async function listPayouts(db: Db, q: { id?: number; from?: string; to?: 
         q.from ? eq(timePayouts.periodFrom, q.from) : undefined,
         q.to ? eq(timePayouts.periodTo, q.to) : undefined,
         q.userId ? eq(timePayouts.userId, q.userId) : undefined,
+        q.visible ? inArray(timePayouts.userId, q.visible.length ? q.visible : [-1]) : undefined,
       ),
     )
     .orderBy(desc(timePayouts.periodFrom), desc(timePayouts.paidAt), asc(users.username))
@@ -624,16 +631,17 @@ export async function markPaid(
   const due = payoutDueDate(input.from, input.to);
   if (!due) throw new TimeError('выплаты отмечаются только за половину месяца: 1–15 или 16–конец', 400);
   if (due > dayOf(Date.now(), settings.timeZone)) throw new TimeError(`срок выплаты ещё не наступил (${due})`, 400);
-  const person = first(await db.select({ id: users.id }).from(users).where(eq(users.id, input.userId)));
-  if (!person) throw new TimeError('пользователь не найден', 404);
+  const person = first(await db.select({ id: users.id, rate: users.hourlyRate }).from(users).where(eq(users.id, input.userId)));
+  const visible = await visibleUserIds(db, admin);
+  if (!person || (visible && !visible.includes(person.id))) throw new TimeError('пользователь не найден', 404);
 
-  const report = await buildReport(db, input.from, input.to, settings, input.userId);
+  const report = await buildReport(db, input.from, input.to, settings, input.userId, visible);
   const ms = report.users[0]?.totalMs ?? 0;
   if (ms <= 0) throw new TimeError('за этот период у сотрудника нет отработанного времени', 400);
 
   const [row] = await db
     .insert(timePayouts)
-    .values({ userId: input.userId, periodFrom: input.from, periodTo: input.to, ms, hourlyRate: settings.hourlyRate, currency: settings.currency, note: input.note, paidBy: admin.id })
+    .values({ userId: input.userId, periodFrom: input.from, periodTo: input.to, ms, hourlyRate: person.rate, currency: settings.currency, note: input.note, paidBy: admin.id })
     .onConflictDoNothing()
     .returning({ id: timePayouts.id });
   if (!row) throw new TimeError('выплата за этот период уже отмечена', 409);
@@ -641,19 +649,19 @@ export async function markPaid(
 }
 
 /** Снять отметку (ошибся) — возвращает удалённую запись для журнала */
-export async function unmarkPaid(db: Db, id: number): Promise<Payout> {
-  const [before] = await listPayouts(db, { id });
+export async function unmarkPaid(db: Db, admin: AuthUser, id: number): Promise<Payout> {
+  const [before] = await listPayouts(db, { id, visible: await visibleUserIds(db, admin) });
   if (!before) throw new TimeError('выплата не найдена', 404);
   await db.delete(timePayouts).where(eq(timePayouts.id, id));
   return before;
 }
 
 /** Невыплаченное при наступившем сроке: последние 8 половин месяца */
-export async function duePayouts(db: Db, settings: TimerSettings): Promise<DuePayout[]> {
+export async function duePayouts(db: Db, settings: TimerSettings, visible: number[] | null = null): Promise<DuePayout[]> {
   const today = dayOf(Date.now(), settings.timeZone);
   const out: DuePayout[] = [];
   for (const p of duePayoutPeriods(today, 8)) {
-    const report = await buildReport(db, p.from, p.to, settings);
+    const report = await buildReport(db, p.from, p.to, settings, undefined, visible);
     for (const u of report.users) {
       if (u.totalMs > 0 && !u.payout) out.push({ from: p.from, to: p.to, due: p.due, userId: u.userId, username: u.username, color: u.color, ms: u.totalMs, amount: u.amount });
     }
@@ -675,7 +683,7 @@ export function reportToCsv(r: TimeReport, view: 'users' | 'projects' = 'users')
     const h = (m: number) => (m / 3_600_000).toFixed(2);
     const out = [...head];
     for (const p of r.projects) {
-      for (const u of p.people) out.push([p.name, u.username, h(u.ms), amountFor(u.ms, r.hourlyRate).toFixed(2)].map(csvCell).join(','));
+      for (const u of p.people) out.push([p.name, u.username, h(u.ms), u.amount.toFixed(2)].map(csvCell).join(','));
       out.push([`${p.name} — итого`, `${r.from}…${r.to}`, h(p.totalMs), p.amount.toFixed(2)].map(csvCell).join(','));
     }
     out.push(['ИТОГО', `${r.from}…${r.to}`, h(r.totalMs), r.totalAmount.toFixed(2)].map(csvCell).join(','));
@@ -684,9 +692,79 @@ export function reportToCsv(r: TimeReport, view: 'users' | 'projects' = 'users')
   const lines = [['Сотрудник', 'Дата', 'Часы', `Сумма (${r.currency})`].map(csvCell).join(',')];
   const hours = (m: number) => (m / 3_600_000).toFixed(2);
   for (const u of r.users) {
-    for (const d of u.days) lines.push([u.username, d.date, hours(d.ms), amountFor(d.ms, r.hourlyRate).toFixed(2)].map(csvCell).join(','));
+    for (const d of u.days) lines.push([u.username, d.date, hours(d.ms), amountFor(d.ms, u.hourlyRate).toFixed(2)].map(csvCell).join(','));
     lines.push([`${u.username} — итого`, `${r.from}…${r.to}`, hours(u.totalMs), u.amount.toFixed(2)].map(csvCell).join(','));
   }
   lines.push(['ИТОГО', `${r.from}…${r.to}`, hours(r.totalMs), r.totalAmount.toFixed(2)].map(csvCell).join(','));
   return '﻿' + lines.join('\r\n') + '\r\n';
+}
+
+// ─── Сервис, привязанный к БД и часовому поясу ─────────────────────────────────────────────
+// Сценарии: изменение → журнал → событие `time`; шину отдаёт роут. Ошибки (TimeError и др. со `status`) — в общий обработчик.
+
+type Fn<F> = F extends (db: Db, ...a: infer A) => unknown ? A : never;
+const payoutDetails = (p: Payout): Record<string, unknown> => ({ from: p.from, to: p.to, ms: p.ms, amount: p.amount, currency: p.currency });
+const entryDetails = (e: TimeEntry) => ({ startedAt: e.startedAt, endedAt: e.endedAt, note: e.note });
+
+export function createTimeService(db: Db, timeZone: string) {
+  const settings = () => getSettings(db, timeZone);
+  const changed = (user: AuthUser): ServerEvent[] => [{ type: 'time', by: user.id }];
+
+  return {
+    settings,
+    state: (user: AuthUser) => getState(db, user.id),
+    entries: async (user: AuthUser, from: string, to: string) => myEntries(db, user.id, from, to, await settings()),
+
+    // таймер
+    start: async (user: AuthUser, input: Fn<typeof startTimer>[1]) => ({ state: await startTimer(db, user, input), events: changed(user) }),
+    pause: async (user: AuthUser) => ({ state: await pauseTimer(db, user.id), events: changed(user) }),
+    resume: async (user: AuthUser) => ({ state: await resumeTimer(db, user.id), events: changed(user) }),
+    stop: async (user: AuthUser, endedAt?: string) => ({ state: await stopTimer(db, user.id, endedAt), events: changed(user) }),
+
+    // записи
+    createEntry: async (user: AuthUser, input: Fn<typeof createEntry>[1]) => {
+      const entry = await createEntry(db, user, input);
+      await audit(db, user, 'time.add', `entry:${entry.id}`, entryDetails(entry));
+      return { entry, events: changed(user) };
+    },
+    updateEntry: async (user: AuthUser, id: number, input: Fn<typeof updateEntry>[2]) => {
+      const { entry, before } = await updateEntry(db, user, id, input);
+      await audit(db, user, 'time.edit', `entry:${entry.id}`, {
+        before: { ...entryDetails(before), taskId: before.taskId },
+        after: { ...entryDetails(entry), taskId: entry.taskId },
+      });
+      return { entry, events: changed(user) };
+    },
+    deleteEntry: async (user: AuthUser, id: number) => {
+      const before = await deleteEntry(db, user.id, id);
+      await audit(db, user, 'time.delete', `entry:${before.id}`, entryDetails(before));
+      return { events: changed(user) };
+    },
+
+    // админ: ставка, отчёты
+    saveSettings: async (admin: AuthUser, input: UpdateTimerSettings) => {
+      const out = await saveSettings(db, input, timeZone);
+      await audit(db, admin, 'time.settings', '', { currency: out.currency });
+      return { settings: out, events: changed(admin) };
+    },
+    live: async (admin: AuthUser) => liveTimers(db, await visibleUserIds(db, admin)),
+    report: async (admin: AuthUser, from: string, to: string, userId?: number) =>
+      buildReport(db, from, to, await settings(), userId, await visibleUserIds(db, admin)),
+    reportCsv: async (admin: AuthUser, from: string, to: string, userId: number | undefined, view: 'users' | 'projects' = 'users') =>
+      reportToCsv(await buildReport(db, from, to, await settings(), userId, await visibleUserIds(db, admin)), view),
+
+    // админ: выплаты
+    listPayouts: async (admin: AuthUser, q: Fn<typeof listPayouts>[0]) => listPayouts(db, { ...q, visible: await visibleUserIds(db, admin) }),
+    duePayouts: async (admin: AuthUser) => duePayouts(db, await settings(), await visibleUserIds(db, admin)),
+    markPaid: async (admin: AuthUser, input: Fn<typeof markPaid>[1]) => {
+      const payout = await markPaid(db, admin, input, await settings());
+      await audit(db, admin, 'time.payout', `user:${payout.userId}`, payoutDetails(payout));
+      return { payout, events: changed(admin) };
+    },
+    unmarkPaid: async (admin: AuthUser, id: number) => {
+      const payout = await unmarkPaid(db, admin, id);
+      await audit(db, admin, 'time.payout.undo', `user:${payout.userId}`, payoutDetails(payout));
+      return { events: changed(admin) };
+    },
+  };
 }

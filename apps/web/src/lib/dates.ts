@@ -26,6 +26,12 @@ export function formatDate(due: string): string {
   return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', ...(sameYear ? {} : { year: 'numeric' }) });
 }
 
+/** День `YYYY-MM-DD` → `дд.мм.гггг` (числовой формат, не зависит от года) */
+export function formatDayNumeric(day: string): string {
+  const [y, m, d] = day.split('-').map(Number);
+  return new Date(y!, m! - 1, d!).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
 export type DueState = 'overdue' | 'soon' | 'later' | 'finished';
 
 export interface DueInfo {
@@ -33,7 +39,7 @@ export interface DueInfo {
   label: string;
 }
 
-/** finished — задача в последней колонке («Сделано»): просрочка не подсвечивается */
+/** finished — задача в колонке «выполнено» (её отмечает админ): просрочка не подсвечивается */
 export function dueInfo(due: string, finished: boolean, today: string = dateStr()): DueInfo {
   const days = daysUntil(due, today);
   if (finished) return { state: 'finished', label: formatDate(due) };

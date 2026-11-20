@@ -15,12 +15,18 @@ export function KanbanColumn({
   tasks,
   userNames,
   stats,
+  attachmentCounts,
   finished,
   meId,
   canMove,
   canCreate,
   canManage,
   canNotify,
+  reordering,
+  canMoveLeft,
+  canMoveRight,
+  onMoveColumn,
+  onSetDone,
   canDeleteTask,
   onRename,
   onSaveNotify,
@@ -35,7 +41,9 @@ export function KanbanColumn({
   tasks: Task[];
   userNames: Map<number, User>;
   stats: Map<number, SubtaskStat>;
-  /** последняя колонка доски («Сделано») */
+  /** сколько файлов у задач колонки */
+  attachmentCounts: Map<number, number>;
+  /** колонка «выполнено»: дедлайны задач в ней не горят */
   finished: boolean;
   meId: number;
   /** перетаскивать задачу (роль editor и выше и политика задачи) */
@@ -45,12 +53,19 @@ export function KanbanColumn({
   canManage: boolean;
   /** настройка уведомлений колонки — только админ приложения */
   canNotify: boolean;
+  /** режим настройки: в шапке стрелки «влево/вправо» для смены порядка колонок */
+  reordering: boolean;
+  canMoveLeft: boolean;
+  canMoveRight: boolean;
+  onMoveColumn: (direction: 'left' | 'right') => void;
+  /** отметить/снять «выполнено» (только админ — в режиме настройки) */
+  onSetDone: (isDone: boolean) => void;
   canDeleteTask: (t: Task) => boolean;
   onRename: (name: string) => void;
   onSaveNotify: (v: { notifyOnEnter: boolean; notifyUserIds: number[] }) => void;
   savingNotify: boolean;
   onDelete: () => void;
-  onAddTask: (title: string) => void;
+  onAddTask: (title: string, files: File[]) => void;
   onDeleteTask: (id: number) => void;
   onOpenTask: (id: number) => void;
 }) {
@@ -70,6 +85,45 @@ export function KanbanColumn({
     <section
       className={`kanban-column flex w-[85vw] max-w-72 shrink-0 snap-start sm:w-72 flex-col border bg-bg ${highlighted ? 'border-accent' : 'border-line'}`}
     >
+      {reordering && (
+        // режим настройки: поменять колонку местами с соседней
+        <div className="kanban-column-reorder flex items-center justify-between border-b border-line px-2 py-1">
+          <button
+            type="button"
+            className="kanban-column-move-left btn btn-icon"
+            disabled={!canMoveLeft}
+            title="сдвинуть колонку влево"
+            aria-label={`сдвинуть колонку «${column.name}» влево`}
+            onClick={() => onMoveColumn('left')}
+          >
+            ‹
+          </button>
+          {canNotify ? (
+            // «выполнено» назначает админ: задачи в такой колонке не считаются просроченными
+            <button
+              type="button"
+              aria-pressed={column.isDone}
+              title="задачи в этой колонке считаются выполненными: дедлайн не горит"
+              className={`kanban-column-done btn ${column.isDone ? 'btn-active' : ''}`}
+              onClick={() => onSetDone(!column.isDone)}
+            >
+              {column.isDone ? '✓ выполнено' : 'выполнено?'}
+            </button>
+          ) : (
+            <span className="kanban-column-reorder-label text-xs text-muted">порядок</span>
+          )}
+          <button
+            type="button"
+            className="kanban-column-move-right btn btn-icon"
+            disabled={!canMoveRight}
+            title="сдвинуть колонку вправо"
+            aria-label={`сдвинуть колонку «${column.name}» вправо`}
+            onClick={() => onMoveColumn('right')}
+          >
+            ›
+          </button>
+        </div>
+      )}
       <header className="kanban-column-header flex items-center justify-between border-b border-line px-2 py-1.5">
         {editing ? (
           <input
@@ -93,6 +147,7 @@ export function KanbanColumn({
             title={canManage ? 'двойной клик — переименовать' : undefined}
           >
             ## {column.name} <span className="text-muted">({tasks.length})</span>
+            {column.isDone && <span className="kanban-column-done-mark ml-1 text-accent" title="колонка «выполнено»">✓</span>}
           </h2>
         )}
         {canNotify && (
@@ -142,6 +197,7 @@ export function KanbanColumn({
               assignees={t.assigneeIds.flatMap((id) => userNames.get(id) ?? [])}
               mine={t.assigneeIds.includes(meId)}
               stat={stats.get(t.id)}
+              attachments={attachmentCounts.get(t.id)}
               finished={finished}
               selected={t.id === selectedTaskId}
               canDrag={canMove(t)}
@@ -152,8 +208,9 @@ export function KanbanColumn({
       </div>
       {canCreate && <div className="kanban-column-add border-t border-line p-2">
         <InlineAdd
-          label="task"
-          placeholder="title, enter"
+          label="задача"
+          placeholder="название, enter"
+          withFiles
           onSubmit={onAddTask}
           open={addingHere}
           onOpenChange={(o) => setAddTaskColumn(o ? column.id : null)}

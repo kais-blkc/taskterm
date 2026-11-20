@@ -1,8 +1,10 @@
 import { z } from 'zod';
 
 export * from './admin';
+export * from './attachments';
 export * from './auth';
 export * from './boards';
+export * from './chat';
 export * from './checklist';
 export * from './subtasks';
 export * from './colors';

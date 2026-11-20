@@ -1,6 +1,6 @@
 import { and, asc, count, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
-import { RESET_TTL_HOURS, type AdminBoard, type AdminUser, type BoardRole } from '@taskterm/shared';
-import { first, type Db } from '../../db/client';
+import { RESET_TTL_HOURS, type ChatSettings, canManageUser, canSeeRateOf, canSetRateOf, isAdminRole, type GlobalRole, type NotifySettings, type AdminBoard, type AdminUser, type BoardRole, type ServerEvent } from '@taskterm/shared';
+import { bindDb, first, type Db } from '../../db/client';
 import {
   boardMembers,
   boards,
@@ -11,7 +11,12 @@ import {
   tasks,
   users,
 } from '../../db/schema';
+import { audit } from '../audit/service';
 import { hashPassword, randomToken, sha256 } from '../auth/password';
+import type { AuthUser } from '../auth/service';
+import { createBoardRow } from '../boards/service';
+import { getChatSettings, saveChatSettings } from '../chat/settings';
+import { getNotifySettings, saveNotifySettings } from '../notify/settings';
 
 export class AdminError extends Error {
   constructor(
@@ -24,7 +29,8 @@ export class AdminError extends Error {
 
 const RANK: Record<BoardRole, number> = { viewer: 0, commenter: 1, editor: 2, owner: 3 };
 
-export async function listUsers(db: Db): Promise<AdminUser[]> {
+/** Ставка в списке — только та, что видит actor (canSeeRateOf), иначе null */
+export async function listUsers(db: Db, actor: AuthUser): Promise<AdminUser[]> {
   const rows = await db
     .select({
       id: users.id,
@@ -33,13 +39,18 @@ export async function listUsers(db: Db): Promise<AdminUser[]> {
       color: users.color,
       role: users.role,
       isActive: users.isActive,
+      hourlyRate: users.hourlyRate,
       lastLoginAt: users.lastLoginAt,
       createdAt: users.createdAt,
       boardsCount: sql<number>`(select count(*)::int from ${boardMembers} where ${boardMembers.userId} = ${users.id})`,
     })
     .from(users)
     .orderBy(asc(users.username));
-  return rows;
+  return rows.map((u) => ({ ...u, hourlyRate: canSeeRateOf(actor, u) ? u.hourlyRate : null }));
+}
+
+function assertCanManage(actor: AuthUser, target: { id: number; role: GlobalRole }) {
+  if (!canManageUser(actor, target)) throw new AdminError('недостаточно прав для действий с этим пользователем', 403);
 }
 
 /** Закрыть все сессии пользователя: старые access перестают приниматься, refresh отозваны */
@@ -59,29 +70,35 @@ async function assertOtherAdmin(tx: Db, exceptId: number) {
   const others = await tx
     .select({ id: users.id })
     .from(users)
-    .where(and(eq(users.role, 'admin'), eq(users.isActive, true), ne(users.id, exceptId)))
+    .where(and(inArray(users.role, ['owner', 'admin']), eq(users.isActive, true), ne(users.id, exceptId)))
     .for('update');
   if (!others.length) throw new AdminError('нельзя оставить приложение без администратора', 409);
 }
 
 async function getUser(db: Db, id: number) {
   const row = first(await db.select().from(users).where(eq(users.id, id)));
-  if (!row) throw new AdminError('user not found', 404);
+  if (!row) throw new AdminError('пользователь не найден', 404);
   return row;
 }
 
-export async function updateUser(
+async function updateUserRow(
   db: Db,
-  actorId: number,
+  actor: AuthUser,
   id: number,
-  patch: { role?: 'admin' | 'member'; isActive?: boolean },
+  patch: { role?: 'admin' | 'moderator' | 'member'; isActive?: boolean },
 ) {
+  const actorId = actor.id;
   return db.transaction(async (tx) => {
     const target = await getUser(tx, id);
+    assertCanManage(actor, target);
+    if (patch.role !== undefined) {
+      if (!isAdminRole(actor.role)) throw new AdminError('менять роли могут только администраторы', 403);
+      if (target.role === 'owner') throw new AdminError('роль владельца изменить нельзя', 400);
+    }
     const blocking = patch.isActive === false && target.isActive;
-    const demoting = patch.role === 'member' && target.role === 'admin';
+    const demoting = patch.role !== undefined && patch.role !== 'admin' && target.role === 'admin';
     if (blocking && id === actorId) throw new AdminError('нельзя заблокировать самого себя', 400);
-    if ((blocking || demoting) && target.role === 'admin' && target.isActive)
+    if ((blocking || demoting) && isAdminRole(target.role) && target.isActive)
       await assertOtherAdmin(tx, id);
 
     const set: Partial<typeof users.$inferInsert> = {};
@@ -103,14 +120,16 @@ export async function updateUser(
  * Удаление: доски, задачи, комментарии и приглашения переходят к transferTo,
  * который получает на его досках не меньшую роль. Исполнитель в задачах снимается.
  */
-export async function deleteUser(db: Db, actorId: number, id: number, transferTo: number) {
-  if (id === actorId) throw new AdminError('нельзя удалить самого себя', 400);
+async function deleteUserRow(db: Db, actor: AuthUser, id: number, transferTo: number) {
+  if (!isAdminRole(actor.role)) throw new AdminError('удалять пользователей могут только администраторы', 403);
+  if (id === actor.id) throw new AdminError('нельзя удалить самого себя', 400);
   if (id === transferTo) throw new AdminError('передать данные нужно другому пользователю', 400);
   return db.transaction(async (tx) => {
     const target = await getUser(tx, id);
     const heir = await getUser(tx, transferTo);
+    assertCanManage(actor, target);
     if (!heir.isActive) throw new AdminError('получатель заблокирован', 400);
-    if (target.role === 'admin' && target.isActive) await assertOtherAdmin(tx, id);
+    if (isAdminRole(target.role) && target.isActive) await assertOtherAdmin(tx, id);
 
     const mine = await tx.select().from(boardMembers).where(eq(boardMembers.userId, id));
     for (const m of mine) {
@@ -163,8 +182,10 @@ export async function deleteUser(db: Db, actorId: number, id: number, transferTo
 }
 
 /** Ссылка сброса пароля: прежние неиспользованные гасятся, токен виден один раз */
-export async function createReset(db: Db, actorId: number, userId: number) {
+async function createResetRow(db: Db, actor: AuthUser, userId: number) {
+  const actorId = actor.id;
   const user = await getUser(db, userId);
+  assertCanManage(actor, user);
   if (!user.isActive) throw new AdminError('пользователь заблокирован', 409);
   const token = randomToken();
   const expiresAt = new Date(Date.now() + RESET_TTL_HOURS * 3600_000).toISOString();
@@ -247,10 +268,84 @@ export async function listBoards(db: Db): Promise<AdminBoard[]> {
   });
 }
 
-export async function setBoardManaged(db: Db, id: number, managedByAdmin: boolean) {
+async function setBoardManagedRow(db: Db, id: number, managedByAdmin: boolean) {
   const row = first(
     await db.update(boards).set({ managedByAdmin }).where(eq(boards.id, id)).returning(),
   );
-  if (!row) throw new AdminError('board not found', 404);
+  if (!row) throw new AdminError('доска не найдена', 404);
   return row;
 }
+
+// ─── Сценарии (use cases): изменение → журнал → события; шину и разрыв SSE отдаёт роут ──────
+// `kick` — пользователи, чьи открытые SSE-потоки надо закрыть (блокировка, смена роли, удаление).
+
+export async function updateUser(db: Db, actor: AuthUser, id: number, patch: { role?: 'admin' | 'moderator' | 'member'; isActive?: boolean }) {
+  const { before, after, sessionsClosed } = await updateUserRow(db, actor, id, patch);
+  if (before.role !== after.role) await audit(db, actor, 'user.role', `user:${after.username}`, { from: before.role, to: after.role });
+  if (before.isActive !== after.isActive) await audit(db, actor, after.isActive ? 'user.unblock' : 'user.block', `user:${after.username}`);
+  const user = (await listUsers(db, actor)).find((u) => u.id === after.id)!;
+  const events: ServerEvent[] = [{ type: 'users', by: actor.id }];
+  return { user, events, kick: sessionsClosed ? [after.id] : [] };
+}
+
+export async function deleteUser(db: Db, actor: AuthUser, id: number, transferTo: number) {
+  const res = await deleteUserRow(db, actor, id, transferTo);
+  await audit(db, actor, 'user.delete', `user:${res.username}`, { transferredTo: res.heir });
+  const events: ServerEvent[] = [{ type: 'users', by: actor.id }, { type: 'boards', by: actor.id }];
+  for (const boardId of res.boardIds) {
+    events.push({ type: 'members', boardId, by: actor.id }, { type: 'board', boardId, by: actor.id });
+  }
+  return { events, kick: [id] };
+}
+
+export async function createReset(db: Db, actor: AuthUser, userId: number) {
+  const { token, expiresAt, username } = await createResetRow(db, actor, userId);
+  await audit(db, actor, 'user.reset_link', `user:${username}`);
+  return { token, expiresAt };
+}
+
+/** Создать доску из админки: она сразу защищена (управлять ею могут только админы) */
+export async function createBoard(db: Db, actor: AuthUser, name: string) {
+  const board = await createBoardRow(db, name, actor.id, true);
+  await audit(db, actor, 'board.create', `board:${board.id}`, { name: board.name });
+  const row = (await listBoards(db)).find((b) => b.id === board.id)!;
+  return { board: row, events: [{ type: 'boards', by: actor.id }] as ServerEvent[] };
+}
+
+/** Включить/снять защиту доски */
+export async function setBoardManaged(db: Db, actor: AuthUser, id: number, managedByAdmin: boolean) {
+  const row = await setBoardManagedRow(db, id, managedByAdmin);
+  await audit(db, actor, managedByAdmin ? 'board.protect' : 'board.unprotect', `board:${row.id}`);
+  const board = (await listBoards(db)).find((b) => b.id === row.id)!;
+  const events: ServerEvent[] = [{ type: 'boards', by: actor.id }, { type: 'board', boardId: row.id, by: actor.id }];
+  return { board, events };
+}
+
+/** Ставка сотрудника: owner — любую, admin — участников и модераторов; значение пишется в журнал (суммы не светим другим) */
+export async function setRate(db: Db, actor: AuthUser, id: number, hourlyRate: number) {
+  const target = await getUser(db, id);
+  if (!canSetRateOf(actor, target)) throw new AdminError('недостаточно прав менять ставку этого сотрудника', 403);
+  await db.update(users).set({ hourlyRate }).where(eq(users.id, id));
+  await audit(db, actor, 'user.rate', `user:${target.username}`, // ставки владельца и админов в журнал не пишем: его читают все админы
+    isAdminRole(target.role) ? {} : { from: target.hourlyRate, to: hourlyRate });
+  const user = (await listUsers(db, actor)).find((u) => u.id === id)!;
+  return { user, events: [{ type: 'users', by: actor.id }] as ServerEvent[] };
+}
+
+/** Настройки уведомлений: читает любой админ, меняет тоже админ (пишется в журнал) */
+async function setNotifySettings(db: Db, actor: AuthUser, input: NotifySettings) {
+  const out = await saveNotifySettings(db, input);
+  await audit(db, actor, 'notify.settings', '', out);
+  return out;
+}
+
+/** Общие настройки чата (срок хранения, кто удаляет); пишется в журнал */
+async function setChatSettings(db: Db, actor: AuthUser, input: ChatSettings) {
+  const out = await saveChatSettings(db, input);
+  await audit(db, actor, 'chat.settings', '', out);
+  return out;
+}
+
+/** Сервис, привязанный к БД: `const svc = createAdminService(db)` */
+export const createAdminService = (db: Db) =>
+  bindDb(db, { listUsers, setRate, updateUser, deleteUser, createReset, listBoards, createBoard, setBoardManaged, getNotifySettings, setNotifySettings, getChatSettings, setChatSettings });

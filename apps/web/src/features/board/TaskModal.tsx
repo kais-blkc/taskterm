@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { canCommentOn, canEditField, canManageTask, roleCan, type BoardRole, type Task, type User } from '@taskterm/shared';
+import { canCommentOn, canEditField, canEditTask, canManageTask, roleCan, taskActor, type BoardRole, type Task, type User } from '@taskterm/shared';
 import { useBoard, useMembers } from '../../api/boards';
 import { ROUTES } from '../../consts/routes';
 import { useUpdateTask } from '../../api/tasks';
@@ -10,6 +10,7 @@ import { Markdown } from '../../components/Markdown';
 import { addDays, DUE_CLASS, dueInfo, formatDateTime } from '../../lib/dates';
 import { Select } from '../../components/Select';
 import { ColorDot, UserTag } from '../../components/UserTag';
+import { Attachments } from './Attachments';
 import { Comments } from './Comments';
 import { useTimerState } from '../../api/time';
 import { useTimerUi } from '../../stores/timer';
@@ -37,7 +38,9 @@ function TaskBody({
   user,
   boardId,
   role,
+  onClose,
 }: {
+  onClose: () => void;
   task: Task;
   columnName: string;
   isFinished: boolean;
@@ -48,13 +51,13 @@ function TaskBody({
   const update = useUpdateTask(boardId);
   const users = useUsers();
   const members = useMembers(boardId);
-  // править поля задачи, подзадачи и описание может редактор и выше; остальные только читают
-  const actor = { role, isOwner: task.authorId === user.id };
-  const canEdit = roleCan(role, 'editTask');
+  // править задачу может владелец доски/админ и редактор — только в своей (автор или ответственный); остальные читают и комментируют
+  const actor = taskActor(task, user.id, role);
+  const canEdit = canEditTask(actor);
   const can = (f: Parameters<typeof canEditField>[2]) => canEditField(task.policy, actor, f);
   // поле закрыто политикой, хотя по роли его можно было бы менять
   const lockedBy = (f: Parameters<typeof canEditField>[2]) => canEdit && !can(f);
-  const lock = <LockHint className="ml-1" text="owner задачи закрыл это поле" />;
+  const lock = <LockHint className="ml-1" text="владелец задачи закрыл это поле" />;
   const [editingTitle, setEditingTitle] = useState(false);
   const [editingDesc, setEditingDesc] = useState(false);
   const [desc, setDesc] = useState(task.description);
@@ -97,7 +100,7 @@ function TaskBody({
       </div>
 
       <dl className="task-details grid grid-cols-1 items-center gap-y-1 sm:grid-cols-[max-content_1fr] sm:gap-x-4 border border-line bg-bg p-3">
-        <dt className="mt-2 text-muted first:mt-0 sm:mt-0">owner</dt>
+        <dt className="mt-2 text-muted first:mt-0 sm:mt-0">владелец</dt>
         <dd>
           <UserTag user={users.byId.get(task.authorId)} />
           <span className="text-muted"> · {formatDateTime(task.createdAt)}</span>
@@ -205,7 +208,7 @@ function TaskBody({
                 setEditingDesc(true);
               }}
             >
-              edit
+              изменить
             </button>
           )}
         </h3>
@@ -224,10 +227,10 @@ function TaskBody({
                 className="btn btn-primary"
                 onClick={() => update.mutate({ id: task.id, description: desc }, { onSuccess: () => setEditingDesc(false) })}
               >
-                save
+                сохранить
               </button>
               <button type="button" className="btn" onClick={() => setEditingDesc(false)}>
-                cancel
+                отмена
               </button>
             </div>
           </div>
@@ -242,13 +245,32 @@ function TaskBody({
 
       <Subtasks task={task} boardId={boardId} actor={actor} userId={user.id} />
 
+      <Attachments taskId={task.id} boardId={boardId} canEdit={canEdit} />
+
       <Comments
         taskId={task.id}
         userId={user.id}
         canComment={canCommentOn(task.policy, actor)}
         commentsLocked={roleCan(role, 'comment') && !canCommentOn(task.policy, actor)}
         canModerate={roleCan(role, 'deleteAnyComment')}
+        onSent={onClose}
       />
+
+      <div className="task-save flex justify-end">
+        <button
+          type="button"
+          disabled={update.isPending}
+          onClick={() => {
+            // незавершённая правка описания сохраняется, затем окно закрывается
+            if (editingDesc && desc !== task.description)
+              update.mutate({ id: task.id, description: desc }, { onSuccess: onClose });
+            else onClose();
+          }}
+          className="btn btn-primary"
+        >
+          сохранить
+        </button>
+      </div>
     </div>
   );
 }
@@ -265,7 +287,8 @@ export function TaskModal({ user }: { user: User }) {
     const onKey = (e: KeyboardEvent) => {
       const el = document.activeElement;
       const typing = el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement;
-      if (e.key === 'Escape' && !typing) navigate(ROUTES.BOARD(boardId));
+      // пока открыт просмотр файла, Esc закрывает его, а не окно задачи
+      if (e.key === 'Escape' && !typing && !document.querySelector('.yarl__root')) navigate(ROUTES.BOARD(boardId));
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -279,22 +302,23 @@ export function TaskModal({ user }: { user: User }) {
       <div className="modal-dialog task-modal w-full max-w-3xl border border-accent bg-elev p-3 shadow-2xl sm:p-5">
         <div className="mb-3 flex justify-end">
           <button type="button" onClick={close} className="task-modal-close btn btn-danger">
-            close <span className="text-muted">esc</span>
+            закрыть <span className="text-muted">esc</span>
           </button>
         </div>
         {!data ? (
-          <p className="text-muted">loading...</p>
+          <p className="text-muted">Загрузка…</p>
         ) : !task ? (
-          <p className="text-danger">! task not found</p>
+          <p className="text-danger">! задача не найдена</p>
         ) : (
           <TaskBody
             key={task.id}
             task={task}
             columnName={column?.name ?? '?'}
-            isFinished={task.columnId === data.columns.at(-1)?.id}
+            isFinished={task.columnId === data.columns.find((c) => c.isDone)?.id}
             user={user}
             boardId={boardId}
             role={data.board.myRole}
+            onClose={close}
           />
         )}
       </div>

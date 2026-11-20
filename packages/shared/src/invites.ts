@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { globalRoleSchema } from './auth';
+import { assignableRoleSchema, globalRoleSchema } from './auth';
 import { boardRoleSchema } from './permissions';
 
 export const INVITE_TTL_DAYS = 7;
@@ -10,7 +10,7 @@ export type BoardGrant = z.infer<typeof boardGrantSchema>;
 
 export const createInviteSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(200),
-  role: globalRoleSchema.default('member'),
+  role: assignableRoleSchema.default('member'),
   boards: z.array(boardGrantSchema).max(100).default([]),
 });
 export type CreateInviteInput = z.input<typeof createInviteSchema>;

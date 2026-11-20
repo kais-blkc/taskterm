@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { currentColors, FONT_MAX, FONT_MIN, useThemeStore } from '../stores/theme';
 import { THEME_TOKENS } from '../themes';
+import { usePopupStyle } from '../lib/usePopupStyle';
+import { NAV_POSITION_LABELS, useLayoutStore, type NavPosition } from '../stores/layout';
+import { NavButton } from './nav/NavButton';
+import { useNav } from './nav/NavContext';
 import { PresetSelect } from './PresetSelect';
 
 export function ThemeSettings() {
@@ -21,16 +25,37 @@ export function ThemeSettings() {
   }, [open]);
   const store = useThemeStore();
   const colors = currentColors(store);
+  const { position } = useNav();
+  const { popup, style, floating } = usePopupStyle(open, root, position);
+  const layout = useLayoutStore();
 
   return (
     <div ref={root} className="theme-settings relative">
-      <button type="button" onClick={() => setOpen(!open)} className={`btn ${open ? 'btn-active' : ''}`}>
-        theme
-      </button>
+      <NavButton icon="palette" label="тема" title="тема и вид панели" active={open} aria-expanded={open} className="theme-button" onClick={() => setOpen(!open)} />
       {open && <div className="modal-backdrop" onMouseDown={() => setOpen(false)} />}
       {open && (
-        <div className="modal-popup theme-settings-popup absolute right-0 z-10 mt-2 w-72 space-y-3 border border-line bg-elev p-3 shadow-lg">
+        <div
+          ref={popup}
+          style={style}
+          className={`modal-popup theme-settings-popup z-30 w-72 space-y-3 border border-line bg-elev p-3 shadow-lg ${floating ? '' : 'absolute right-0 z-10 mt-2'}`}
+        >
           <PresetSelect />
+          <div className="nav-position-setting space-y-1 max-sm:hidden">
+            <div className="text-muted">панель кнопок</div>
+            <div className="flex gap-1">
+              {(Object.keys(NAV_POSITION_LABELS) as NavPosition[]).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  aria-pressed={layout.navPosition === p}
+                  className={`nav-position-${p} btn flex-1 ${layout.navPosition === p ? 'btn-active' : ''}`}
+                  onClick={() => layout.setNavPosition(p)}
+                >
+                  {NAV_POSITION_LABELS[p]}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="space-y-1">
             {THEME_TOKENS.map((t) => (
               <label key={t} className="flex items-center justify-between">
@@ -45,7 +70,7 @@ export function ThemeSettings() {
             ))}
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-muted">font size</span>
+            <span className="text-muted">размер шрифта</span>
             <span className="flex items-center gap-2">
               <button
                 type="button"
@@ -69,7 +94,7 @@ export function ThemeSettings() {
             </span>
           </div>
           <button type="button" onClick={store.reset} className="btn btn-danger">
-            reset
+            сбросить
           </button>
         </div>
       )}

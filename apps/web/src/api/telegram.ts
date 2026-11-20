@@ -21,6 +21,11 @@ export function useTelegramMutations() {
     link: useMutation({
       mutationFn: async () => telegramLinkSchema.parse(await api(API_ENDPOINTS.TELEGRAM_LINK, { method: 'POST' })),
     }),
+    /** сводки общего чата в Telegram: включить/выключить */
+    setChatNotify: useMutation({
+      mutationFn: (enabled: boolean) => api(API_ENDPOINTS.TELEGRAM_CHAT_NOTIFY, { method: 'PUT', body: { enabled } }),
+      onSuccess: refresh,
+    }),
     unlink: useMutation({
       mutationFn: () => api<void>(API_ENDPOINTS.TELEGRAM, { method: 'DELETE' }),
       onSuccess: refresh,

@@ -1,9 +1,10 @@
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { INVITE_TTL_DAYS, type BoardGrant, type GlobalRole, type Invite, type InviteStatus } from '@taskterm/shared';
-import { first, type Db } from '../../db/client';
+import { bindDb, first, type Db } from '../../db/client';
 import { boardMembers, boards, invites, users } from '../../db/schema';
+import { audit } from '../audit/service';
 import { hashPassword, randomToken, sha256 } from '../auth/password';
-import { AuthError } from '../auth/service';
+import { AuthError, type AuthUser } from '../auth/service';
 import { nextUserColor } from '../users/colors';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -56,7 +57,7 @@ async function getInvite(db: Db, id: number) {
   const row = first(
     await db.select(listSelect).from(invites).innerJoin(users, eq(users.id, invites.invitedBy)).where(eq(invites.id, id)),
   );
-  if (!row) throw new InviteError('invite not found', 404);
+  if (!row) throw new InviteError('приглашение не найдено', 404);
   return row;
 }
 
@@ -65,13 +66,13 @@ async function validateGrants(db: Db, grants: BoardGrant[]) {
   const ids = [...unique.keys()];
   if (ids.length) {
     const found = await db.select({ id: boards.id }).from(boards).where(inArray(boards.id, ids));
-    if (found.length !== ids.length) throw new InviteError('board not found', 400);
+    if (found.length !== ids.length) throw new InviteError('доска не найдена', 400);
   }
   return [...unique.values()];
 }
 
 /** Создать приглашение. Прежние ожидающие приглашения на этот email отзываются. Токен возвращается один раз. */
-export async function createInvite(
+async function createInviteRow(
   db: Db,
   invitedBy: number,
   input: { email: string; role: GlobalRole; boards: BoardGrant[] },
@@ -104,13 +105,13 @@ export async function createInvite(
 }
 
 /** «Новая ссылка»: старое приглашение отзывается, создаётся такое же с новым токеном и сроком */
-export async function resendInvite(db: Db, id: number, invitedBy: number) {
+async function resendInviteRow(db: Db, id: number, invitedBy: number) {
   const { invite } = await getInvite(db, id);
   if (invite.usedAt) throw new InviteError('приглашение уже принято', 409);
-  return createInvite(db, invitedBy, { email: invite.email, role: invite.role, boards: invite.boardGrants });
+  return createInviteRow(db, invitedBy, { email: invite.email, role: invite.role, boards: invite.boardGrants });
 }
 
-export async function revokeInvite(db: Db, id: number) {
+async function revokeInviteRow(db: Db, id: number) {
   const { invite } = await getInvite(db, id);
   if (invite.usedAt) throw new InviteError('приглашение уже принято', 409);
   await db.update(invites).set({ revokedAt: new Date().toISOString() }).where(and(eq(invites.id, id), isNull(invites.revokedAt)));
@@ -160,7 +161,7 @@ export async function acceptInvite(db: Db, token: string, username: string, pass
     if (!claimed) throw new InviteError(INVALID, 400);
 
     if (first(await tx.select({ id: users.id }).from(users).where(eq(users.username, username)))) {
-      throw new AuthError('username already taken', 409);
+      throw new AuthError('этот логин уже занят', 409);
     }
     if (first(await tx.select({ id: users.id }).from(users).where(eq(users.email, claimed.email)))) {
       throw new AuthError('пользователь с таким email уже зарегистрирован', 409);
@@ -186,3 +187,33 @@ export async function acceptInvite(db: Db, token: string, username: string, pass
     return { user: user!, grantedBoardIds: grants.map((g) => g.boardId) };
   });
 }
+
+// ─── Сценарии (use cases): изменение → журнал ────────────────────────────────────────────
+
+/** Модератор приглашает и управляет приглашениями только обычных участников */
+function assertCanInviteRole(actor: AuthUser, role: GlobalRole) {
+  if (actor.role === 'moderator' && role !== 'member') throw new InviteError('модератор может приглашать только участников', 403);
+}
+
+export async function createInvite(db: Db, actor: AuthUser, input: { email: string; role: GlobalRole; boards: BoardGrant[] }) {
+  assertCanInviteRole(actor, input.role);
+  const { invite, token } = await createInviteRow(db, actor.id, input);
+  await audit(db, actor, 'invite.create', `invite:${invite.email}`, { role: invite.role, boards: invite.boards.length });
+  return { ...invite, token };
+}
+
+export async function resendInvite(db: Db, actor: AuthUser, id: number) {
+  assertCanInviteRole(actor, (await getInvite(db, id)).invite.role);
+  const { invite, token } = await resendInviteRow(db, id, actor.id);
+  await audit(db, actor, 'invite.resend', `invite:${invite.email}`);
+  return { ...invite, token };
+}
+
+export async function revokeInvite(db: Db, actor: AuthUser, id: number) {
+  assertCanInviteRole(actor, (await getInvite(db, id)).invite.role);
+  await revokeInviteRow(db, id);
+  await audit(db, actor, 'invite.revoke', `invite:${id}`);
+}
+
+/** Сервис, привязанный к БД: `const svc = createInviteService(db)` */
+export const createInviteService = (db: Db) => bindDb(db, { listInvites, createInvite, resendInvite, revokeInvite, checkInvite });

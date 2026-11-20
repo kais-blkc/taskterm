@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, Outlet, useParams } from 'react-router-dom';
-import { ROLE_LABELS } from '@taskterm/shared';
+import { ROLE_LABELS, isStaffRole } from '@taskterm/shared';
 import { useMe } from '../api/auth';
 import { LockHint } from '../components/Icon';
 import { MembersDialog } from '../components/MembersDialog';
@@ -15,7 +15,7 @@ export function BoardPage() {
   const me = useMe().data;
   const [membersOpen, setMembersOpen] = useState(false);
 
-  if (isLoading) return <p className="board-loading p-4 text-muted">loading...</p>;
+  if (isLoading) return <p className="board-loading p-4 text-muted">Загрузка…</p>;
   if (error || !data) {
     const notFound = error instanceof ApiError && error.status === 404;
     return <p className="board-error p-4 text-danger">! {notFound ? 'board not found' : 'failed to load board'}</p>;
@@ -24,7 +24,7 @@ export function BoardPage() {
     <div className="board-page">
       <div className="board-header px-4 pt-3">
         <Link to={ROUTES.HOME} className="board-back-link text-muted hover:text-accent">
-          ← boards
+          ← доски
         </Link>
         <span className="board-name ml-3"># {data.board.name}</span>
         <span className="board-role ml-3 text-muted" title="твоя роль на доске">
@@ -36,6 +36,12 @@ export function BoardPage() {
         <button type="button" className="board-members-button btn ml-3" onClick={() => setMembersOpen(true)}>
           участники
         </button>
+        {me && isStaffRole(me.role) && (
+          // админ/модератор: быстрый переход к этой доске в админке (название, защита, участники, удаление)
+          <Link to={ROUTES.ADMIN_BOARD(id)} className="board-admin-link btn ml-2" title="открыть эту доску в админке">
+            изменить
+          </Link>
+        )}
       </div>
       {membersOpen && me && (
         <MembersDialog

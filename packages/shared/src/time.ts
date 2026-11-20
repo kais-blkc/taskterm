@@ -37,14 +37,14 @@ export const timerStateSchema = z.object({
 });
 export type TimerState = z.infer<typeof timerStateSchema>;
 
+/** Общие настройки: валюта и пояс. Ставка — у каждого сотрудника своя (users.hourly_rate) */
 export const timerSettingsSchema = z.object({
-  hourlyRate: z.number().min(0).max(1_000_000),
   currency: z.string().trim().min(1).max(8),
   timeZone: z.string(),
 });
 export type TimerSettings = z.infer<typeof timerSettingsSchema>;
 
-export const updateTimerSettingsSchema = timerSettingsSchema.pick({ hourlyRate: true, currency: true });
+export const updateTimerSettingsSchema = timerSettingsSchema.pick({ currency: true });
 export type UpdateTimerSettings = z.infer<typeof updateTimerSettingsSchema>;
 
 /** Старт: задача или описание обязательны; startedAt — если забыли запустить (по умолчанию «сейчас») */
@@ -120,6 +120,8 @@ export const reportUserSchema = z.object({
   username: z.string(),
   color: z.string(),
   totalMs: z.number().int(),
+  /** ставка сотрудника (в час) и сумма по ней */
+  hourlyRate: z.number(),
   amount: z.number(),
   /** сейчас идёт таймер */
   running: z.boolean(),
@@ -135,7 +137,7 @@ export const reportProjectSchema = z.object({
   name: z.string(),
   totalMs: z.number().int(),
   amount: z.number(),
-  people: z.array(z.object({ userId: z.number().int(), username: z.string(), color: z.string(), ms: z.number().int() })),
+  people: z.array(z.object({ userId: z.number().int(), username: z.string(), color: z.string(), ms: z.number().int(), amount: z.number() })),
   items: z.array(reportItemSchema),
 });
 export type ReportProject = z.infer<typeof reportProjectSchema>;
@@ -144,7 +146,6 @@ export const timeReportSchema = z.object({
   from: dayStringSchema,
   to: dayStringSchema,
   timeZone: z.string(),
-  hourlyRate: z.number(),
   currency: z.string(),
   totalMs: z.number().int(),
   totalAmount: z.number(),

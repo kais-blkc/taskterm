@@ -1,8 +1,11 @@
 import { asc, eq } from 'drizzle-orm';
-import { first, type Db } from '../../db/client';
+import { canCommentOn, roleCan, type ServerEvent } from '@taskterm/shared';
+import { bindDb, first, type Db } from '../../db/client';
 import { comments, users } from '../../db/schema';
 import { NotFoundError } from '../boards/service';
-import { ForbiddenError } from '../permissions/access';
+import type { AuthUser } from '../auth/service';
+import { commentNotice } from '../notify/events';
+import { ForbiddenError, LOCKED_MESSAGE, actorOf, requireCommentBoard, requireTaskCan } from '../permissions/access';
 import { getTask } from '../tasks/service';
 
 export { ForbiddenError };
@@ -21,11 +24,11 @@ async function getComment(db: Db, id: number) {
   const row = first(
     await db.select(select).from(comments).innerJoin(users, eq(users.id, comments.authorId)).where(eq(comments.id, id)),
   );
-  if (!row) throw new NotFoundError('comment not found');
+  if (!row) throw new NotFoundError('комментарий не найден');
   return row;
 }
 
-export async function listComments(db: Db, taskId: number) {
+async function listCommentsRows(db: Db, taskId: number) {
   await getTask(db, taskId);
   return db
     .select(select)
@@ -35,7 +38,7 @@ export async function listComments(db: Db, taskId: number) {
     .orderBy(asc(comments.id));
 }
 
-export async function createComment(db: Db, taskId: number, authorId: number, body: string) {
+async function createCommentRow(db: Db, taskId: number, authorId: number, body: string) {
   const task = await getTask(db, taskId);
   const [row] = await db.insert(comments).values({ taskId, authorId, body }).returning({ id: comments.id });
   const comment = await getComment(db, row!.id);
@@ -51,16 +54,52 @@ export async function createComment(db: Db, taskId: number, authorId: number, bo
   return { comment, task, recipients: [...participants] };
 }
 
-export async function updateComment(db: Db, id: number, userId: number, body: string) {
-  if ((await getComment(db, id)).authorId !== userId) throw new ForbiddenError('not your comment');
+async function updateCommentRow(db: Db, id: number, userId: number, body: string) {
+  if ((await getComment(db, id)).authorId !== userId) throw new ForbiddenError('это не ваш комментарий');
   await db.update(comments).set({ body, editedAt: new Date().toISOString() }).where(eq(comments.id, id));
   return getComment(db, id);
 }
 
 /** force — владелец доски может удалить чужой комментарий */
-export async function deleteComment(db: Db, id: number, userId: number, force = false) {
+async function deleteCommentRow(db: Db, id: number, userId: number, force = false) {
   const c = await getComment(db, id);
-  if (c.authorId !== userId && !force) throw new ForbiddenError('not your comment');
+  if (c.authorId !== userId && !force) throw new ForbiddenError('это не ваш комментарий');
   await db.delete(comments).where(eq(comments.id, id));
   return c.taskId;
 }
+
+// ─── Сценарии (use cases): права → изменение → события; шину отдаёт роут ──────
+
+async function listComments(db: Db, user: AuthUser, taskId: number) {
+  await requireTaskCan(db, user, taskId, 'view');
+  return listCommentsRows(db, taskId);
+}
+
+async function createComment(db: Db, user: AuthUser, taskId: number, body: string) {
+  const { task: target, role } = await requireTaskCan(db, user, taskId, 'comment');
+  if (!canCommentOn(target.policy, actorOf(target, user, role))) throw new ForbiddenError(LOCKED_MESSAGE);
+  const { comment, task, recipients } = await createCommentRow(db, taskId, user.id, body);
+  const events: ServerEvent[] = [
+    { type: 'comments', boardId: task.boardId, taskId: task.id, by: user.id },
+    commentNotice(task, user, comment.body, recipients),
+  ];
+  return { comment, events };
+}
+
+async function updateComment(db: Db, user: AuthUser, id: number, body: string) {
+  const { boardId, role } = await requireCommentBoard(db, user, id);
+  if (!roleCan(role, 'comment')) throw new ForbiddenError('недостаточно прав для этого действия');
+  const comment = await updateCommentRow(db, id, user.id, body);
+  return { comment, events: [{ type: 'comments', boardId, taskId: comment.taskId, by: user.id } as ServerEvent] };
+}
+
+/** Своё — всегда; чужое — только с правом deleteAnyComment (владелец доски) */
+async function deleteComment(db: Db, user: AuthUser, id: number) {
+  const { boardId, role } = await requireCommentBoard(db, user, id);
+  const taskId = await deleteCommentRow(db, id, user.id, roleCan(role, 'deleteAnyComment'));
+  return { events: [{ type: 'comments', boardId, taskId, by: user.id } as ServerEvent] };
+}
+
+/** Сервис, привязанный к БД: `const svc = createCommentService(db)`; внутри транзакции — `createCommentService(tx)` */
+export const createCommentService = (db: Db) =>
+  bindDb(db, { listComments, createComment, updateComment, deleteComment });

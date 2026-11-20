@@ -8,6 +8,7 @@ export default defineConfig({
     port: 5180,
     strictPort: true,
     // changeOrigin: false — Host остаётся localhost:5180, иначе API (CSRF-проверка Origin vs Host) отклонит POST/PATCH/DELETE
-    proxy: { '/api': { target: 'http://localhost:3100', changeOrigin: false } },
+    // ws: true — WebSocket общего чата (/api/chat/ws)
+    proxy: { '/api': { target: 'http://localhost:3100', changeOrigin: false, ws: true } },
   },
 });

@@ -15,12 +15,13 @@ export function TelegramSection() {
   }, [linked]);
 
   if (!status.data?.enabled) return null;
-  const error = m.link.error ?? m.unlink.error;
+  const error = m.link.error ?? m.unlink.error ?? m.setChatNotify.error;
 
   return (
     <div className="telegram-section space-y-2 border-t border-line pt-3">
       <div className="text-muted">Telegram</div>
       {linked ? (
+        <>
         <div className="flex items-center justify-between gap-2">
           <span className="text-accent">подключён</span>
           <button
@@ -40,6 +41,18 @@ export function TelegramSection() {
             отключить
           </button>
         </div>
+        {/* сводка по новым сообщениям общего чата; можно выключить, остальные уведомления это не затрагивает */}
+        <button
+          type="button"
+          aria-pressed={status.data.chatNotify}
+          className={`telegram-chat-notify btn ${status.data.chatNotify ? 'btn-active' : ''}`}
+          title="сводка по новым сообщениям общего чата"
+          disabled={m.setChatNotify.isPending}
+          onClick={() => m.setChatNotify.mutate(!status.data!.chatNotify)}
+        >
+          чат в Telegram: {status.data.chatNotify ? 'вкл' : 'выкл'}
+        </button>
+        </>
       ) : url ? (
         <div className="space-y-2">
           <a href={url} target="_blank" rel="noreferrer" className="telegram-open btn btn-primary">

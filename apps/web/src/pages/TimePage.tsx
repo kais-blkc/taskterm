@@ -39,10 +39,10 @@ function EntryRow({ e }: { e: TimeEntry }) {
               </>
             )}
             <button type="button" className="btn btn-primary" disabled={m.update.isPending} onClick={save}>
-              save
+              сохранить
             </button>
             <button type="button" className="btn" onClick={() => setEditing(false)}>
-              cancel
+              отмена
             </button>
           </div>
         </div>
@@ -66,7 +66,7 @@ function EntryRow({ e }: { e: TimeEntry }) {
           <div className="flex items-center gap-2">
             <span className="tabular-nums">{formatDuration(e.durationMs)}</span>
             <button type="button" className="btn" onClick={() => setEditing(true)}>
-              edit
+              изменить
             </button>
             {!running && (
               <button
@@ -76,7 +76,7 @@ function EntryRow({ e }: { e: TimeEntry }) {
                   if (await confirmDialog({ title: 'Удалить запись?', message: `${formatDuration(e.durationMs)} — ${e.note || e.taskTitle || ''}`, danger: true })) m.remove.mutate(e.id);
                 }}
               >
-                delete
+                удалить
               </button>
             )}
           </div>
@@ -112,7 +112,7 @@ function AddEntry({ onDone }: { onDone: () => void }) {
           добавить
         </button>
         <button type="button" className="btn" onClick={onDone}>
-          cancel
+          отмена
         </button>
       </div>
       {m.create.error && <p className="text-[14px] text-danger">! {m.create.error.message}</p>}
@@ -133,7 +133,7 @@ export function TimePage() {
   return (
     <div className="time-page mx-auto max-w-4xl space-y-4 p-3 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="page-title">$ time</h1>
+        <h1 className="page-title">$ время</h1>
         {!adding && (
           <button type="button" className="btn" onClick={() => setAdding(true)}>
             + добавить время вручную
@@ -144,7 +144,7 @@ export function TimePage() {
       <PeriodPicker today={today} from={from} to={to} onChange={setPeriod} />
       <p className="text-[14px] text-muted">// границы дней — по часовому поясу приложения ({tz})</p>
 
-      {data.isLoading && <p className="text-muted">loading...</p>}
+      {data.isLoading && <p className="text-muted">Загрузка…</p>}
       {data.error && <p className="text-danger">! {data.error.message}</p>}
       {data.data && (
         <>

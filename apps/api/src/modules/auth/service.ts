@@ -39,7 +39,7 @@ export interface Session {
 
 export async function register(db: Db, username: string, password: string, role: GlobalRole = 'member') {
   const exists = first(await db.select({ id: users.id }).from(users).where(eq(users.username, username)));
-  if (exists) throw new AuthError('username already taken', 409);
+  if (exists) throw new AuthError('этот логин уже занят', 409);
   const passwordHash = await hashPassword(password);
   const [row] = await db
     .insert(users)
@@ -52,7 +52,7 @@ export async function verifyLogin(db: Db, username: string, password: string) {
   const row = first(await db.select().from(users).where(eq(users.username, username)));
   // одинаковая ошибка для неверного логина, пароля и заблокированного аккаунта
   if (!row || !(await verifyPassword(password, row.passwordHash)) || !row.isActive) {
-    throw new AuthError('invalid username or password', 401);
+    throw new AuthError('неверный логин или пароль', 401);
   }
   return row;
 }
@@ -85,7 +85,7 @@ export async function startSession(db: Db, secret: string, user: UserRow, userAg
 export async function refreshSession(db: Db, secret: string, token: string, userAgent?: string): Promise<Session> {
   const now = Date.now();
   const row = first(await db.select().from(refreshTokens).where(eq(refreshTokens.tokenHash, sha256(token))));
-  if (!row || new Date(row.expiresAt).getTime() < now) throw new AuthError('invalid refresh token', 401);
+  if (!row || new Date(row.expiresAt).getTime() < now) throw new AuthError('сессия недействительна, войдите заново', 401);
 
   const user = first(await db.select().from(users).where(eq(users.id, row.userId)));
   const revokeFamily = () =>
@@ -95,7 +95,7 @@ export async function refreshSession(db: Db, secret: string, token: string, user
       .where(and(eq(refreshTokens.familyId, row.familyId), isNull(refreshTokens.revokedAt)));
   if (!user || !user.isActive) {
     await revokeFamily();
-    throw new AuthError('invalid refresh token', 401);
+    throw new AuthError('сессия недействительна, войдите заново', 401);
   }
   const accessOnly = async (): Promise<Session> => ({
     user: toAuthUser(user),
@@ -107,7 +107,7 @@ export async function refreshSession(db: Db, secret: string, token: string, user
     const recentlyRotated = row.rotatedAt && now - new Date(row.rotatedAt).getTime() < ROTATION_GRACE_MS;
     if (recentlyRotated) return accessOnly(); // соседняя вкладка уже получила новый refresh в cookie
     await revokeFamily(); // токен украден или переигран
-    throw new AuthError('invalid refresh token', 401);
+    throw new AuthError('сессия недействительна, войдите заново', 401);
   }
 
   const stamp = new Date().toISOString();

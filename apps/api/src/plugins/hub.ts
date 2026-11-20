@@ -21,6 +21,11 @@ export class EventHub {
     }
   }
 
+  /** Несколько событий подряд (сценарии сервисов возвращают списком) */
+  emitAll(events: ServerEvent[]) {
+    for (const e of events) this.emit(e);
+  }
+
   private kickers = new Set<(userId: number) => void>();
 
   /** Закрыть открытые потоки пользователя (блокировка, смена роли, удаление) */

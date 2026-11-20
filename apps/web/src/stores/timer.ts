@@ -8,27 +8,27 @@ export interface StartPreset {
   note?: string;
 }
 
-const HIDDEN_KEY = 'taskterm.timer.hidden';
-const readHidden = () => {
+const COLLAPSED_KEY = 'taskterm.timer.collapsed';
+const readCollapsed = () => {
   try {
-    return localStorage.getItem(HIDDEN_KEY) === '1';
+    return localStorage.getItem(COLLAPSED_KEY) === '1';
   } catch {
     return false;
   }
 };
-const writeHidden = (v: boolean) => {
+const writeCollapsed = (v: boolean) => {
   try {
-    if (v) localStorage.setItem(HIDDEN_KEY, '1');
-    else localStorage.removeItem(HIDDEN_KEY);
+    if (v) localStorage.setItem(COLLAPSED_KEY, '1');
+    else localStorage.removeItem(COLLAPSED_KEY);
   } catch {
     /* приватный режим — просто не запоминаем */
   }
 };
 
 interface TimerUi {
-  /** панель таймера закреплена всегда; скрывает её только сам пользователь крестиком */
-  hidden: boolean;
-  setHidden: (v: boolean) => void;
+  /** панель свёрнута к правому краю: только время и кнопки пауза/старт/стоп */
+  collapsed: boolean;
+  setCollapsed: (v: boolean) => void;
   startOpen: StartPreset | null;
   stopOpen: boolean;
   openStart: (preset?: StartPreset) => void;
@@ -38,10 +38,10 @@ interface TimerUi {
 
 /** UI-состояние диалогов таймера (сам таймер живёт на сервере → TanStack Query) */
 export const useTimerUi = create<TimerUi>()((set) => ({
-  hidden: readHidden(),
-  setHidden: (v) => {
-    writeHidden(v);
-    set({ hidden: v });
+  collapsed: readCollapsed(),
+  setCollapsed: (v) => {
+    writeCollapsed(v);
+    set({ collapsed: v });
   },
   startOpen: null,
   stopOpen: false,

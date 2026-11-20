@@ -52,13 +52,13 @@ export function MembersDialog({
     >
       <div ref={box} className="modal-dialog members-dialog w-full max-w-xl space-y-4 border border-accent bg-elev p-3 sm:p-5 shadow-2xl">
         <div className="flex items-center justify-between">
-          <h2>## members</h2>
+          <h2>## участники</h2>
           <button type="button" className="btn btn-danger" onClick={onClose}>
-            close <span className="text-muted">esc</span>
+            закрыть <span className="text-muted">esc</span>
           </button>
         </div>
 
-        {members.isLoading && <p className="text-muted">loading...</p>}
+        {members.isLoading && <p className="text-muted">Загрузка…</p>}
         <ul className="members-list space-y-1">
           {members.data?.map((u) => (
             <li key={u.id} className="members-item flex flex-wrap items-center justify-between gap-2 border border-line bg-bg px-2 py-1.5">
@@ -120,7 +120,7 @@ export function MembersDialog({
                 disabled={!newUser || m.setRole.isPending}
                 onClick={() => m.setRole.mutate({ userId: Number(newUser), role: newRole }, { onSuccess: () => setNewUser('') })}
               >
-                add
+                добавить
               </button>
             </div>
             <p className="text-[14px] text-muted">{ROLE_HINT[newRole]}</p>

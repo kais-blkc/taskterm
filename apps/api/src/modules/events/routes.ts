@@ -7,7 +7,8 @@ import { accessibleBoardIds } from '../permissions/access';
 
 /** События без привязки к доске (список пользователей, список досок, состав участников) доходят всем:
  *  они только сигнализируют «перезапроси», а сами данные клиент получает через API с проверкой прав. */
-const hasBoard = (e: ServerEvent): e is Extract<ServerEvent, { boardId: number }> => 'boardId' in e && e.type !== 'members';
+const hasBoard = (e: ServerEvent): e is Extract<ServerEvent, { boardId: number }> =>
+  'boardId' in e && e.type !== 'members';
 
 export async function eventRoutes(app: FastifyInstance, opts: { db: Db; hub: EventHub }) {
   const { db, hub } = opts;
@@ -38,13 +39,15 @@ export async function eventRoutes(app: FastifyInstance, opts: { db: Db; hub: Eve
     let queue = Promise.resolve();
     const send = (event: ServerEvent) => res.write(`data: ${JSON.stringify(event)}\n\n`);
     const handle = async (event: ServerEvent) => {
+      if (event.type === 'chat_message' || event.type === 'chat_deleted') return; // чат живёт в своём WebSocket
       // состав досок изменился — обновляем список доступных до фильтрации
-      if (event.type === 'boards' || event.type === 'members') allowed = await accessibleBoardIds(db, user);
+      if (event.type === 'boards' || event.type === 'members')
+        allowed = await accessibleBoardIds(db, user);
       if (hasBoard(event) && allowed && !allowed.has(event.boardId)) return;
       send(event);
     };
     const unsubscribe = hub.subscribe((event) => {
-      queue = queue.then(() => handle(event)).catch(() => {});
+      queue = queue.then(() => handle(event)).catch(() => { });
     });
     // блокировка/смена роли/удаление: соединение закрываем, клиент переподключится через refresh
     const unkick = hub.onKick((id) => {

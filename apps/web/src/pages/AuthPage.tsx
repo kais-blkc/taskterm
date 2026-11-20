@@ -31,11 +31,11 @@ export function AuthPage() {
         <span className="text-muted">$</span> taskterm <span className="cursor" />
       </h1>
       <form onSubmit={handleSubmit((v) => login.mutate(v))} className="login-form space-y-4">
-        {field('username', 'username')}
-        {field('password', 'password', 'password')}
+        {field('username', 'логин')}
+        {field('password', 'пароль', 'password')}
         {login.error && <p className="form-error text-danger">! {login.error.message}</p>}
         <button type="submit" disabled={login.isPending} className="login-submit btn btn-primary px-3">
-          {login.isPending ? '...' : '> login'}
+          {login.isPending ? '...' : '> войти'}
         </button>
       </form>
       <p className="login-hint mt-6 text-muted text-[14px]">// доступ только по приглашению — попроси ссылку у администратора</p>

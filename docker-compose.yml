@@ -36,8 +36,13 @@ services:
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       PUBLIC_URL: ${PUBLIC_URL:-}
       TIME_ZONE: ${TIME_ZONE:-Europe/Moscow}
+      CHAT_DIGEST_SECONDS: ${CHAT_DIGEST_SECONDS:-60}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
       DATABASE_URL: postgres://taskterm:${POSTGRES_PASSWORD}@db:5432/taskterm
+      UPLOADS_DIR: /app/uploads
+    volumes:
+      # файлы, прикреплённые к задачам (до 10 штук по 50 МБ на задачу)
+      - taskterm-uploads:/app/uploads
       # true — только если перед приложением стоит HTTPS (иначе cookie входа не сохранится)
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
 
@@ -61,5 +66,6 @@ services:
 
 volumes:
   taskterm-pg:
+  taskterm-uploads:
   caddy-data:
   caddy-config:

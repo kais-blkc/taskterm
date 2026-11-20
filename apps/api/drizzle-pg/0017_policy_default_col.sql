@@ -1,0 +1,1 @@
+ALTER TABLE "tasks" ALTER COLUMN "policy" SET DEFAULT '{"lockTitle":false,"lockDescription":false,"lockAssignee":false,"lockDueDate":false,"lockMove":false,"commentsLocked":false,"subtasks":"check_and_add"}'::jsonb;

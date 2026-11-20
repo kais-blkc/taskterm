@@ -9,6 +9,7 @@ import { ResetPage } from './pages/ResetPage';
 import { BoardPage } from './pages/BoardPage';
 import { TaskModal } from './features/board/TaskModal';
 import { BoardsPage } from './pages/BoardsPage';
+import { ChatPage } from './pages/ChatPage';
 import { TimePage } from './pages/TimePage';
 import { Layout } from './pages/HomePage';
 import { applyTheme, useThemeStore } from './stores/theme';
@@ -20,8 +21,8 @@ export function App() {
   useSessionGuard();
   const { pathname } = useLocation();
   const me = useMe();
-  if (me.isLoading) return <p className="app-loading p-4 text-muted">loading...</p>;
-  if (me.isError) return <p className="app-error p-4 text-danger">! api unavailable</p>;
+  if (me.isLoading) return <p className="app-loading p-4 text-muted">Загрузка…</p>;
+  if (me.isError) return <p className="app-error p-4 text-danger">! API недоступен</p>;
   // без входа доступны только вход, регистрация по приглашению и сброс пароля по ссылке
   if (!me.data) {
     if (pathname === ROUTES.REGISTER) return <RegisterPage />;
@@ -38,6 +39,7 @@ export function App() {
         </Route>
         <Route path={ROUTE_PATTERNS.ADMIN} element={<AdminPage user={me.data} />} />
         <Route path={ROUTE_PATTERNS.TIME} element={<TimePage />} />
+        <Route path={ROUTE_PATTERNS.CHAT} element={<ChatPage user={me.data} />} />
         <Route path={ROUTE_PATTERNS.NOT_FOUND} element={<Navigate to={ROUTES.HOME} replace />} />
       </Route>
     </Routes>

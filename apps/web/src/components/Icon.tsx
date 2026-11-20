@@ -1,4 +1,4 @@
-type IconName = 'lock' | 'check' | 'checklist' | 'bell';
+export type IconName = 'lock' | 'check' | 'checklist' | 'bell' | 'clip' | 'file' | 'play' | 'menu' | 'chat' | 'pin' | 'home' | 'clock' | 'shield' | 'palette' | 'user' | 'logout' | 'search';
 
 const PATHS: Record<IconName, React.ReactNode> = {
   lock: (
@@ -12,6 +12,54 @@ const PATHS: Record<IconName, React.ReactNode> = {
     <>
       <path d="M6 16V10a6 6 0 0 1 12 0v6l2 2H4z" />
       <path d="M10 21h4" />
+    </>
+  ),
+  clip: <path d="M20.5 11.5 12 20a5 5 0 0 1-7-7l9-9a3.5 3.5 0 0 1 5 5l-9 9a2 2 0 0 1-3-3l8-8" />,
+  file: (
+    <>
+      <path d="M6 3h8l4 4v14H6z" />
+      <path d="M14 3v4h4" />
+    </>
+  ),
+  play: <path d="M8 5v14l11-7z" />,
+  menu: <path d="M4 6h16M4 12h16M4 18h16" />,
+  chat: <path d="M4 5h16v11H9l-5 4z" />,
+  home: <path d="M4 11 12 4l8 7v9H4z" />,
+  clock: (
+    <>
+      <circle cx="12" cy="12" r="8" />
+      <path d="M12 7v5l3 2" />
+    </>
+  ),
+  shield: <path d="M12 3 5 6v6c0 4 3 7 7 9 4-2 7-5 7-9V6z" />,
+  palette: (
+    <>
+      <path d="M12 3a9 9 0 1 0 0 18c1.4 0 2-1 1.5-2.2-.6-1.4.2-2.8 1.8-2.8H18a3 3 0 0 0 3-3A9 9 0 0 0 12 3z" />
+      <path d="M7.5 11h.01M10 7.5h.01M14.5 7.5h.01" />
+    </>
+  ),
+  user: (
+    <>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21c0-4 3.6-6 8-6s8 2 8 6" />
+    </>
+  ),
+  logout: (
+    <>
+      <path d="M10 4H4v16h6" />
+      <path d="M9 12h12M17 8l4 4-4 4" />
+    </>
+  ),
+  search: (
+    <>
+      <circle cx="11" cy="11" r="6" />
+      <path d="m20 20-4.5-4.5" />
+    </>
+  ),
+  pin: (
+    <>
+      <path d="M9 3h6l-1 6 3 3H7l3-3z" />
+      <path d="M12 12v9" />
     </>
   ),
   checklist: (

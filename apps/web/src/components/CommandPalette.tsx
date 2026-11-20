@@ -1,3 +1,4 @@
+import { isStaffRole } from '@taskterm/shared';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMatch, useNavigate } from 'react-router-dom';
 import { useBoard, useBoards } from '../api/boards';
@@ -19,6 +20,9 @@ interface Cmd {
 
 const GROUP_ORDER: Cmd['group'][] = ['actions', 'boards', 'tasks', 'themes'];
 
+/** Заголовки групп в палитре */
+const GROUP_TITLES: Record<Cmd['group'], string> = { actions: 'действия', boards: 'доски', tasks: 'задачи', themes: 'темы' };
+
 export function CommandPalette() {
   const open = useUiStore((s) => s.paletteOpen);
   const setOpen = useUiStore((s) => s.setPaletteOpen);
@@ -33,7 +37,8 @@ function PaletteInner({ close }: { close: () => void }) {
   const boards = useBoards();
   const board = useBoard(boardId, Number.isFinite(boardId));
   const logout = useLogout();
-  const isAdmin = useMe().data?.role === 'admin';
+  const role = useMe().data?.role;
+  const isAdmin = !!role && isStaffRole(role);
   const setPreset = useThemeStore((s) => s.setPreset);
   const notify = useNotifyStore();
   const { setHelpOpen, setAddTaskColumn } = useUiStore.getState();
@@ -52,7 +57,7 @@ function PaletteInner({ close }: { close: () => void }) {
         cmds.push({
           id: 'new-task',
           group: 'actions',
-          label: `new task: ${board.data.board.name}`,
+          label: `новая задача: ${board.data.board.name}`,
           hint: 'n',
           run: () => setAddTaskColumn(first.id),
         });
@@ -72,10 +77,10 @@ function PaletteInner({ close }: { close: () => void }) {
       });
     }
     cmds.push({ id: 'help', group: 'actions', label: 'горячие клавиши', hint: '?', run: () => setHelpOpen(true) });
-    cmds.push({ id: 'logout', group: 'actions', label: 'logout', run: () => logout.mutate() });
+    cmds.push({ id: 'logout', group: 'actions', label: 'выйти', run: () => logout.mutate() });
 
     for (const b of boards.data ?? []) {
-      cmds.push({ id: `board-${b.id}`, group: 'boards', label: `board: ${b.name}`, run: () => navigate(ROUTES.BOARD(b.id)) });
+      cmds.push({ id: `board-${b.id}`, group: 'boards', label: `доска: ${b.name}`, run: () => navigate(ROUTES.BOARD(b.id)) });
     }
     for (const t of board.data?.tasks ?? []) {
       cmds.push({
@@ -86,7 +91,7 @@ function PaletteInner({ close }: { close: () => void }) {
       });
     }
     for (const p of PRESETS) {
-      cmds.push({ id: `theme-${p.id}`, group: 'themes', label: `theme: ${p.name}`, run: () => setPreset(p.id) });
+      cmds.push({ id: `theme-${p.id}`, group: 'themes', label: `тема: ${p.name}`, run: () => setPreset(p.id) });
     }
     return cmds;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -144,7 +149,7 @@ function PaletteInner({ close }: { close: () => void }) {
             lastGroup = c.group;
             return (
               <li key={c.id}>
-                {header && <div className="palette-group-title px-3 pt-2 text-xs text-muted">## {c.group}</div>}
+                {header && <div className="palette-group-title px-3 pt-2 text-xs text-muted">## {GROUP_TITLES[c.group]}</div>}
                 <div
                   data-idx={i}
                   onMouseEnter={() => setActive(i)}

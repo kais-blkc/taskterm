@@ -26,11 +26,15 @@ FROM node:${NODE_VERSION}-slim AS runtime
 ENV NODE_ENV=production \
     PORT=3100 \
     STATIC_DIR=/app/web \
-    MIGRATIONS_DIR=/app/drizzle-pg
+    MIGRATIONS_DIR=/app/drizzle-pg \
+    UPLOADS_DIR=/app/uploads
 WORKDIR /app
 COPY --from=build /app/apps/api/dist/server.mjs ./server.mjs
 COPY --from=build /app/apps/api/drizzle-pg ./drizzle-pg
 COPY --from=build /app/apps/web/dist ./web
+
+# папка для файлов задач: монтируется томом, пишет в неё пользователь node
+RUN mkdir -p /app/uploads && chown node:node /app/uploads
 
 USER node
 EXPOSE 3100

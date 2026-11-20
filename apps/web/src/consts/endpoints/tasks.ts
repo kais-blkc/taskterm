@@ -5,6 +5,9 @@ export const TASKS_ENDPOINTS = {
   TASK_MOVE: (id: number): string => `/tasks/${id}/move`,
   TASK_COMMENTS: (taskId: number): string => `/tasks/${taskId}/comments`,
 
+  TASK_ATTACHMENTS: (taskId: number): string => `/tasks/${taskId}/attachments`,
+  ATTACHMENT_ITEM: (id: number): string => `/attachments/${id}`,
+
   TASK_SUBTASKS: (taskId: number): string => `/tasks/${taskId}/subtasks`,
   TASK_SUBTASKS_BULK: (taskId: number): string => `/tasks/${taskId}/subtasks/bulk`,
 

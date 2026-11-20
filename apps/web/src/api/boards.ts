@@ -77,8 +77,35 @@ export function useBoardMutations(boardId: number) {
   });
   const addTask = useMutation({
     mutationFn: (v: { columnId: number; title: string }) =>
-      api(API_ENDPOINTS.BOARD_TASKS(boardId), { method: 'POST', body: v }),
+      api<Task>(API_ENDPOINTS.BOARD_TASKS(boardId), { method: 'POST', body: v }),
     onSuccess: refresh,
+  });
+  /** Какая колонка «выполнено» (только админ): отметка одна на доске, прежняя снимается */
+  const setColumnDone = useMutation({
+    mutationFn: (v: { id: number; isDone: boolean }) => api(API_ENDPOINTS.COLUMN_ITEM(v.id), { method: 'PATCH', body: { isDone: v.isDone } }),
+    onSuccess: refresh,
+  });
+  /** Порядок колонок: «перед beforeId» (null — в конец); в кэше меняется сразу, при ошибке откатывается */
+  const moveColumn = useMutation({
+    mutationFn: (v: { id: number; beforeId: number | null }) =>
+      api(API_ENDPOINTS.COLUMN_MOVE(v.id), { method: 'POST', body: { beforeId: v.beforeId } }),
+    onMutate: async (v) => {
+      await qc.cancelQueries({ queryKey: key });
+      const prev = qc.getQueryData<BoardFull>(key);
+      if (prev) {
+        const moved = prev.columns.find((c) => c.id === v.id);
+        if (moved) {
+          const rest = prev.columns.filter((c) => c.id !== v.id);
+          const at = v.beforeId === null ? -1 : rest.findIndex((c) => c.id === v.beforeId);
+          if (at === -1) rest.push(moved);
+          else rest.splice(at, 0, moved);
+          qc.setQueryData<BoardFull>(key, { ...prev, columns: rest });
+        }
+      }
+      return { prev };
+    },
+    onError: (_e, _v, ctx) => ctx?.prev && qc.setQueryData(key, ctx.prev),
+    onSettled: refresh,
   });
   const deleteTask = useMutation({
     mutationFn: (id: number) => api<void>(API_ENDPOINTS.TASK_ITEM(id), { method: 'DELETE' }),
@@ -111,7 +138,7 @@ export function useBoardMutations(boardId: number) {
     onSettled: refresh,
   });
 
-  return { addColumn, renameColumn, setColumnNotify, deleteColumn, addTask, deleteTask, moveTask };
+  return { addColumn, renameColumn, setColumnNotify, setColumnDone, moveColumn, deleteColumn, addTask, deleteTask, moveTask };
 }
 
 export function useMembers(boardId: number, enabled = true) {

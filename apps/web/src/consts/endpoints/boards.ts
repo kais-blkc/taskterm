@@ -8,4 +8,5 @@ export const BOARDS_ENDPOINTS = {
   BOARD_TASKS: (boardId: number): string => `/boards/${boardId}/tasks`,
 
   COLUMN_ITEM: (id: number): string => `/columns/${id}`,
+  COLUMN_MOVE: (id: number): string => `/columns/${id}/move`,
 };

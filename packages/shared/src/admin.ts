@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { globalRoleSchema, passwordSchema } from './auth';
+import { assignableRoleSchema, globalRoleSchema, passwordSchema } from './auth';
 
 export const adminUserSchema = z.object({
   id: z.number().int(),
@@ -8,6 +8,8 @@ export const adminUserSchema = z.object({
   color: z.string(),
   role: globalRoleSchema,
   isActive: z.boolean(),
+  /** ставка в час; null — вам она не видна */
+  hourlyRate: z.number().nullable(),
   boardsCount: z.number().int(),
   lastLoginAt: z.string().nullable(),
   createdAt: z.string(),
@@ -15,9 +17,12 @@ export const adminUserSchema = z.object({
 export type AdminUser = z.infer<typeof adminUserSchema>;
 
 export const updateAdminUserSchema = z
-  .object({ role: globalRoleSchema, isActive: z.boolean() })
+  .object({ role: assignableRoleSchema, isActive: z.boolean() })
   .partial()
   .refine((v) => v.role !== undefined || v.isActive !== undefined, 'nothing to change');
+
+/** Ставка сотрудника (за час) */
+export const setRateSchema = z.object({ hourlyRate: z.number().min(0).max(1_000_000) });
 
 /** Удаление пользователя: его доски, задачи и комментарии переходят к transferTo */
 export const deleteAdminUserSchema = z.object({ transferTo: z.number().int() });
@@ -56,3 +61,7 @@ export const auditQuerySchema = z.object({
   // курсор: записи с id меньше этого
   before: z.coerce.number().int().optional(),
 });
+
+/** Настройки уведомлений приложения (меняет админ). subtaskDone — слать админам, когда отмечают подзадачу выполненной. */
+export const notifySettingsSchema = z.object({ subtaskDone: z.boolean() });
+export type NotifySettings = z.infer<typeof notifySettingsSchema>;

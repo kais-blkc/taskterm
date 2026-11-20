@@ -144,12 +144,17 @@ describe('board roles (API)', () => {
 
   it('editor: works with tasks/subtasks, deletes only own tasks, cannot manage the board', async () => {
     const mine = await addTask(editor, 'mine');
-    expect((await call(editor, 'PATCH', `/api/tasks/${taskId}`, { title: 'renamed by editor' })).statusCode).toBe(200);
-    expect((await call(editor, 'POST', `/api/tasks/${taskId}/move`, { columnId: colId, beforeId: null })).statusCode).toBe(200);
-    const sub = await call(editor, 'POST', `/api/tasks/${taskId}/subtasks`, { title: 's' });
+    // своя задача: правит, переносит, работает с подзадачами
+    expect((await call(editor, 'PATCH', `/api/tasks/${mine.id}`, { title: 'renamed by editor' })).statusCode).toBe(200);
+    expect((await call(editor, 'POST', `/api/tasks/${mine.id}/move`, { columnId: colId, beforeId: null })).statusCode).toBe(200);
+    const sub = await call(editor, 'POST', `/api/tasks/${mine.id}/subtasks`, { title: 's' });
     expect(sub.statusCode).toBe(201);
     expect((await call(editor, 'PATCH', `/api/subtasks/${sub.json().id}`, { done: true })).statusCode).toBe(200);
     expect((await call(editor, 'DELETE', `/api/subtasks/${sub.json().id}`)).statusCode).toBe(204);
+    // чужая задача (не автор и не ответственный): только смотреть и комментировать
+    expect((await call(editor, 'PATCH', `/api/tasks/${taskId}`, { title: 'hijack' })).statusCode).toBe(403);
+    expect((await call(editor, 'POST', `/api/tasks/${taskId}/move`, { columnId: colId, beforeId: null })).statusCode).toBe(403);
+    expect((await call(editor, 'POST', `/api/tasks/${taskId}/subtasks`, { title: 's' })).statusCode).toBe(403);
 
     expect((await call(editor, 'DELETE', `/api/tasks/${taskId}`)).statusCode).toBe(403); // чужая
     expect((await call(editor, 'DELETE', `/api/tasks/${mine.id}`)).statusCode).toBe(204); // своя

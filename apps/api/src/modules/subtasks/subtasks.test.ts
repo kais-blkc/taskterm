@@ -51,7 +51,7 @@ describe('subtasks', () => {
     await call('POST', `/api/tasks/${taskId}/subtasks`, { title: 'b' });
     await call('POST', `/api/tasks/${taskId}/subtasks`, { title: 'c' });
     await call('PATCH', `/api/subtasks/${a.id}`, { done: true });
-    expect(await stats()).toEqual([{ taskId, total: 3, done: 1 }]);
+    expect(await stats()).toEqual([{ taskId, total: 3, done: 1, assignees: [] }]);
   });
 
   it('bulk-creates parsed items in order, with done flags', async () => {
@@ -68,7 +68,7 @@ describe('subtasks', () => {
       ['два', true],
       ['три', false],
     ]);
-    expect(await stats()).toEqual([{ taskId, total: 3, done: 1 }]);
+    expect(await stats()).toEqual([{ taskId, total: 3, done: 1, assignees: [] }]);
     const list = (await call('GET', `/api/tasks/${taskId}/subtasks`)).json();
     expect(list.map((s: any) => s.title)).toEqual(['один', 'два', 'три']);
   });

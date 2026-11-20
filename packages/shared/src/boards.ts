@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { boardRoleSchema } from './permissions';
 import { taskPolicySchema } from './policy';
+import { attachmentStatSchema } from './attachments';
 import { subtaskStatSchema } from './subtasks';
 
 const name = z.string().trim().min(1).max(100);
@@ -36,6 +37,8 @@ export const columnSchema = z.object({
   notifyOnEnter: z.boolean(),
   /** кому слать (участники доски) */
   notifyUserIds: z.array(z.number().int()),
+  /** колонка «выполнено»: у её задач просрочка не подсвечивается (одна на доске, отмечает админ) */
+  isDone: z.boolean(),
 });
 export type Column = z.infer<typeof columnSchema>;
 
@@ -63,6 +66,8 @@ export const boardFullSchema = z.object({
   columns: z.array(columnSchema),
   tasks: z.array(taskSchema),
   subtaskStats: z.array(subtaskStatSchema),
+  /** сколько файлов у задач (только у тех, где они есть) */
+  attachmentStats: z.array(attachmentStatSchema),
 });
 export type BoardFull = z.infer<typeof boardFullSchema>;
 
@@ -74,6 +79,8 @@ export const updateColumnSchema = z.object({
   notifyOnEnter: z.boolean().optional(),
   // полный список получателей; undefined — не менять
   notifyUserIds: z.array(z.number().int()).max(100).optional(),
+  /** сделать колонку «выполнено» (прежняя на доске снимается) или снять отметку; только админ */
+  isDone: z.boolean().optional(),
 });
 export const createTaskSchema = z.object({
   columnId: z.number().int(),
@@ -95,6 +102,10 @@ export const moveTaskSchema = z.object({
   beforeId: z.number().int().nullable(),
 });
 export type MoveTaskInput = z.infer<typeof moveTaskSchema>;
+
+// beforeId = id колонки, перед которой поставить; null = в конец
+export const moveColumnSchema = z.object({ beforeId: z.number().int().nullable() });
+export type MoveColumnInput = z.infer<typeof moveColumnSchema>;
 
 export const idParamSchema = z.object({ id: z.coerce.number().int() });
 export const defaultColumnNames = ['Новые', 'В работе', 'На проверке', 'Сделано'];

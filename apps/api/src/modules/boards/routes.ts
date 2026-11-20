@@ -2,44 +2,46 @@ import type { FastifyInstance } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import {
-  apiErrorSchema,
   boardFullSchema,
   boardMemberSchema,
   boardSchema,
   columnSchema,
   createBoardSchema,
   createColumnSchema,
+  moveColumnSchema,
   idParamSchema,
   setMemberRoleSchema,
   updateBoardSchema,
   updateColumnSchema,
 } from '@taskterm/shared';
 import type { Db } from '../../db/client';
+import { errors } from '../../http';
 import type { EventHub } from '../../plugins/hub';
-import { audit } from '../audit/service';
+import { removeFiles } from '../attachments/storage';
 import { requireUser } from '../auth/guard';
-import { ForbiddenError, requireBoardCan, requireColumnCan } from '../permissions/access';
-import * as svc from './service';
+import { createBoardService } from './service';
 
 const memberParams = z.object({ id: z.coerce.number().int(), userId: z.coerce.number().int() });
 
-export async function boardRoutes(app: FastifyInstance, opts: { db: Db; hub: EventHub }) {
-  const { db, hub } = opts;
+/** Роуты тонкие: схема → сценарий из service → события в шину → ответ */
+export async function boardRoutes(app: FastifyInstance, opts: { db: Db; hub: EventHub; uploadsDir: string }) {
+  const { db, hub, uploadsDir } = opts;
   const r = app.withTypeProvider<ZodTypeProvider>();
   r.addHook('preHandler', requireUser(db));
+  const svc = createBoardService(db);
 
-  const err = { 401: apiErrorSchema, 403: apiErrorSchema, 404: apiErrorSchema };
+  const err = errors(401, 403, 404);
 
   r.get('/api/boards', { schema: { response: { 200: z.array(boardSchema) } } }, async (req) =>
-    svc.listBoards(db, req.user),
+    svc.listBoards(req.user),
   );
 
   r.post(
     '/api/boards',
     { schema: { body: createBoardSchema, response: { 201: boardSchema } } },
     async (req, reply) => {
-      const board = await svc.createBoard(db, req.body.name, req.user.id, req.user.role === 'admin');
-      hub.emit({ type: 'boards', by: req.user.id });
+      const { board, events } = await svc.createBoard(req.user, req.body.name);
+      hub.emitAll(events);
       return reply.code(201).send(board);
     },
   );
@@ -47,29 +49,23 @@ export async function boardRoutes(app: FastifyInstance, opts: { db: Db; hub: Eve
   r.get(
     '/api/boards/:id',
     { schema: { params: idParamSchema, response: { 200: boardFullSchema, ...err } } },
-    async (req) => {
-      const role = await requireBoardCan(db, req.user, req.params.id, 'view');
-      return svc.getBoardFull(db, req.params.id, role, req.user.role === 'admin');
-    },
+    async (req) => svc.getBoard(req.user, req.params.id),
   );
 
   r.patch(
     '/api/boards/:id',
     { schema: { params: idParamSchema, body: updateBoardSchema, response: { 200: boardSchema, ...err } } },
     async (req) => {
-      const role = await requireBoardCan(db, req.user, req.params.id, 'manageBoard');
-      const board = await svc.updateBoard(db, req.params.id, req.body.name, role, req.user.role === 'admin');
-      hub.emit({ type: 'boards', by: req.user.id });
-      hub.emit({ type: 'board', boardId: board.id, by: req.user.id });
+      const { board, events } = await svc.updateBoard(req.user, req.params.id, req.body.name);
+      hub.emitAll(events);
       return board;
     },
   );
 
   r.delete('/api/boards/:id', { schema: { params: idParamSchema } }, async (req, reply) => {
-    await requireBoardCan(db, req.user, req.params.id, 'manageBoard');
-    await svc.deleteBoard(db, req.params.id);
-    await audit(db, req.user, 'board.delete', `board:${req.params.id}`);
-    hub.emit({ type: 'boards', by: req.user.id });
+    const { events, files } = await svc.deleteBoard(req.user, req.params.id);
+    await removeFiles(uploadsDir, files);
+    hub.emitAll(events);
     return reply.code(204).send();
   });
 
@@ -77,10 +73,9 @@ export async function boardRoutes(app: FastifyInstance, opts: { db: Db; hub: Eve
     '/api/boards/:id/columns',
     { schema: { params: idParamSchema, body: createColumnSchema, response: { 201: columnSchema, ...err } } },
     async (req, reply) => {
-      await requireBoardCan(db, req.user, req.params.id, 'manageBoard');
-      const col = await svc.createColumn(db, req.params.id, req.body.name);
-      hub.emit({ type: 'board', boardId: col.boardId, by: req.user.id });
-      return reply.code(201).send(col);
+      const { column, events } = await svc.createColumn(req.user, req.params.id, req.body.name);
+      hub.emitAll(events);
+      return reply.code(201).send(column);
     },
   );
 
@@ -88,21 +83,26 @@ export async function boardRoutes(app: FastifyInstance, opts: { db: Db; hub: Eve
     '/api/columns/:id',
     { schema: { params: idParamSchema, body: updateColumnSchema, response: { 200: columnSchema, ...err } } },
     async (req) => {
-      await requireColumnCan(db, req.user, req.params.id, 'manageBoard');
-      // уведомления колонки настраивает только админ приложения
-      if ((req.body.notifyOnEnter !== undefined || req.body.notifyUserIds !== undefined) && req.user.role !== 'admin') {
-        throw new ForbiddenError('only administrators can change column notifications');
-      }
-      const col = await svc.updateColumn(db, req.params.id, req.body);
-      hub.emit({ type: 'board', boardId: col.boardId, by: req.user.id });
-      return col;
+      const { column, events } = await svc.updateColumn(req.user, req.params.id, req.body);
+      hub.emitAll(events);
+      return column;
+    },
+  );
+
+  r.post(
+    '/api/columns/:id/move',
+    { schema: { params: idParamSchema, body: moveColumnSchema, response: { 200: columnSchema, ...err } } },
+    async (req) => {
+      const { column, events } = await svc.moveColumn(req.user, req.params.id, req.body.beforeId);
+      hub.emitAll(events);
+      return column;
     },
   );
 
   r.delete('/api/columns/:id', { schema: { params: idParamSchema } }, async (req, reply) => {
-    await requireColumnCan(db, req.user, req.params.id, 'manageBoard');
-    const boardId = await svc.deleteColumn(db, req.params.id);
-    hub.emit({ type: 'board', boardId, by: req.user.id });
+    const { events, files } = await svc.deleteColumn(req.user, req.params.id);
+    await removeFiles(uploadsDir, files);
+    hub.emitAll(events);
     return reply.code(204).send();
   });
 
@@ -110,10 +110,7 @@ export async function boardRoutes(app: FastifyInstance, opts: { db: Db; hub: Eve
   r.get(
     '/api/boards/:id/members',
     { schema: { params: idParamSchema, response: { 200: z.array(boardMemberSchema), ...err } } },
-    async (req) => {
-      await requireBoardCan(db, req.user, req.params.id, 'view');
-      return svc.listMembers(db, req.params.id);
-    },
+    async (req) => svc.listMembers(req.user, req.params.id),
   );
 
   // добавить участника или сменить роль
@@ -123,32 +120,20 @@ export async function boardRoutes(app: FastifyInstance, opts: { db: Db; hub: Eve
       schema: {
         params: memberParams,
         body: setMemberRoleSchema,
-        response: { 200: z.array(boardMemberSchema), 400: apiErrorSchema, ...err },
+        response: { 200: z.array(boardMemberSchema), ...errors(400, 401, 403, 404) },
       },
     },
     async (req) => {
       const { id, userId } = req.params;
-      await requireBoardCan(db, req.user, id, 'manageBoard');
-      await svc.setMemberRole(db, id, userId, req.body.role);
-      await audit(db, req.user, 'board.member', `board:${id}`, { userId, role: req.body.role });
-      hub.emit({ type: 'members', boardId: id, by: req.user.id });
-      return svc.listMembers(db, id);
+      const { members, events } = await svc.setMemberRole(req.user, id, userId, req.body.role);
+      hub.emitAll(events);
+      return members;
     },
   );
 
-  r.delete(
-    '/api/boards/:id/members/:userId',
-    { schema: { params: memberParams } },
-    async (req, reply) => {
-      const { id, userId } = req.params;
-      // выйти с доски может сам участник; убрать другого — только владелец
-      if (userId !== req.user.id) await requireBoardCan(db, req.user, id, 'manageBoard');
-      else await requireBoardCan(db, req.user, id, 'view');
-      await svc.removeMember(db, id, userId);
-      await audit(db, req.user, 'board.member_remove', `board:${id}`, { userId });
-      hub.emit({ type: 'members', boardId: id, by: req.user.id });
-      hub.emit({ type: 'board', boardId: id, by: req.user.id });
-      return reply.code(204).send();
-    },
-  );
+  r.delete('/api/boards/:id/members/:userId', { schema: { params: memberParams } }, async (req, reply) => {
+    const { id, userId } = req.params;
+    hub.emitAll((await svc.removeMember(req.user, id, userId)).events);
+    return reply.code(204).send();
+  });
 }

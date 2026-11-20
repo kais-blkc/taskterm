@@ -92,6 +92,62 @@
       "when": 1794233150570,
       "tag": "0012_time_payouts",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1795012757702,
+      "tag": "0013_user_rate_roles",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1795091431464,
+      "tag": "0014_task_attachments",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1795094168218,
+      "tag": "0015_subtask_assignee",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1795095622248,
+      "tag": "0016_subtask_policy_default",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1795095627104,
+      "tag": "0017_policy_default_col",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1795180166358,
+      "tag": "0018_column_is_done",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1795183519826,
+      "tag": "0019_chat",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1795184436209,
+      "tag": "0020_chat_rooms",
+      "breakpoints": true
     }
   ]
 }

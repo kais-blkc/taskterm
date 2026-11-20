@@ -30,8 +30,8 @@ describe('telegram notifications', () => {
 
   const call = (u: U, method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE', url: string, payload?: object) =>
     app.inject({ method, url, payload, headers: { cookie: u.cookie } });
-  const mk = async (name: string): Promise<U> => {
-    const res = await signupUser(app, name);
+  const mk = async (name: string, role: 'admin' | 'member' = 'member'): Promise<U> => {
+    const res = await signupUser(app, name, 'secret123', role);
     return { cookie: `${res.cookies[0]!.name}=${res.cookies[0]!.value}`, id: res.json().id };
   };
   const message = (chatId: number, text: string, type = 'private') =>
@@ -58,7 +58,7 @@ describe('telegram notifications', () => {
   afterEach(() => app.close());
 
   it('status and linking flow', async () => {
-    expect((await call(alice, 'GET', '/api/telegram')).json()).toEqual({ enabled: true, botUsername: 'testbot', linked: false });
+    expect((await call(alice, 'GET', '/api/telegram')).json()).toEqual({ enabled: true, botUsername: 'testbot', linked: false, chatNotify: true });
     const res = await call(alice, 'POST', '/api/telegram/link');
     expect(res.statusCode).toBe(201);
     expect(res.json().url).toMatch(/^https:\/\/t\.me\/testbot\?start=[\w-]{20,}$/);
@@ -150,9 +150,58 @@ describe('telegram notifications', () => {
     expect(api.sent[0]!.text).toContain('<b>Действие:</b> вас назначили ответственным (@alice)');
 
     api.sent.length = 0;
-    await call(alice, 'PATCH', `/api/tasks/${taskId}`, { assigneeIds: [bob.id] }); // bob не привязан
+    await call(alice, 'PATCH', `/api/tasks/${taskId}`, { assigneeIds: [bob.id] }); // bob не привязан, carol снята
+    await settle();
+    expect(api.sent).toHaveLength(1);
+    expect(api.sent[0]!).toMatchObject({ chatId: '333' });
+    expect(api.sent[0]!.text).toContain('<b>Действие:</b> вас сняли с задачи (@alice)');
+
+    api.sent.length = 0;
+    await call(alice, 'PATCH', `/api/tasks/${taskId}`, { assigneeIds: [] }); // снят bob — не привязан
     await settle();
     expect(api.sent).toHaveLength(0);
+  });
+
+  it('subtask marked done notifies admins (not the one who marked it); undo and rename are silent; can be switched off', async () => {
+    const boss = await mk('boss', 'admin');
+    const boss2 = await mk('boss2', 'admin');
+    await link(alice, 111); // автор задачи — не админ, не получает
+    await link(boss, 444);
+    await link(boss2, 555);
+    await call(alice, 'PATCH', `/api/tasks/${taskId}`, { assigneeIds: [carol.id] });
+    const sub = (await call(alice, 'POST', `/api/tasks/${taskId}/subtasks`, { title: 'Сделать <b>' })).json();
+    await call(alice, 'PATCH', `/api/subtasks/${sub.id}`, { assigneeId: carol.id }); // carol отмечает «свой» пункт
+    api.sent.length = 0;
+
+    await call(boss, 'PATCH', `/api/subtasks/${sub.id}`, { done: true });
+    await settle();
+    expect(api.sent).toHaveLength(1); // второй админ; сам отметивший и обычные участники — нет
+    expect(api.sent[0]!).toMatchObject({ chatId: '555' });
+    expect(api.sent[0]!.text).toContain('<b>Действие:</b> @boss отметил(а) подзадачу выполненной');
+    expect(api.sent[0]!.text).toContain('<b>Подзадача:</b> Сделать &lt;b&gt;');
+
+    api.sent.length = 0;
+    await call(boss, 'PATCH', `/api/subtasks/${sub.id}`, { done: true }); // уже выполнена
+    await call(boss, 'PATCH', `/api/subtasks/${sub.id}`, { done: false });
+    await settle();
+    expect(api.sent).toHaveLength(0);
+
+    // обычный участник отметил — оба админа получают
+    await call(carol, 'PATCH', `/api/subtasks/${sub.id}`, { done: true });
+    await settle();
+    expect(api.sent.map((m) => m.chatId).sort()).toEqual(['444', '555']);
+
+    // настройка: по умолчанию включено, выключает только админ
+    expect((await call(boss, 'GET', '/api/admin/notify-settings')).json()).toEqual({ subtaskDone: true });
+    expect((await call(carol, 'PUT', '/api/admin/notify-settings', { subtaskDone: false })).statusCode).toBe(403);
+    expect((await call(boss, 'PUT', '/api/admin/notify-settings', { subtaskDone: false })).json()).toEqual({ subtaskDone: false });
+    await call(carol, 'PATCH', `/api/subtasks/${sub.id}`, { done: false });
+    api.sent.length = 0;
+    await call(carol, 'PATCH', `/api/subtasks/${sub.id}`, { done: true });
+    await settle();
+    expect(api.sent).toHaveLength(0);
+    await call(boss, 'PUT', '/api/admin/notify-settings', { subtaskDone: true });
+    expect((await call(boss, 'GET', '/api/admin/notify-settings')).json()).toEqual({ subtaskDone: true });
   });
 
   it('column "on enter" notification goes to chosen recipients only, never to the mover', async () => {
@@ -243,7 +292,7 @@ describe('telegram disabled', () => {
     await app.ready();
     const res = await signupUser(app, 'alice');
     const cookie = `${res.cookies[0]!.name}=${res.cookies[0]!.value}`;
-    expect((await app.inject({ method: 'GET', url: '/api/telegram', headers: { cookie } })).json()).toEqual({ enabled: false, botUsername: null, linked: false });
+    expect((await app.inject({ method: 'GET', url: '/api/telegram', headers: { cookie } })).json()).toEqual({ enabled: false, botUsername: null, linked: false, chatNotify: true });
     expect((await app.inject({ method: 'POST', url: '/api/telegram/link', headers: { cookie } })).statusCode).toBe(404);
     await app.close();
   });

@@ -203,14 +203,20 @@ curl http://127.0.0.1:3100/api/health</code></pre>
 
       <h2>Nginx</h2>
       <p>Проксировать всё на <code>127.0.0.1:3100</code>:</p>
-      <pre><code>location / {
+      <pre><code># в блоке http { } (один раз): нужно для WebSocket общего чата
+map $http_upgrade $connection_upgrade { default upgrade; '' close; }
+
+location / {
     proxy_pass http://127.0.0.1:3100;
     proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;          # WebSocket (чат)
+    proxy_set_header Connection $connection_upgrade;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
     proxy_buffering off;         # живые обновления (SSE, /api/events)
     proxy_read_timeout 1h;
+    client_max_body_size 60m;    # файлы к задачам до 50 МБ (по умолчанию nginx режет на 1 МБ)
 }</code></pre>
       <div class="note">
         <code>Host</code> передавать как есть: приложение сверяет Origin с Host (защита от CSRF).
