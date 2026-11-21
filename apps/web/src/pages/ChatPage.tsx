@@ -66,16 +66,19 @@ function MessageRow({ m, roomName, canDelete, onDelete, onOpenRoom }: { m: Messa
   const author = useUsers().byId.get(m.authorId ?? -1);
   return (
     <li className="chat-message group flex items-start gap-2 px-1 py-1 hover:bg-elev" title={formatDateTime(m.createdAt)}>
-      <span className="chat-message-time w-11 shrink-0 pt-[1px] text-right text-xs tabular-nums text-muted">{timeOf(m.createdAt)}</span>
       <div className="chat-message-body min-w-0 flex-1">
-        {roomName && (
-          // во вкладке «Все» видно, из какой темы сообщение; клик открывает тему
-          <button type="button" className="chat-message-room mr-1 cursor-pointer border border-line px-1 text-xs text-muted hover:border-accent hover:text-accent" onClick={onOpenRoom}>
-            {roomName}
-          </button>
-        )}
-        <UserTag user={author} fallback="удалён" className="chat-message-author" />{' '}
-        <span className="chat-message-text whitespace-pre-wrap break-words">{m.text}</span>
+        <div className="chat-message-head flex flex-wrap items-baseline gap-x-1">
+          <UserTag user={author} fallback="удалён" className="chat-message-author" />
+          <span className="text-muted">-</span>
+          <span className="chat-message-time text-xs tabular-nums text-muted">{timeOf(m.createdAt)}</span>
+          {roomName && (
+            // во вкладке «Все» видно, из какой темы сообщение; клик открывает тему
+            <button type="button" className="chat-message-room ml-auto cursor-pointer border border-line px-1 text-xs text-muted hover:border-accent hover:text-accent" onClick={onOpenRoom}>
+              {roomName}
+            </button>
+          )}
+        </div>
+        <div className="chat-message-text whitespace-pre-wrap break-words">{m.text}</div>
       </div>
       {canDelete && (
         <button
