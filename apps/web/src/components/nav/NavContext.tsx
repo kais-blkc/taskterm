@@ -5,8 +5,8 @@ export interface NavContextValue {
   variant: 'bar' | 'side';
   /** боковая панель в минимальном виде: только иконки */
   collapsed: boolean;
-  /** где находится панель: от этого зависит, в какую сторону открываются всплывающие окна */
-  position: 'top' | 'left' | 'right';
+  /** где находится панель: от этого зависит, в какую сторону открываются всплывающие окна (drawer — выезжающее меню на телефоне) */
+  position: 'top' | 'left' | 'right' | 'drawer';
 }
 
 export const NavContext = createContext<NavContextValue>({ variant: 'bar', collapsed: false, position: 'top' });

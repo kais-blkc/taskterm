@@ -1,4 +1,4 @@
-export type IconName = 'lock' | 'check' | 'checklist' | 'bell' | 'clip' | 'file' | 'play' | 'menu' | 'chat' | 'pin' | 'home' | 'clock' | 'shield' | 'palette' | 'user' | 'logout' | 'search';
+export type IconName = 'lock' | 'check' | 'checklist' | 'bell' | 'clip' | 'file' | 'play' | 'menu' | 'chat' | 'pin' | 'home' | 'clock' | 'shield' | 'palette' | 'user' | 'logout' | 'search' | 'users' | 'edit';
 
 const PATHS: Record<IconName, React.ReactNode> = {
   lock: (
@@ -62,6 +62,14 @@ const PATHS: Record<IconName, React.ReactNode> = {
       <path d="M12 12v9" />
     </>
   ),
+  users: (
+    <>
+      <circle cx="9" cy="8" r="3.5" />
+      <path d="M2 20c0-3.5 3-5.5 7-5.5s7 2 7 5.5" />
+      <path d="M16 4.8a3.5 3.5 0 0 1 0 6.4M18 14.8c2.4.7 4 2.4 4 5.2" />
+    </>
+  ),
+  edit: <path d="M4 20h4L19 9l-4-4L4 16zM13 7l4 4" />,
   checklist: (
     <>
       <path d="m3 6 1.8 1.8L8 4.5" />

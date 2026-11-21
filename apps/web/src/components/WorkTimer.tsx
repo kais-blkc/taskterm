@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import { formatClock, formatDuration, type TimerState } from '@taskterm/shared';
 import { useTimerActions, useTimerState } from '../api/time';
@@ -191,8 +192,9 @@ function remind(elapsed: number, label: string) {
  * Таймер работы: панель поверх всего (fixed), чтобы всегда было видно, что время идёт (или стоит).
  * Её можно свернуть к правому краю: остаются время и кнопки пауза/старт/стоп; «‹» разворачивает обратно.
  * Каждые 30 минут работы — напоминание.
+ * На телефоне (`slot` — место в шапке) вместо плавающей панели рисуется компактная плашка в шапке: контент не перекрывается.
  */
-export function WorkTimer() {
+export function WorkTimer({ slot = null }: { slot?: HTMLElement | null }) {
   const { data: state, dataUpdatedAt } = useTimerState();
   const { pause, resume } = useTimerActions();
   const openStop = useTimerUi((s) => s.openStop);
@@ -254,9 +256,55 @@ export function WorkTimer() {
         last.taskNumber != null ? `#${last.taskNumber} ${last.taskTitle ?? ''}` : undefined,
       note: last.note,
     });
+  const miniLink = !idle && state!.taskId != null && state!.boardId != null ? ROUTES.TASK(state!.boardId, state!.taskId) : null;
+  const clockEl = (
+    // на телефоне только часы и минуты (без секунд) — экономим место в шапке
+    <span className={`work-timer-clock tabular-nums ${running ? 'text-accent' : 'text-muted'}`} title={clock}>
+      {clock.split(':').slice(0, 2).join(':')}
+    </span>
+  );
+  const mini = (
+    <div
+      className={`work-timer work-timer-mini flex min-w-0 items-center gap-1.5 border bg-elev px-1.5 py-0.5 ${alertText ? 'border-danger' : running ? 'border-accent' : 'border-line'}`}
+      role="status"
+      aria-live="polite"
+      title={alertText ?? (idle ? (lastLabel ? `${clock} · последнее: ${lastLabel}` : 'таймер остановлен') : `${clock} · ${label}`)}
+    >
+      {miniLink ? (
+        <Link to={miniLink} className="work-timer-dot-link">
+          <span className={`work-timer-dot ${running ? 'animate-pulse text-accent' : 'text-muted'}`}>{running ? '●' : '⏸'}</span>
+          {clockEl}
+        </Link>
+      ) : (
+        <>
+          <span className={`work-timer-dot ${running ? 'animate-pulse text-accent' : 'text-muted'}`}>{running ? '●' : idle ? '○' : '⏸'}</span>
+          {clockEl}
+        </>
+      )}
+      {alertText && <span className="work-timer-alert-mark text-danger">!</span>}
+      {idle ? (
+        <button type="button" className="timer-start-button btn btn-icon" aria-label="старт" title={last ? `продолжить: ${lastLabel}` : 'запустить таймер'} onClick={() => (last ? continueLast() : openStart())}>
+          ▶
+        </button>
+      ) : running ? (
+        <button type="button" className="timer-pause btn btn-icon" aria-label="пауза" disabled={pause.isPending} onClick={() => { setAlertText(null); pause.mutate(); }}>
+          ⏸
+        </button>
+      ) : (
+        <button type="button" className="timer-resume btn btn-icon btn-primary" aria-label="продолжить" disabled={resume.isPending} onClick={() => { setAlertText(null); resume.mutate(); }}>
+          ▶
+        </button>
+      )}
+      {!idle && (
+        <button type="button" className="timer-stop btn btn-icon btn-danger" aria-label="стоп" onClick={() => { setAlertText(null); openStop(); }}>
+          ■
+        </button>
+      )}
+    </div>
+  );
   return (
     <>
-      {collapsed ? (
+      {slot ? createPortal(mini, slot) : collapsed ? (
         // свёрнуто: вертикальная полоса у правого края; слева — кнопка «развернуть» на всю высоту
         <div
           className={`work-timer work-timer-collapsed fixed right-[var(--nav-right,0px)] top-1/2 z-50 flex -translate-y-1/2 items-stretch border border-r-0 bg-elev shadow-2xl ${alertText ? 'border-danger' : running ? 'border-accent' : 'border-line'

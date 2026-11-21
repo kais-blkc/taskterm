@@ -184,28 +184,18 @@ export function BoardView({ data }: { data: BoardFull }) {
         setActive(null);
       }}
     >
-      <div className="board-filters flex flex-wrap items-center gap-2 px-4 pt-3 text-muted">
-        <span>фильтр:</span>
-        {[
-          ['all', 'все'],
-          ['me', 'мои'],
-          ['none', 'не назначены'],
-          ['overdue', 'просрочены'],
-        ].map(([v, label]) => (
-          <button
-            key={v}
-            type="button"
-            onClick={() => setFilter(v!)}
-            className={`board-filter-button btn ${filter === v ? 'btn-active' : ''}`}
-          >
-            {label}
-          </button>
-        ))}
+      <div className="board-filters flex flex-wrap items-center gap-2 px-4 pt-4 text-muted sm:pt-3">
+        {/* один выпадающий список со всеми фильтрами и пользователями */}
         <Select
-          className="w-40"
-          value={/^\d+$/.test(filter) ? filter : ''}
-          placeholder="@пользователь…"
-          options={(users.data ?? []).map((u) => ({ value: String(u.id), label: `@${u.username}`, icon: <ColorDot color={u.color} /> }))}
+          className="board-filter-select w-full sm:w-64"
+          value={filter}
+          options={[
+            { value: 'all', label: 'фильтр: все' },
+            { value: 'me', label: 'фильтр: мои' },
+            { value: 'none', label: 'фильтр: не назначены' },
+            { value: 'overdue', label: 'фильтр: просрочены' },
+            ...(users.data ?? []).map((u) => ({ value: String(u.id), label: `@${u.username}`, icon: <ColorDot color={u.color} /> })),
+          ]}
           onChange={setFilter}
         />
         {canManage && (
@@ -213,7 +203,7 @@ export function BoardView({ data }: { data: BoardFull }) {
           <button
             type="button"
             aria-pressed={reordering}
-            className={`board-settings-button btn ml-auto ${reordering ? 'btn-active' : ''}`}
+            className={`board-settings-button btn max-sm:w-full sm:ml-auto ${reordering ? 'btn-active' : ''}`}
             title="поменять колонки местами"
             onClick={() => setReordering(!reordering)}
           >

@@ -206,3 +206,28 @@ input:disabled {
   background: var(--danger);
   color: var(--bg);
 }
+
+/* шапка: все кнопки и плашка таймера одной высоты */
+.app-header .btn,
+.app-header .work-timer-mini {
+  box-sizing: border-box;
+  height: 2.25rem;
+  display: inline-flex;
+  align-items: center;
+}
+.app-header .work-timer-mini {
+  padding-block: 0;
+}
+.app-header .work-timer-mini .btn {
+  height: 1.75rem;
+}
+
+/* iOS Safari приближает страницу при фокусе на поле со шрифтом меньше 16px — на телефоне делаем 16px */
+@media (max-width: 639px), (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  textarea,
+  select,
+  [contenteditable='true'] {
+    font-size: 16px !important;
+  }
+}

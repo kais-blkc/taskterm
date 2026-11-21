@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAdminBoardMutations, useAdminBoards } from '../../api/admin';
-import { LockHint } from '../../components/Icon';
+import { Icon, LockHint } from '../../components/Icon';
 import { MembersDialog } from '../../components/MembersDialog';
 import { ROUTES } from '../../consts/routes';
 import { formatDateTime } from '../../lib/dates';
@@ -75,8 +75,8 @@ export function BoardsPanel({ meId, focusBoardId }: { meId: number; focusBoardId
               </div>
             </div>
             <div className="admin-board-actions flex flex-wrap gap-2">
-              <button type="button" className="admin-board-members btn" onClick={() => setOpen(b.id)}>
-                участники и владелец
+              <button type="button" className="admin-board-members btn px-3 py-1" title="участники и владелец" aria-label="участники и владелец" onClick={() => setOpen(b.id)}>
+                <Icon name="users" className="text-[1.25em]" />
               </button>
               <button
                 type="button"

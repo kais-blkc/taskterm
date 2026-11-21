@@ -55,7 +55,8 @@ export function NavButton({
     const body = (
       <>
         {showIconInBar && <Icon name={icon} />}
-        {content ?? label}
+        {/* с иконкой в шапке текст на телефоне не нужен (подпись — в aria-label и подсказке) */}
+        <span className={showIconInBar ? 'max-sm:hidden' : ''}>{content ?? label}</span>
         {badge}
       </>
     );
